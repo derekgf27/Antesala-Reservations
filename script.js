@@ -276,8 +276,8 @@ class ReservationManager {
     getBeverageItems() {
         return [
             // Non-alcoholic
-            { id: 'soft-drinks', name: 'Soft drink 24 pack', price: 35, alcohol: false },
-            { id: 'water', name: 'Water 24 pack', price: 20, alcohol: false },
+            { id: 'soft-drinks', name: 'Caja de Refrescos (24)', price: 35, alcohol: false },
+            { id: 'water', name: 'Caja de Agua (24)', price: 20, alcohol: false },
             // Beers
             { id: 'michelob', name: 'Michelob', price: 72, alcohol: true },
             { id: 'medalla', name: 'Medalla', price: 72, alcohol: true },
@@ -286,28 +286,28 @@ class ReservationManager {
             { id: 'corona', name: 'Corona', price: 72, alcohol: true },
             { id: 'modelo', name: 'Modelo', price: 72, alcohol: true },
             // Liquors
-            { id: 'black-label-1l', name: '1 Liter Black Label', price: 65, alcohol: true },
-            { id: 'tito-1l', name: '1 Liter Tito Vodka', price: 45, alcohol: true },
-            { id: 'dewars-12-handle', name: 'Handle Dewars 12', price: 200, alcohol: true },
-            { id: 'dewars-handle', name: 'Handle Dewars Reg.', price: 150, alcohol: true },
-            { id: 'donq-cristal-handle', name: 'Handle Don Q Cristal', price: 75, alcohol: true },
-            { id: 'donq-limon-handle', name: 'Handle Don Q Limon', price: 75, alcohol: true },
-            { id: 'donq-passion-handle', name: 'Handle Don Q Passion', price: 75, alcohol: true },
-            { id: 'donq-coco-handle', name: 'Handle Don Q Coco', price: 75, alcohol: true },
-            { id: 'donq-naranja-handle', name: 'Handle Don Q Naranja', price: 75, alcohol: true },
-            { id: 'donq-oro-handle', name: 'Handle Don Q Oro', price: 75, alcohol: true },
-            { id: 'tito-handle', name: 'Handle Tito Vodka', price: 150, alcohol: true },
+            { id: 'black-label-1l', name: '1 Litro Black Label', price: 65, alcohol: true },
+            { id: 'tito-1l', name: '1 Litro Tito Vodka', price: 45, alcohol: true },
+            { id: 'dewars-12-handle', name: 'Gancho Dewars 12', price: 200, alcohol: true },
+            { id: 'dewars-handle', name: 'Gancho Dewars Reg.', price: 150, alcohol: true },
+            { id: 'donq-cristal-handle', name: 'Gancho Don Q Cristal', price: 75, alcohol: true },
+            { id: 'donq-limon-handle', name: 'Gancho Don Q Limón', price: 75, alcohol: true },
+            { id: 'donq-passion-handle', name: 'Gancho Don Q Passion', price: 75, alcohol: true },
+            { id: 'donq-coco-handle', name: 'Gancho Don Q Coco', price: 75, alcohol: true },
+            { id: 'donq-naranja-handle', name: 'Gancho Don Q Naranja', price: 75, alcohol: true },
+            { id: 'donq-oro-handle', name: 'Gancho Don Q Oro', price: 75, alcohol: true },
+            { id: 'tito-handle', name: 'Gancho Tito Vodka', price: 150, alcohol: true },
             // Wines
-            { id: 'red-wine-25', name: 'Bottle of Red Wine ($25)', price: 25, alcohol: true },
-            { id: 'red-wine-30', name: 'Bottle of Red Wine ($30)', price: 30, alcohol: true },
-            { id: 'red-wine-35-1', name: 'Bottle of Red Wine ($35)', price: 35, alcohol: true },
-            { id: 'red-wine-35-2', name: 'Bottle of Red Wine ($35)', price: 35, alcohol: true },
-            { id: 'red-wine-40', name: 'Bottle of Red Wine ($40)', price: 40, alcohol: true },
-            { id: 'white-wine-25', name: 'Bottle of White Wine ($25)', price: 25, alcohol: true },
-            { id: 'white-wine-30', name: 'Bottle of White Wine ($30)', price: 30, alcohol: true },
-            { id: 'white-wine-35-1', name: 'Bottle of White Wine ($35)', price: 35, alcohol: true },
-            { id: 'white-wine-35-2', name: 'Bottle of White Wine ($35)', price: 35, alcohol: true },
-            { id: 'white-wine-40', name: 'Bottle of White Wine ($40)', price: 40, alcohol: true },
+            { id: 'red-wine-25', name: 'Botella de Vino Tinto ($25)', price: 25, alcohol: true },
+            { id: 'red-wine-30', name: 'Botella de Vino Tinto ($30)', price: 30, alcohol: true },
+            { id: 'red-wine-35-1', name: 'Botella de Vino Tinto ($35)', price: 35, alcohol: true },
+            { id: 'red-wine-35-2', name: 'Botella de Vino Tinto ($35)', price: 35, alcohol: true },
+            { id: 'red-wine-40', name: 'Botella de Vino Tinto ($40)', price: 40, alcohol: true },
+            { id: 'white-wine-25', name: 'Botella de Vino Blanco ($25)', price: 25, alcohol: true },
+            { id: 'white-wine-30', name: 'Botella de Vino Blanco ($30)', price: 30, alcohol: true },
+            { id: 'white-wine-35-1', name: 'Botella de Vino Blanco ($35)', price: 35, alcohol: true },
+            { id: 'white-wine-35-2', name: 'Botella de Vino Blanco ($35)', price: 35, alcohol: true },
+            { id: 'white-wine-40', name: 'Botella de Vino Blanco ($40)', price: 40, alcohol: true },
         ];
     }
 
@@ -1408,7 +1408,7 @@ class ReservationManager {
     }
 
     getBeverageSummaryString(beveragesMap) {
-        if (!beveragesMap || Object.keys(beveragesMap).length === 0) return 'No Beverage Service';
+        if (!beveragesMap || Object.keys(beveragesMap).length === 0) return 'Sin Servicio de Bebidas';
         const items = this.getBeverageItems();
         const parts = Object.entries(beveragesMap)
             .filter(([, qty]) => qty > 0)
@@ -1416,7 +1416,7 @@ class ReservationManager {
                 const item = items.find(i => i.id === id);
                 return `${qty} x ${item ? item.name : id}`;
             });
-        return parts.length ? parts.join(', ') : 'No Beverage Service';
+        return parts.length ? parts.join(', ') : 'Sin Servicio de Bebidas';
     }
 
     // Get table configuration display
