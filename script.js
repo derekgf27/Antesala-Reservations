@@ -2194,7 +2194,7 @@ class ReservationManager {
         Object.entries(reservation.additionalServices).forEach(([key, value]) => {
             if (value) {
                 const serviceName = this.getServiceName(key);
-                const servicePrice = servicePrices[key] || 0;
+                const servicePrice = servicePrices2[key] || 0;
                 additionalServicesTotal += servicePrice;
                 if (servicePrice > 0) {
                     itemsHTML += `
@@ -2223,274 +2223,307 @@ class ReservationManager {
         // Calculate balance
         const balance = reservation.pricing.totalCost - reservation.pricing.depositAmount;
 
-        // Create invoice HTML
-        const invoiceHTML = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoice ${invoiceNumber} - La Antesala</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: Arial, sans-serif;
-            padding: 40px 20px;
-            background: #f5f5f5;
-            color: #333;
-        }
-        .invoice-container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 40px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-        .logo-area {
-            width: 150px;
-            height: 150px;
-            margin: 0 auto 20px;
-            border-radius: 50%;
-            background: #FEEB84;
-            border: 4px solid #F27B21;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 8px;
-            overflow: hidden;
-        }
-        .logo-area img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            border-radius: 50%;
-        }
-        .company-name {
-            font-size: 28px;
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #2d3748;
-        }
-        .company-info {
-            font-size: 14px;
-            color: #666;
-            line-height: 1.6;
-        }
-        .invoice-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #e2e8f0;
-        }
-        .client-info, .invoice-info {
-            flex: 1;
-        }
-        .client-info {
-            padding-right: 20px;
-        }
-        .invoice-info {
-            text-align: right;
-        }
-        .section-title {
-            font-weight: bold;
-            font-size: 14px;
-            margin-bottom: 8px;
-            color: #2d3748;
-        }
-        .info-line {
-            font-size: 13px;
-            margin-bottom: 5px;
-            color: #4a5568;
-        }
-        .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 30px 0;
-        }
-        .items-table th {
-            background: #2d3748;
-            color: white;
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 13px;
-        }
-        .items-table td {
-            padding: 12px;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: 13px;
-        }
-        .items-table tr:last-child td {
-            border-bottom: 2px solid #2d3748;
-        }
-        .items-table td:last-child,
-        .items-table th:last-child {
-            text-align: right;
-        }
-        .financial-summary {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px solid #e2e8f0;
-        }
-        .financial-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            font-size: 14px;
-        }
-        .financial-row.total {
-            font-weight: bold;
-            font-size: 18px;
-            margin-top: 10px;
-            padding-top: 15px;
-            border-top: 2px solid #e2e8f0;
-        }
-        .financial-row.deposit {
-            font-weight: bold;
-            font-size: 16px;
-            color: #F27B21;
-            margin-top: 10px;
-        }
-        .financial-row.balance {
-            font-weight: bold;
-            font-size: 16px;
-            color: #48bb78;
-            margin-top: 10px;
-            padding-top: 15px;
-            border-top: 2px solid #e2e8f0;
-        }
-        .terms {
-            margin-top: 40px;
-            padding: 20px;
-            background: #f8fafc;
-            border-left: 4px solid #F27B21;
-            font-size: 11px;
-            line-height: 1.8;
-            color: #4a5568;
-        }
-        .footer {
-            text-align: right;
-            margin-top: 30px;
-            font-weight: bold;
-            color: #F27B21;
-            font-size: 16px;
-        }
-        @media print {
-            body {
-                background: white;
-                padding: 0;
-            }
-            .invoice-container {
-                box-shadow: none;
-                padding: 20px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="invoice-container">
-        <div class="header">
-            <div class="logo-area">
-                <img src="${logoBase64}" alt="LA ANTESALA" style="max-width: 100%; height: auto; border-radius: 50%;">
-            </div>
-            <div class="company-name">LA ANTESALA BY FUSION</div>
-            <div class="company-info">
-                Avenida Hostos 105, Ponce, PR 00717<br>
-                Tel. 787-428-2228
-            </div>
-        </div>
-
-        <div class="invoice-header">
-            <div class="client-info">
-                <div class="section-title">ISSUED TO:</div>
-                <div class="info-line">A: ${reservation.clientName}</div>
-                <div class="info-line">Tel: ${reservation.clientPhone}</div>
-                <div style="margin-top: 15px;">
-                    <div class="info-line"><strong>Actividad:</strong> ${reservation.eventType || 'Evento'}</div>
-                    <div class="info-line"><strong>Día:</strong> ${formattedDate}</div>
-                    <div class="info-line"><strong>Hora:</strong> ${this.formatTime12Hour(reservation.eventTime)}</div>
-                </div>
-            </div>
-            <div class="invoice-info">
-                <div class="section-title">INVOICE NO:</div>
-                <div class="info-line" style="font-size: 18px; font-weight: bold;">${invoiceNumber}</div>
-            </div>
-        </div>
-
-        <table class="items-table">
-            <thead>
-                <tr>
-                    <th>DESCRIPTION</th>
-                    <th>QTY</th>
-                    <th>TOTAL</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${itemsHTML}
-            </tbody>
-        </table>
-
-        <div class="financial-summary">
-            <div class="financial-row">
-                <span>SUB-TOTAL</span>
-                <span>$${subtotal.toFixed(2)}</span>
-            </div>
-            <div class="financial-row">
-                <span>TAXES AND FEE</span>
-                <span>$${reservation.pricing.taxes.totalTaxes.toFixed(2)}</span>
-            </div>
-            ${reservation.pricing.tip && reservation.pricing.tip.amount > 0 ? `
-            <div class="financial-row">
-                <span>PROPINA ${reservation.pricing.tip.percentage}%</span>
-                <span>$${reservation.pricing.tip.amount.toFixed(2)}</span>
-            </div>
-            ` : ''}
-            <div class="financial-row total">
-                <span>SUB TOTAL</span>
-                <span>$${reservation.pricing.totalCost.toFixed(2)}</span>
-            </div>
-            <div class="financial-row deposit">
-                <span>DEPOSITO 20%</span>
-                <span>$${reservation.pricing.depositAmount.toFixed(2)} ${reservation.depositPaid ? '✓ PAID' : ''}</span>
-            </div>
-            <div class="financial-row balance">
-                <span>Balance</span>
-                <span>$${balance.toFixed(2)}</span>
-            </div>
-        </div>
-
-        <div class="terms">
-            <strong>TÉRMINOS Y CONDICIONES:</strong><br>
-            PARA SEPARAR EL SALÓN SE REQUIERE EL 20% DEL TOTAL DE LA COTIZACIÓN, NO ES RE-EMBOLZABLE, TRANSFERIBLE A OTRA FECHA SI YA EL DIA DE LA FECHA INICIAL YA PASO, NO SE PUEDE UTILIZAR EN EL RESTAURANTE COMO CREDITO. -SALÓN SERÁ ENTREGADO 2 HORAS ANTES PARA FINES DE DECORACIÓN. NO SE PERMITE EL USO DE CONFETTI O PIROTECNIA DENTRO DEL SALON. NO PEGAR TAPE EN LAS PAREDES.
-        </div>
-
-        <div class="footer">
-            THANK YOU
-        </div>
-    </div>
-</body>
-</html>
-        `;
-
-        // Create and download the HTML file
-        const blob = new Blob([invoiceHTML], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `Invoice-${invoiceNumber}-${reservation.clientName.replace(/\s+/g, '-')}.html`;
-        link.click();
-        URL.revokeObjectURL(url);
+        // Build items array for PDF table
+        const itemsData = [];
         
-        this.showNotification('¡Factura exportada exitosamente!', 'success');
+        // Food items
+        if (this.isBuffet(reservation.foodType) && reservation.buffet) {
+            const buffetItems = [];
+            if (reservation.buffet.rice) buffetItems.push(this.getBuffetItemName('rice', reservation.buffet.rice));
+            if (reservation.buffet.protein1) buffetItems.push(this.getBuffetItemName('protein', reservation.buffet.protein1));
+            if (reservation.buffet.protein2) buffetItems.push(this.getBuffetItemName('protein', reservation.buffet.protein2));
+            if (reservation.buffet.side) buffetItems.push(this.getBuffetItemName('side', reservation.buffet.side));
+            if (reservation.buffet.salad) buffetItems.push(this.getBuffetItemName('salad', reservation.buffet.salad));
+            if (reservation.buffet.panecillos) buffetItems.push('Panecillos');
+            if (reservation.buffet.aguaRefresco) buffetItems.push('Agua y Refresco');
+            
+            // For buffet, create description with title and bullet points
+            const buffetDesc = 'Buffet\n' + buffetItems.map(item => '• ' + item).join('\n');
+            itemsData.push({
+                description: buffetDesc,
+                qty: reservation.guestCount.toString(),
+                total: `$${reservation.pricing.foodCost.toFixed(2)}`,
+                isBuffet: true
+            });
+        } else if (reservation.pricing.foodCost > 0) {
+            itemsData.push({
+                description: this.getFoodDisplayName(reservation.foodType),
+                qty: reservation.guestCount.toString(),
+                total: `$${reservation.pricing.foodCost.toFixed(2)}`
+            });
+        }
+
+        // Beverages
+        if (reservation.beverages && Object.keys(reservation.beverages).length > 0) {
+            const items = this.getBeverageItems();
+            Object.entries(reservation.beverages).forEach(([id, qty]) => {
+                if (qty > 0) {
+                    const item = items.find(i => i.id === id);
+                    if (item) {
+                        const total = item.price * qty;
+                        itemsData.push({
+                            description: item.name,
+                            qty: qty.toString(),
+                            total: `$${total.toFixed(2)}`
+                        });
+                    }
+                }
+            });
+        }
+
+        // Entremeses
+        if (reservation.entremeses && Object.keys(reservation.entremeses).length > 0) {
+            const entremesesItems = this.getEntremesesItems();
+            Object.entries(reservation.entremeses).forEach(([id, qty]) => {
+                if (id === 'asopao' && qty === true) {
+                    const total = 3.00 * reservation.guestCount;
+                    itemsData.push({
+                        description: 'Asopao',
+                        qty: reservation.guestCount.toString(),
+                        total: `$${total.toFixed(2)}`
+                    });
+                } else if (id === 'ceviche' && qty === true) {
+                    const total = 3.95 * reservation.guestCount;
+                    itemsData.push({
+                        description: 'Ceviche',
+                        qty: reservation.guestCount.toString(),
+                        total: `$${total.toFixed(2)}`
+                    });
+                } else if (qty > 0) {
+                    const item = entremesesItems.find(e => e.id === id);
+                    if (item) {
+                        const total = item.price * qty;
+                        itemsData.push({
+                            description: item.name,
+                            qty: qty.toString(),
+                            total: `$${total.toFixed(2)}`
+                        });
+                    }
+                }
+            });
+        }
+
+        // Event space
+        if (reservation.pricing.roomCost > 0) {
+            itemsData.push({
+                description: `${this.getRoomDisplayName(reservation.roomType)} - ${reservation.eventDuration} hours`,
+                qty: '1',
+                total: `$${reservation.pricing.roomCost.toFixed(2)}`
+            });
+        }
+
+        // Additional services
+        const servicePrices2 = {
+            'audioVisual': 0,
+            'decorations': 150,
+            'waitstaff': 100,
+            'valet': 50
+        };
+        
+        Object.entries(reservation.additionalServices).forEach(([key, value]) => {
+            if (value) {
+                const serviceName = this.getServiceName(key);
+                const servicePrice = servicePrices2[key] || 0;
+                itemsData.push({
+                    description: serviceName,
+                    qty: servicePrice > 0 ? '1' : '-',
+                    total: servicePrice > 0 ? `$${servicePrice.toFixed(2)}` : 'Incluido'
+                });
+            }
+        });
+
+        // Generate PDF directly using jsPDF
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4'
+        });
+
+        let yPos = 12;
+
+        // Add logo
+        if (logoBase64) {
+            try {
+                doc.addImage(logoBase64, 'PNG', 82, yPos, 40, 40);
+                yPos += 45;
+            } catch (error) {
+                console.warn('Could not add logo to PDF:', error);
+                yPos += 12;
+            }
+        } else {
+            yPos += 12;
+        }
+
+        // Company name and info
+        doc.setFontSize(16);
+        doc.setFont(undefined, 'bold');
+        doc.text('LA ANTESALA BY FUSION', 105, yPos, { align: 'center' });
+        yPos += 7;
+
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        doc.text('Avenida Hostos 105, Ponce, PR 00717', 105, yPos, { align: 'center' });
+        yPos += 5;
+        doc.text('Tel. 787-428-2228', 105, yPos, { align: 'center' });
+        yPos += 10;
+
+        // Invoice header
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.4);
+        doc.line(20, yPos, 190, yPos);
+        yPos += 8;
+
+        // Client info (two columns for space efficiency)
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        doc.text('ISSUED TO:', 20, yPos);
+        doc.text('INVOICE NO:', 140, yPos);
+        yPos += 6;
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(8);
+        doc.text(`A: ${reservation.clientName}`, 20, yPos);
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(11);
+        doc.text(invoiceNumber, 190, yPos, { align: 'right' });
+        yPos += 5;
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(8);
+        doc.text(`Tel: ${reservation.clientPhone}`, 20, yPos);
+        yPos += 5;
+        doc.text(`Actividad: ${reservation.eventType || 'Evento'}`, 20, yPos);
+        yPos += 5;
+        doc.text(`Día: ${formattedDate}`, 20, yPos);
+        yPos += 5;
+        doc.text(`Hora: ${this.formatTime12Hour(reservation.eventTime)}`, 20, yPos);
+        yPos += 10;
+
+        // Items table
+        doc.setLineWidth(0.4);
+        doc.setDrawColor(45, 55, 72);
+        doc.line(20, yPos, 190, yPos);
+        yPos += 4;
+
+        // Table header
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(255, 255, 255);
+        doc.setFillColor(45, 55, 72);
+        doc.rect(20, yPos - 4, 170, 7, 'F');
+        doc.text('DESCRIPTION', 25, yPos);
+        doc.text('QTY', 140, yPos);
+        doc.text('TOTAL', 190, yPos, { align: 'right' });
+        yPos += 7;
+        doc.setTextColor(0, 0, 0);
+
+        // Table rows
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(8);
+        itemsData.forEach(item => {
+            const description = typeof item.description === 'string' ? item.description : '';
+            
+            // Handle buffet with bullet points
+            if (item.isBuffet) {
+                const lines = description.split('\n');
+                lines.forEach((line, index) => {
+                    if (line.trim()) {
+                        doc.setFont(undefined, index === 0 ? 'bold' : 'normal');
+                        const xPos = index === 0 ? 25 : 30;
+                        doc.text(line, xPos, yPos);
+                        
+                        if (index === 0) {
+                            doc.text(item.qty, 140, yPos);
+                            doc.text(item.total, 190, yPos, { align: 'right' });
+                        }
+                        yPos += index === 0 ? 5 : 3.5;
+                    }
+                });
+            } else {
+                doc.setFont(undefined, 'bold');
+                const descLines = doc.splitTextToSize(description, 110);
+                doc.text(descLines, 25, yPos);
+                doc.setFont(undefined, 'normal');
+                doc.text(item.qty, 140, yPos);
+                doc.text(item.total, 190, yPos, { align: 'right' });
+                yPos += Math.max(5, descLines.length * 4);
+            }
+        });
+
+        // Financial summary
+        yPos += 7;
+
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.4);
+        doc.line(20, yPos, 190, yPos);
+        yPos += 6;
+
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'normal');
+        doc.text('SUB-TOTAL', 20, yPos);
+        doc.text(`$${subtotal.toFixed(2)}`, 190, yPos, { align: 'right' });
+        yPos += 5;
+
+        doc.text('TAXES AND FEE', 20, yPos);
+        doc.text(`$${reservation.pricing.taxes.totalTaxes.toFixed(2)}`, 190, yPos, { align: 'right' });
+        yPos += 5;
+
+        if (reservation.pricing.tip && reservation.pricing.tip.amount > 0) {
+            doc.text(`PROPINA ${reservation.pricing.tip.percentage}%`, 20, yPos);
+            doc.text(`$${reservation.pricing.tip.amount.toFixed(2)}`, 190, yPos, { align: 'right' });
+            yPos += 5;
+        }
+
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.line(20, yPos, 190, yPos);
+        yPos += 6;
+        doc.text('SUB TOTAL', 20, yPos);
+        doc.text(`$${reservation.pricing.totalCost.toFixed(2)}`, 190, yPos, { align: 'right' });
+        yPos += 6;
+
+        doc.setFontSize(9);
+        doc.setTextColor(242, 123, 33);
+        doc.text('DEPOSITO 20%', 20, yPos);
+        const depositText = `$${reservation.pricing.depositAmount.toFixed(2)} ${reservation.depositPaid ? '✓ PAID' : ''}`;
+        doc.text(depositText, 190, yPos, { align: 'right' });
+        yPos += 6;
+
+        doc.setTextColor(72, 187, 120);
+        doc.line(20, yPos, 190, yPos);
+        yPos += 6;
+        doc.text('Balance', 20, yPos);
+        doc.text(`$${balance.toFixed(2)}`, 190, yPos, { align: 'right' });
+
+        // Terms
+        yPos += 8;
+
+        doc.setFontSize(6.5);
+        doc.setTextColor(74, 85, 104);
+        doc.setFillColor(248, 250, 252);
+        const termsHeight = 28;
+        doc.rect(20, yPos, 170, termsHeight, 'F');
+        doc.setDrawColor(242, 123, 33);
+        doc.setLineWidth(0.5);
+        doc.line(20, yPos, 20, yPos + termsHeight);
+        
+        doc.setFont(undefined, 'bold');
+        doc.text('TÉRMINOS Y CONDICIONES:', 25, yPos + 4);
+        doc.setFont(undefined, 'normal');
+        const termsText = 'PARA SEPARAR EL SALÓN SE REQUIERE EL 20% DEL TOTAL DE LA COTIZACIÓN, NO ES RE-EMBOLZABLE, TRANSFERIBLE A OTRA FECHA SI YA EL DIA DE LA FECHA INICIAL YA PASO, NO SE PUEDE UTILIZAR EN EL RESTAURANTE COMO CREDITO. -SALÓN SERÁ ENTREGADO 2 HORAS ANTES PARA FINES DE DECORACIÓN. NO SE PERMITE EL USO DE CONFETTI O PIROTECNIA DENTRO DEL SALON. NO PEGAR TAPE EN LAS PAREDES.';
+        const termsLines = doc.splitTextToSize(termsText, 165);
+        doc.text(termsLines, 25, yPos + 9);
+
+        // Footer
+        doc.setTextColor(242, 123, 33);
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('THANK YOU', 190, 285, { align: 'right' });
+
+        // Save PDF
+        const fileName = `Invoice-${invoiceNumber}-${reservation.clientName.replace(/\s+/g, '-')}.pdf`;
+        doc.save(fileName);
+        
+        this.showNotification('¡Factura exportada exitosamente como PDF!', 'success');
     }
 
     // Export reservations (bonus feature)
@@ -2500,9 +2533,11 @@ class ReservationManager {
         const url = URL.createObjectURL(dataBlob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `antesala-reservations-${new Date().toISOString().split('T')[0]}.json`;
+        link.download = 'reservations-backup.json';
         link.click();
         URL.revokeObjectURL(url);
+        
+        this.showNotification('¡Reservaciones exportadas exitosamente!', 'success');
     }
 }
 
