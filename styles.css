@@ -277,6 +277,12 @@ body {
     font-size: 0.95rem;
 }
 
+.optional-label {
+    color: #718096;
+    font-size: 0.9rem;
+    font-weight: 400;
+}
+
 .form-group input,
 .form-group select {
     width: 100%;
@@ -403,6 +409,10 @@ body {
     gap: 12px;
 }
 
+.form-group.entremeses-asopao-group {
+    margin-top: 20px;
+}
+
 .checkbox-label {
     display: flex;
     align-items: center;
@@ -447,6 +457,64 @@ body {
     color: white;
     font-weight: bold;
     font-size: 12px;
+}
+
+/* Checkbox Box Design for Panecillos */
+.panecillos-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    user-select: none;
+    margin: 0;
+}
+
+.form-group.panecillos-group {
+    margin-bottom: 10px;
+    padding: 8px 0;
+}
+
+.check-box {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #cbd5e0;
+    border-radius: 4px;
+    background-color: white;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+.panecillos-label input[type="checkbox"] {
+    display: none;
+}
+
+.panecillos-label input[type="checkbox"]:checked + .check-box {
+    background-color: #F27B21;
+    border-color: #F27B21;
+}
+
+.panecillos-label input[type="checkbox"]:checked + .check-box::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.panecillos-label:hover .check-box {
+    border-color: #F27B21;
+}
+
+.panecillos-text {
+    font-weight: 500;
+    color: #2d3748;
 }
 
 /* Pricing Summary */
@@ -533,6 +601,77 @@ body {
     color: white;
     font-size: 1.4rem;
     cursor: pointer;
+}
+
+/* Validation Error Modal Styles */
+.validation-modal {
+    max-width: 550px;
+    width: 90%;
+}
+
+.validation-header {
+    background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+    color: white;
+}
+
+.validation-header h3 {
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.validation-header h3 i {
+    font-size: 1.8rem;
+    color: #ffd700;
+}
+
+.validation-body {
+    padding: 30px;
+}
+
+.validation-message {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.missing-fields-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.missing-fields-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: #fee;
+    border-left: 4px solid #e53e3e;
+    border-radius: 8px;
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: #742a2a;
+    transition: all 0.3s ease;
+}
+
+.missing-fields-list li:hover {
+    background: #fdd;
+    transform: translateX(4px);
+}
+
+.missing-fields-list li i {
+    color: #e53e3e;
+    font-size: 1.2rem;
+    flex-shrink: 0;
 }
 
 .protein-grid {
@@ -781,14 +920,19 @@ body {
 }
 
 .btn-outline {
-    background: transparent;
-    color: #F27B21;
+    background: #F27B21;
+    color: white;
     border: 2px solid #F27B21;
+    margin-bottom: 10px;
+}
+
+.btn-outline:last-child {
+    margin-bottom: 0;
 }
 
 .btn-outline:hover {
-    background: #F27B21;
-    color: white;
+    background: transparent;
+    color: #F27B21;
     transform: translateY(-2px);
 }
 
@@ -947,10 +1091,16 @@ body {
     display: flex;
     flex-direction: column;
     border: 1px solid #e2e8f0;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
 }
 
 .calendar-day:hover {
     background: #f7fafc;
+}
+
+.calendar-day:hover .calendar-day-number {
+    color: #F27B21;
 }
 
 .calendar-day.empty {
@@ -981,10 +1131,10 @@ body {
 .calendar-event {
     background: linear-gradient(135deg, #F27B21 0%, #D4A04B 100%);
     color: white;
-    padding: 6px 10px;
+    padding: 8px 12px;
     border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 500;
+    font-size: 0.95rem;
+    font-weight: 700;
     margin-bottom: 4px;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -992,6 +1142,15 @@ body {
     position: relative;
     overflow: hidden;
     border: 2px solid transparent;
+    line-height: 1.4;
+}
+
+.calendar-event small {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    opacity: 0.95;
+    margin-top: 3px;
 }
 
 .calendar-event::before {

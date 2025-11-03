@@ -14,7 +14,7 @@
         <nav class="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <img src="Logo Antesala.webp" alt="LA ANTESALA" class="logo-image">
+                    <img src="Logo_Antesala-removebg-preview.png" alt="LA ANTESALA" class="logo-image">
                 </div>
             </div>
             
@@ -125,7 +125,7 @@
                 </div>
 
                 <div class="form-container">
-                    <form id="reservationForm" class="reservation-form">
+                    <form id="reservationForm" class="reservation-form" novalidate>
                         <div class="form-grid">
                             <!-- Client Information Card -->
                             <div class="form-card">
@@ -140,7 +140,7 @@
                                     </div>
                                     <div class="form-group">
                                         <label for="clientEmail">Correo Electrónico</label>
-                                        <input type="email" id="clientEmail" name="clientEmail" required>
+                                        <input type="email" id="clientEmail" name="clientEmail">
                                     </div>
                                     <div class="form-group">
                                         <label for="clientPhone">Teléfono</label>
@@ -224,29 +224,7 @@
                                             </div>
                                             <div class="guest-count-input">
                                                 <label for="guestCountManual">O ingrese el número exacto:</label>
-                                                <input type="number" id="guestCountManual" name="guestCountManual" min="1" max="500" value="50" placeholder="Ingrese número de invitados">
-                                            </div>
-                                        </div>
-</div>
-                                    <div class="form-group">
-                                        <label for="tableType">Configuración de Mesas</label>
-                                        <select id="tableType" name="tableType" required>
-                                            <option value="">Seleccionar Tipo de Mesa</option>
-                                            <option value="round-8">Mesas Redondas - 8 asientos cada una</option>
-                                            <option value="round-10">Mesas Redondas - 10 asientos cada una</option>
-                                            <option value="round-12">Mesas Redondas - 12 asientos cada una</option>
-                                            <option value="rectangular-6">Mesas Rectangulares - 6 asientos cada una</option>
-                                            <option value="rectangular-8">Mesas Rectangulares - 8 asientos cada una</option>
-                                            <option value="rectangular-10">Mesas Rectangulares - 10 asientos cada una</option>
-                                            <option value="custom">Configuración Personalizada</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group hidden" id="customTableGroup">
-                                        <label for="seatsPerTable">Asientos por Mesa</label>
-                                        <input type="number" id="seatsPerTable" name="seatsPerTable" min="2" max="20" placeholder="Ingrese asientos por mesa">
-                                        <div class="table-calculation">
-                                            <div class="table-info">
-                                                <span id="tableCount">0</span> mesas necesarias
+                                                <input type="number" id="guestCountManual" name="guestCountManual" min="0" max="500" value="50" placeholder="Ingrese número de invitados">
                                             </div>
                                         </div>
                                     </div>
@@ -261,7 +239,7 @@
                                 </div>
                                 <div class="card-content">
                                     <div class="form-group">
-                                        <label for="foodType">Tipo de Servicio de Comida</label>
+                                        <label for="foodType">Servicio de Comida</label>
                                         <select id="foodType" name="foodType" required>
                                             <option value="">Seleccionar Servicio de Comida</option>
                                             <option value="buffet-20" data-price="20">Buffet - $20 por persona</option>
@@ -274,11 +252,17 @@
                                         </select>
                                     </div>
                                     <div class="form-group">
-                                        <label>Tipos de Bebidas</label>
+                                        <label>Bebidas</label>
                                     </div>
                                     <div id="beverageSummary" class="food-summary hidden"></div>
                                     <button type="button" id="openBeverageModalBtn" class="btn btn-outline">Seleccionar Bebidas</button>
                                     <button type="button" id="editBeveragesBtn" class="btn btn-outline hidden">Editar Bebidas</button>
+                                    <div class="form-group">
+                                        <label>Entremeses</label>
+                                    </div>
+                                    <div id="entremesesSummary" class="food-summary hidden"></div>
+                                    <button type="button" id="openEntremesesModalBtn" class="btn btn-outline">Seleccionar Entremeses</button>
+                                    <button type="button" id="editEntremesesBtn" class="btn btn-outline hidden">Editar Entremeses</button>
                                     <div id="foodServiceSummary" class="food-summary"></div>
                                     <button type="button" id="editBuffetBtn" class="btn btn-outline hidden">Editar Opciones de Buffet</button>
                                 </div>
@@ -296,7 +280,7 @@
                                             <input type="checkbox" id="audioVisual" name="audioVisual" data-price="0">
                                             <span class="checkmark"></span>
                                             Manteles
-                                        </label>   
+                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -320,6 +304,10 @@
                                         <div class="pricing-item">
                                             <span>Servicio de Bebidas:</span>
                                             <span id="drinkCost">$0</span>
+                                        </div>
+                                        <div class="pricing-item">
+                                            <span>Entremeses:</span>
+                                            <span id="entremesesCost">$0</span>
                                         </div>
                                         <div class="pricing-item">
                                             <span>Servicios Adicionales:</span>
@@ -506,12 +494,29 @@
                     <label for="buffetSalad">Ensalada (Escoger 1)</label>
                     <select id="buffetSalad" name="buffetSalad">
                         <option value="">Seleccione ensalada</option>
-                        <option value="caesar">Caesar Salad</option>
+                        <option value="caesar">Ensalada Ceasar</option>
                         <option value="verde">Ensalada Verde</option>
+                        <option value="papa">Ensalada de Papa</option>
+                        <option value="coditos">Ensalada de Coditos</option>
                     </select>
+                </div>
+                <div class="form-group panecillos-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="buffetPanecillos" name="buffetPanecillos">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Panecillos</span>
+                    </label>
+                </div>
+                <div class="form-group panecillos-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="buffetAguaRefresco" name="buffetAguaRefresco">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Agua y Refresco</span>
+                    </label>
                 </div>
             </div>
             <div class="modal-actions">
+                <button type="button" class="btn btn-outline" id="buffetClearBtn">Limpiar Todo</button>
                 <button type="button" class="btn btn-outline" id="buffetCancelBtn">Cancel</button>
                 <button type="button" class="btn btn-primary" id="buffetSaveBtn">Save</button>
             </div>
@@ -606,6 +611,10 @@
                                 <label for="bev-tito-handle">Gancho Tito Vodka ($150)</label>
                                 <input type="number" id="bev-tito-handle" min="0" value="0">
                             </div>
+                            <div>
+                                <label for="bev-sangria">Jarra de Sangria ($25)</label>
+                                <input type="number" id="bev-sangria" min="0" value="0">
+                            </div>
                             
                         </div>
                     </div>
@@ -674,10 +683,68 @@
                         </div>
                     </div>
                 </details>
+
+                <div class="form-group entremeses-asopao-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="bev-mimosa" name="bev-mimosa">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Mimosa ($3.95 por persona)</span>
+                    </label>
+                </div>
             </div>
             <div class="modal-actions">
+                <button type="button" class="btn btn-outline" id="beverageClearBtn">Limpiar Todo</button>
                 <button type="button" class="btn btn-outline" id="beverageCancelBtn">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="beverageSaveBtn">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Entremeses Modal -->
+    <div id="entremesesModal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Seleccionar Entremeses</h3>
+                <button type="button" class="modal-close" id="entremesesCloseBtn" aria-label="Cerrar">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="protein-grid">
+                    <div>
+                        <label for="entr-bandeja-surtido">Bandeja de Surtido ($100)</label>
+                        <input type="number" id="entr-bandeja-surtido" min="0" value="0">
+                    </div>
+                    <div>
+                        <label for="entr-media-bandeja">Media Bandeja de Surtidos ($50)</label>
+                        <input type="number" id="entr-media-bandeja" min="0" value="0">
+                    </div>
+                    <div>
+                        <label for="entr-bandeja-cortes-frios">Bandeja Cortes Frios ($150)</label>
+                        <input type="number" id="entr-bandeja-cortes-frios" min="0" value="0">
+                    </div>
+                    <div>
+                        <label for="entr-platos-entremeses">Platos de Entremeses ($20)</label>
+                        <input type="number" id="entr-platos-entremeses" min="0" value="0">
+                    </div>
+                </div>
+                <div class="form-group entremeses-asopao-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="entr-asopao" name="entr-asopao">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Asopao ($3.00 por persona)</span>
+                    </label>
+                </div>
+                <div class="form-group entremeses-asopao-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="entr-ceviche" name="entr-ceviche">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Ceviche ($3.95 por persona)</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" id="entremesesClearBtn">Limpiar Todo</button>
+                <button type="button" class="btn btn-outline" id="entremesesCancelBtn">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="entremesesSaveBtn">Guardar</button>
             </div>
         </div>
     </div>
@@ -694,6 +761,23 @@
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-primary" id="reservationDetailsCloseBtn2">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Validation Error Modal -->
+    <div id="validationErrorModal" class="modal-overlay hidden">
+        <div class="modal validation-modal">
+            <div class="modal-header validation-header">
+                <h3><i class="fas fa-exclamation-triangle"></i> Campos Requeridos Faltantes</h3>
+                <button type="button" class="modal-close" id="validationErrorCloseBtn" aria-label="Cerrar">×</button>
+            </div>
+            <div class="modal-body validation-body">
+                <p class="validation-message">Por favor complete los siguientes campos antes de guardar:</p>
+                <ul id="missingFieldsList" class="missing-fields-list"></ul>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-primary" id="validationErrorOkBtn">Entendido</button>
             </div>
         </div>
     </div>
