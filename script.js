@@ -363,8 +363,8 @@ class ReservationManager {
         if (p2?.value) items.push(`<li>Proteína 2: ${p2.selectedOptions[0].text}</li>`);
         if (side?.value) items.push(`<li>Complemento: ${side.selectedOptions[0].text}</li>`);
         if (salad?.value) items.push(`<li>Ensalada: ${salad.selectedOptions[0].text}</li>`);
-        if (panecillos?.checked) items.push(`<li>Panecillos: Sí</li>`);
-        if (aguaRefresco?.checked) items.push(`<li>Agua y Refresco: Sí</li>`);
+        if (panecillos?.checked) items.push(`<li>Panecillos</li>`);
+        if (aguaRefresco?.checked) items.push(`<li>Agua y/o Refresco</li>`);
 
         container.classList.remove('hidden');
         editBtn?.classList.remove('hidden');
@@ -1112,6 +1112,9 @@ class ReservationManager {
         // Add to reservations
         this.reservations.push(reservation);
         this.saveReservations();
+        
+        // Reload reservations from localStorage to ensure sync
+        this.reservations = this.loadReservations();
         this.displayReservations();
         this.clearForm();
 
@@ -1698,7 +1701,7 @@ class ReservationManager {
                 <div class="reservation-details">
                     <div class="reservation-detail">
                         <strong>Fecha:</strong>
-                        <span>${new Date(reservation.eventDate).toLocaleDateString('es-ES')}</span>
+                        <span>${new Date(reservation.eventDate + 'T00:00:00').toLocaleDateString('es-ES')}</span>
                     </div>
                     <div class="reservation-detail">
                         <strong>Hora:</strong>
@@ -1859,7 +1862,22 @@ class ReservationManager {
         this.updateBeverageSummary();
         this.entremesesSelections = reservation.entremeses || {};
         this.updateEntremesesSummary();
-        document.getElementById('guestCount').value = reservation.guestCount;
+        
+        // Sync guest count across all inputs (slider, manual input, and display)
+        const guestCount = reservation.guestCount;
+        const guestCountSlider = document.getElementById('guestCount');
+        const guestCountManual = document.getElementById('guestCountManual');
+        const guestCountDisplay = document.getElementById('guestCountValue');
+        
+        // Round to nearest 10 for slider (since it's step-10)
+        const sliderValue = Math.max(10, Math.min(200, Math.round(guestCount / 10) * 10));
+        guestCountSlider.value = sliderValue;
+        
+        // Set manual input to exact value
+        guestCountManual.value = guestCount;
+        
+        // Update display
+        guestCountDisplay.textContent = guestCount;
 
         // Populate buffet modal fields (do not open the modal)
         if (this.isBuffet(reservation.foodType)) {
@@ -2057,11 +2075,23 @@ class ReservationManager {
             }
             console.log('jsPDF library loaded successfully');
 
+            // Reload reservations from localStorage to ensure we have the latest data
+            this.reservations = this.loadReservations();
+            console.log('Total reservations loaded:', this.reservations.length);
+            console.log('Looking for reservation ID:', id);
+            console.log('Available reservation IDs:', this.reservations.map(r => r.id));
+            
             const reservation = this.reservations.find(r => r.id === id);
             if (!reservation) {
+                console.error('Reservation not found. Available IDs:', this.reservations.map(r => r.id));
                 this.showNotification('Error: Reservación no encontrada.', 'error');
                 return;
             }
+            
+            console.log('Reservation found:', reservation);
+            console.log('Reservation pricing:', reservation.pricing);
+            console.log('Reservation beverages:', reservation.beverages);
+            console.log('Reservation entremeses:', reservation.entremeses);
 
         // Convert logo to base64 for embedding
         let logoBase64 = '';
@@ -2388,17 +2418,17 @@ class ReservationManager {
         }
 
         // Company name and info
-        doc.setFontSize(16);
+        doc.setFontSize(18);
         doc.setFont(undefined, 'bold');
         doc.text('LA ANTESALA BY FUSION', 105, yPos, { align: 'center' });
-        yPos += 7;
+        yPos += 8;
 
-        doc.setFontSize(9);
+        doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
         doc.text('Avenida Hostos 105, Ponce, PR 00717', 105, yPos, { align: 'center' });
-        yPos += 5;
+        yPos += 6;
         doc.text('Tel. 787-428-2228', 105, yPos, { align: 'center' });
-        yPos += 10;
+        yPos += 12;
 
         // Invoice header
         doc.setDrawColor(226, 232, 240);
@@ -2407,28 +2437,28 @@ class ReservationManager {
         yPos += 8;
 
         // Client info (two columns for space efficiency)
-        doc.setFontSize(9);
+        doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
         doc.text('ISSUED TO:', 20, yPos);
         doc.text('INVOICE NO:', 140, yPos);
-        yPos += 6;
+        yPos += 7;
         doc.setFont(undefined, 'normal');
-        doc.setFontSize(8);
+        doc.setFontSize(9);
         doc.text(`A: ${reservation.clientName}`, 20, yPos);
         doc.setFont(undefined, 'bold');
-        doc.setFontSize(11);
+        doc.setFontSize(12);
         doc.text(invoiceNumber, 190, yPos, { align: 'right' });
-        yPos += 5;
+        yPos += 6;
         doc.setFont(undefined, 'normal');
-        doc.setFontSize(8);
+        doc.setFontSize(9);
         doc.text(`Tel: ${reservation.clientPhone}`, 20, yPos);
-        yPos += 5;
+        yPos += 6;
         doc.text(`Actividad: ${reservation.eventType || 'Evento'}`, 20, yPos);
-        yPos += 5;
+        yPos += 6;
         doc.text(`Día: ${formattedDate}`, 20, yPos);
-        yPos += 5;
+        yPos += 6;
         doc.text(`Hora: ${this.formatTime12Hour(reservation.eventTime)}`, 20, yPos);
-        yPos += 10;
+        yPos += 12;
 
         // Items table
         doc.setLineWidth(0.4);
@@ -2437,20 +2467,20 @@ class ReservationManager {
         yPos += 4;
 
         // Table header
-        doc.setFontSize(9);
+        doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(255, 255, 255);
         doc.setFillColor(45, 55, 72);
-        doc.rect(20, yPos - 4, 170, 7, 'F');
+        doc.rect(20, yPos - 4, 170, 8, 'F');
         doc.text('DESCRIPTION', 25, yPos);
         doc.text('QTY', 140, yPos);
         doc.text('TOTAL', 190, yPos, { align: 'right' });
-        yPos += 7;
+        yPos += 8;
         doc.setTextColor(0, 0, 0);
 
         // Table rows
         doc.setFont(undefined, 'normal');
-        doc.setFontSize(8);
+        doc.setFontSize(9);
         itemsData.forEach(item => {
             const description = typeof item.description === 'string' ? item.description : '';
             
@@ -2464,10 +2494,10 @@ class ReservationManager {
                         doc.text(line, xPos, yPos);
                         
                         if (index === 0) {
-                            doc.text(item.qty, 140, yPos);
-                            doc.text(item.total, 190, yPos, { align: 'right' });
+                        doc.text(item.qty, 140, yPos);
+                        doc.text(item.total, 190, yPos, { align: 'right' });
                         }
-                        yPos += index === 0 ? 5 : 3.5;
+                        yPos += index === 0 ? 6 : 4;
                     }
                 });
             } else {
@@ -2477,79 +2507,155 @@ class ReservationManager {
                 doc.setFont(undefined, 'normal');
                 doc.text(item.qty, 140, yPos);
                 doc.text(item.total, 190, yPos, { align: 'right' });
-                yPos += Math.max(5, descLines.length * 4);
+                yPos += Math.max(6, descLines.length * 5);
             }
         });
 
         // Financial summary
-        yPos += 7;
+        yPos += 8;
 
         doc.setDrawColor(226, 232, 240);
         doc.setLineWidth(0.4);
         doc.line(20, yPos, 190, yPos);
-        yPos += 6;
+        yPos += 7;
 
-        doc.setFontSize(8);
+        doc.setFontSize(9);
         doc.setFont(undefined, 'normal');
         doc.text('SUB-TOTAL', 20, yPos);
         doc.text(`$${subtotal.toFixed(2)}`, 190, yPos, { align: 'right' });
-        yPos += 5;
+        yPos += 6;
 
         doc.text('TAXES AND FEE', 20, yPos);
         doc.text(`$${reservation.pricing.taxes.totalTaxes.toFixed(2)}`, 190, yPos, { align: 'right' });
-        yPos += 5;
+        yPos += 6;
 
         if (reservation.pricing.tip && reservation.pricing.tip.amount > 0) {
             doc.text(`PROPINA ${reservation.pricing.tip.percentage}%`, 20, yPos);
             doc.text(`$${reservation.pricing.tip.amount.toFixed(2)}`, 190, yPos, { align: 'right' });
-            yPos += 5;
+            yPos += 6;
         }
 
-        doc.setFontSize(10);
+        doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
         doc.line(20, yPos, 190, yPos);
-        yPos += 6;
+        yPos += 7;
         doc.text('SUB TOTAL', 20, yPos);
         doc.text(`$${reservation.pricing.totalCost.toFixed(2)}`, 190, yPos, { align: 'right' });
-        yPos += 6;
+        yPos += 7;
 
-        doc.setFontSize(9);
+        doc.setFontSize(10);
         doc.setTextColor(242, 123, 33);
         doc.text('DEPOSITO 20%', 20, yPos);
         const depositText = `$${reservation.pricing.depositAmount.toFixed(2)} ${reservation.depositPaid ? '✓ PAID' : ''}`;
         doc.text(depositText, 190, yPos, { align: 'right' });
-        yPos += 6;
+        yPos += 7;
 
         doc.setTextColor(72, 187, 120);
         doc.line(20, yPos, 190, yPos);
-        yPos += 6;
+        yPos += 7;
         doc.text('Balance', 20, yPos);
         doc.text(`$${balance.toFixed(2)}`, 190, yPos, { align: 'right' });
 
-        // Terms
-        yPos += 8;
-
-        doc.setFontSize(6.5);
-        doc.setTextColor(74, 85, 104);
-        doc.setFillColor(248, 250, 252);
-        const termsHeight = 28;
-        doc.rect(20, yPos, 170, termsHeight, 'F');
-        doc.setDrawColor(242, 123, 33);
-        doc.setLineWidth(0.5);
-        doc.line(20, yPos, 20, yPos + termsHeight);
-        
-        doc.setFont(undefined, 'bold');
-        doc.text('TÉRMINOS Y CONDICIONES:', 25, yPos + 4);
-        doc.setFont(undefined, 'normal');
-        const termsText = 'PARA SEPARAR EL SALÓN SE REQUIERE EL 20% DEL TOTAL DE LA COTIZACIÓN, NO ES RE-EMBOLZABLE, TRANSFERIBLE A OTRA FECHA SI YA EL DIA DE LA FECHA INICIAL YA PASO, NO SE PUEDE UTILIZAR EN EL RESTAURANTE COMO CREDITO. -SALÓN SERÁ ENTREGADO 2 HORAS ANTES PARA FINES DE DECORACIÓN. NO SE PERMITE EL USO DE CONFETTI O PIROTECNIA DENTRO DEL SALON. NO PEGAR TAPE EN LAS PAREDES.';
-        const termsLines = doc.splitTextToSize(termsText, 165);
-        doc.text(termsLines, 25, yPos + 9);
-
         // Footer
         doc.setTextColor(242, 123, 33);
-        doc.setFontSize(10);
+        doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
         doc.text('THANK YOU', 190, 285, { align: 'right' });
+
+        // Add new page for Terms and Conditions
+        doc.addPage();
+        
+        // Terms and Conditions Header
+        let termsYPos = 20;
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(45, 55, 72);
+        doc.text('Términos y Condiciones – Salón de Actividades', 105, termsYPos, { align: 'center' });
+        termsYPos += 15;
+
+        // Terms and Conditions Content
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(0, 0, 0);
+        
+        const termsText = `1. Reservación y Pago
+
+La reservación se garantiza con un depósito del 20% del monto total del evento. El balance restante deberá ser pagado en su totalidad a más tardar 1 día antes de la fecha del evento. Todos los pagos realizados son no reembolsables.
+
+2. Cambios de Fecha
+
+Los cambios de fecha están sujetos a disponibilidad. Solo se permitirán cambios solicitados con al menos 5 días de anticipación.
+
+3. Cancelaciones
+
+Las cancelaciones deben realizarse por escrito. Pagos no reembolsables y no transferibles a otras fechas o servicios, salvo disposición a situación emergencia ya sea muerte o catástrofe natural.
+
+4. Duración del Evento
+
+El cliente dispone del salón por un máximo de 5 horas. Horas adicionales tendrán un costo extra por hora. El horario debe respetarse estrictamente.
+
+5. Decoración y Montaje
+
+No se permite clavar, pegar o perforar paredes, techos o mobiliario. El cliente es responsable de retirar decoraciones al finalizar el evento.
+
+6. Catering y Bebidas
+
+El salón ofrece servicio de alimentos y bebidas, por lo tanto, queda prohibido introducir servicios externos de ninguna índole. Puede aplicarse cargo si lleva bebidas o comida externa eso incluye, candy bar, mesas de postres, charcuterías. Botellas de vinos o champagne tendrán un cargo por descorche según la marca.
+
+7. Seguridad y Daños
+
+El cliente será responsable por cualquier daño causado al salón, mobiliario o equipo durante el evento. El salón se reserva el derecho de exigir depósito de seguridad reembolsable para cubrir daños.
+
+8. Conducta y Normas
+
+El cliente y sus invitados deben comportarse de manera adecuada. El salón se reserva el derecho de terminar el evento en cualquier momento, en caso de conducta inapropiada o incumplimiento de normas.
+
+9. Fuerza Mayor
+
+El restaurante no se hace responsable por cancelaciones debidas a eventos fuera de nuestro control (clima severo, fallas eléctricas externas, desastres naturales, emergencias gubernamentales, etc.). Se ofrecerán alternativas razonables según disponibilidad.
+
+10. Firma y Aceptación
+
+El cliente reconoce haber leído y aceptado estos términos y condiciones al firmar el contrato de reservación.`;
+
+        // Split text into lines and format
+        const termsLines = doc.splitTextToSize(termsText, 170);
+        
+        // Draw each line with proper spacing
+        termsLines.forEach((line, index) => {
+            // Check if we need a new page (A4 height is 297mm, leave space at bottom for signature)
+            if (termsYPos > 250) {
+                doc.addPage();
+                termsYPos = 20;
+            }
+            
+            // Check if line starts with a number (section header)
+            if (/^\d+\./.test(line.trim())) {
+                doc.setFont(undefined, 'bold');
+                termsYPos += 3; // Extra space before section
+            } else {
+                doc.setFont(undefined, 'normal');
+            }
+            
+            doc.text(line, 20, termsYPos);
+            termsYPos += 4; // Line spacing
+        });
+
+        // Signature section - both on left side
+        termsYPos += 10;
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.3);
+        doc.line(20, termsYPos, 120, termsYPos); // Signature line
+        termsYPos += 5;
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(74, 85, 104);
+        doc.text('Firma del Cliente', 20, termsYPos);
+        
+        // Date line - also on left side
+        termsYPos += 15;
+        doc.line(20, termsYPos - 10, 120, termsYPos - 10); // Date line on left
+        doc.text('Fecha', 20, termsYPos);
 
         // Save PDF
         const fileName = `Invoice-${invoiceNumber}-${reservation.clientName.replace(/\s+/g, '-')}.pdf`;
