@@ -1736,7 +1736,7 @@ class ReservationManager {
                 ${this.getTableConfigurationDisplay(reservation.tableConfiguration)}
                 ${this.getAdditionalServicesDisplay(reservation.additionalServices)}
                 <div class="reservation-actions">
-                    <button class="btn btn-small btn-primary" onclick="reservationManager.exportReservationInvoice('${reservation.id}')">
+                    <button class="btn btn-small btn-primary" onclick="exportReservationInvoice('${reservation.id}')">
                         <i class="fas fa-file-invoice"></i> Exportar Factura
                     </button>
                     <button class="btn btn-small btn-outline" onclick="reservationManager.editReservation('${reservation.id}')">
@@ -2039,8 +2039,22 @@ class ReservationManager {
 
     // Export reservation as invoice
     async exportReservationInvoice(id) {
-        const reservation = this.reservations.find(r => r.id === id);
-        if (!reservation) return;
+        console.log('Export invoice called with ID:', id);
+        try {
+            // Check if jsPDF is loaded
+            if (!window.jspdf || !window.jspdf.jsPDF) {
+                this.showNotification('Error: Las librerías de PDF no se cargaron correctamente. Por favor, recarga la página.', 'error');
+                console.error('jsPDF library not loaded. Please check if CDN scripts are accessible.');
+                console.log('window.jspdf:', window.jspdf);
+                return;
+            }
+            console.log('jsPDF library loaded successfully');
+
+            const reservation = this.reservations.find(r => r.id === id);
+            if (!reservation) {
+                this.showNotification('Error: Reservación no encontrada.', 'error');
+                return;
+            }
 
         // Convert logo to base64 for embedding
         let logoBase64 = '';
@@ -2194,7 +2208,7 @@ class ReservationManager {
         Object.entries(reservation.additionalServices).forEach(([key, value]) => {
             if (value) {
                 const serviceName = this.getServiceName(key);
-                const servicePrice = servicePrices2[key] || 0;
+                const servicePrice = servicePrices[key] || 0;
                 additionalServicesTotal += servicePrice;
                 if (servicePrice > 0) {
                     itemsHTML += `
@@ -2334,6 +2348,9 @@ class ReservationManager {
 
         // Generate PDF directly using jsPDF
         const { jsPDF } = window.jspdf;
+        if (!jsPDF) {
+            throw new Error('jsPDF constructor not available');
+        }
         const doc = new jsPDF({
             orientation: 'portrait',
             unit: 'mm',
@@ -2524,6 +2541,10 @@ class ReservationManager {
         doc.save(fileName);
         
         this.showNotification('¡Factura exportada exitosamente como PDF!', 'success');
+        } catch (error) {
+            console.error('Error exporting invoice:', error);
+            this.showNotification(`Error al exportar factura: ${error.message}. Por favor, verifica la consola del navegador para más detalles.`, 'error');
+        }
     }
 
     // Export reservations (bonus feature)
@@ -2571,7 +2592,21 @@ document.head.appendChild(style);
 // Initialize the reservation manager when the page loads
 let reservationManager;
 document.addEventListener('DOMContentLoaded', () => {
+    // Check if jsPDF libraries loaded
+    const checkLibraries = () => {
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+            console.warn('jsPDF library not detected. Checking again in 1 second...');
+            setTimeout(checkLibraries, 1000);
+            return;
+        }
+        console.log('✓ jsPDF library loaded successfully');
+    };
+    // Start checking after a short delay to allow scripts to load
+    setTimeout(checkLibraries, 500);
+    
     reservationManager = new ReservationManager();
+    // Make reservationManager globally accessible for debugging
+    window.reservationManager = reservationManager;
     
     // Set minimum date to today
     const today = new Date().toISOString().split('T')[0];
@@ -2623,4 +2658,41 @@ function nextMonth() {
     if (reservationManager) {
         reservationManager.nextMonth();
     }
+}
+
+function exportReservationInvoice(id) {
+    console.log('Export button clicked, ID:', id);
+    
+    // Check if ReservationManager is initialized
+    if (!reservationManager) {
+        console.error('ReservationManager not initialized');
+        alert('Error: El sistema no se ha inicializado correctamente. Por favor, recarga la página.');
+        return;
+    }
+    
+    // Check if jsPDF is loaded before attempting export
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        console.error('jsPDF not loaded. Script status:', {
+            'window.jspdf exists': !!window.jspdf,
+            'window.jspdf.jsPDF exists': !!(window.jspdf && window.jspdf.jsPDF),
+            'all scripts loaded': document.readyState
+        });
+        
+        const errorMsg = 'Error: Las librerías de PDF no se cargaron correctamente.\n\n' +
+                        'Posibles causas:\n' +
+                        '• Conexión a internet bloqueada o lenta\n' +
+                        '• Firewall/proxy bloqueando CDN (cdnjs.cloudflare.com)\n' +
+                        '• Extensiones del navegador bloqueando scripts\n' +
+                        '• Problemas de seguridad del navegador\n\n' +
+                        'Por favor:\n' +
+                        '1. Verifica tu conexión a internet\n' +
+                        '2. Revisa la consola del navegador (F12) para más detalles\n' +
+                        '3. Intenta recargar la página\n' +
+                        '4. Desactiva extensiones que puedan bloquear scripts';
+        alert(errorMsg);
+        return;
+    }
+    
+    // Proceed with export
+    reservationManager.exportReservationInvoice(id);
 }

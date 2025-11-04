@@ -7,8 +7,12 @@
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" 
+            onerror="console.error('Failed to load jsPDF library from CDN'); window.jspdfLoadError = true;"
+            onload="console.log('jsPDF library loaded successfully'); window.jspdfLoadSuccess = true;"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"
+            onerror="console.error('Failed to load jsPDF-autotable plugin from CDN'); window.jspdfAutotableLoadError = true;"
+            onload="console.log('jsPDF-autotable plugin loaded successfully'); window.jspdfAutotableLoadSuccess = true;"></script>
 </head>
 <body>
     <div class="app-container">
