@@ -893,13 +893,20 @@ class ReservationManager {
         const alcoholStateTax = isAlcoholic ? drinkCost * 0.105 : 0; // 10.5%
 
         // Additional services cost
+        const servicePrices = {
+            'audioVisual': 0, // Manteles has no cost
+            'decorations': 150,
+            'waitstaff': 100,
+            'valet': 50
+        };
+        
         const additionalServices = ['audioVisual', 'decorations', 'waitstaff', 'valet'];
         let additionalCost = 0;
         
         additionalServices.forEach(service => {
             const checkbox = document.getElementById(service);
             if (checkbox && checkbox.checked) {
-                additionalCost += parseFloat(checkbox.dataset.price);
+                additionalCost += servicePrices[service] || 0;
             }
         });
 
@@ -918,16 +925,16 @@ class ReservationManager {
         const totalTaxes = foodStateReducedTax + foodCityTax + alcoholStateTax;
         document.getElementById('taxSubtotal').textContent = `$${totalTaxes.toFixed(2)}`;
         
-        // Calculate subtotal (before tip)
-        const subtotalBeforeTip = roomCost + foodCost + drinkCost + entremesesCost + additionalCost + totalTaxes;
+        // Calculate subtotal (before taxes and tip)
+        const subtotalBeforeTaxes = roomCost + foodCost + drinkCost + entremesesCost + additionalCost;
         
-        // Calculate tip
+        // Calculate tip (from subtotal before taxes)
         const tipPercentage = parseFloat(document.getElementById('tipPercentage')?.value || 0);
-        const tipAmount = subtotalBeforeTip * (tipPercentage / 100);
+        const tipAmount = subtotalBeforeTaxes * (tipPercentage / 100);
         document.getElementById('tipAmount').textContent = `$${tipAmount.toFixed(2)} (${tipPercentage}%)`;
         
-        // Calculate final total (with tip)
-        const totalCost = subtotalBeforeTip + tipAmount;
+        // Calculate final total (subtotal + taxes + tip)
+        const totalCost = subtotalBeforeTaxes + totalTaxes + tipAmount;
         document.getElementById('totalCost').textContent = `$${totalCost.toFixed(2)}`;
         
         // Calculate deposit (20% of total cost)
@@ -950,7 +957,7 @@ class ReservationManager {
                 percentage: tipPercentage,
                 amount: tipAmount
             },
-            subtotalBeforeTip,
+            subtotalBeforeTaxes,
             totalCost,
             depositAmount,
             guestCount,
@@ -2232,7 +2239,7 @@ class ReservationManager {
         });
 
         // Calculate subtotal (before taxes) - use actual additional services total
-        const subtotal = reservation.pricing.roomCost + reservation.pricing.foodCost + reservation.pricing.drinkCost + additionalServicesTotal;
+        const subtotal = reservation.pricing.roomCost + reservation.pricing.foodCost + reservation.pricing.drinkCost + (reservation.pricing.entremesesCost || 0) + additionalServicesTotal;
         
         // Calculate balance
         const balance = reservation.pricing.totalCost - reservation.pricing.depositAmount;
@@ -2271,7 +2278,15 @@ class ReservationManager {
         if (reservation.beverages && Object.keys(reservation.beverages).length > 0) {
             const items = this.getBeverageItems();
             Object.entries(reservation.beverages).forEach(([id, qty]) => {
-                if (qty > 0) {
+                // Handle Mimosa separately - it's per person
+                if (id === 'mimosa' && qty === true) {
+                    const total = 3.95 * reservation.guestCount;
+                    itemsData.push({
+                        description: 'Mimosa',
+                        qty: reservation.guestCount.toString(),
+                        total: `$${total.toFixed(2)}`
+                    });
+                } else if (qty > 0 && typeof qty === 'number') {
                     const item = items.find(i => i.id === id);
                     if (item) {
                         const total = item.price * qty;
