@@ -25,8 +25,56 @@ class ReservationManager {
             item.addEventListener('click', () => {
                 const section = item.dataset.section;
                 this.showSection(section);
+                // Close mobile menu after selection
+                this.closeMobileMenu();
             });
         });
+
+        // Initialize mobile menu toggle
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+        const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
+        
+        if (mobileMenuToggle) {
+            mobileMenuToggle.addEventListener('click', () => {
+                this.toggleMobileMenu();
+            });
+        }
+
+        // Close mobile menu when clicking overlay
+        if (mobileMenuOverlay) {
+            mobileMenuOverlay.addEventListener('click', () => {
+                this.closeMobileMenu();
+            });
+        }
+    }
+
+    // Toggle mobile menu
+    toggleMobileMenu() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('mobileMenuOverlay');
+        if (sidebar) {
+            const isOpen = sidebar.classList.contains('mobile-open');
+            sidebar.classList.toggle('mobile-open');
+            if (overlay) {
+                if (isOpen) {
+                    overlay.classList.remove('active');
+                } else {
+                    overlay.classList.add('active');
+                }
+            }
+        }
+    }
+
+    // Close mobile menu
+    closeMobileMenu() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('mobileMenuOverlay');
+        if (sidebar) {
+            sidebar.classList.remove('mobile-open');
+        }
+        if (overlay) {
+            overlay.classList.remove('active');
+        }
     }
 
     // Show specific section
