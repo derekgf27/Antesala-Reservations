@@ -76,6 +76,33 @@ class ReservationManager {
             overlay.classList.remove('active');
         }
     }
+    
+    // Format phone number as user types
+    formatPhoneNumber(input) {
+        // Remove all non-numeric characters
+        let value = input.value.replace(/\D/g, '');
+        
+        // Limit to 10 digits
+        if (value.length > 10) {
+            value = value.substring(0, 10);
+        }
+        
+        // Format the phone number
+        input.value = this.formatPhoneNumberString(value);
+    }
+    
+    // Format phone number string
+    formatPhoneNumberString(numbersOnly) {
+        if (numbersOnly.length === 0) return '';
+        
+        if (numbersOnly.length <= 3) {
+            return numbersOnly;
+        } else if (numbersOnly.length <= 6) {
+            return `(${numbersOnly.substring(0, 3)}) ${numbersOnly.substring(3)}`;
+        } else {
+            return `(${numbersOnly.substring(0, 3)}) ${numbersOnly.substring(3, 6)}-${numbersOnly.substring(6, 10)}`;
+        }
+    }
 
     // Show specific section
     showSection(sectionId) {
@@ -123,6 +150,20 @@ class ReservationManager {
         const guestCountManual = document.getElementById('guestCountManual');
         const calculateBtn = document.getElementById('calculateBtn');
         const saveBtn = document.getElementById('saveBtn');
+        
+        // Phone number formatting
+        const clientPhone = document.getElementById('clientPhone');
+        if (clientPhone) {
+            clientPhone.addEventListener('input', (e) => {
+                this.formatPhoneNumber(e.target);
+            });
+            clientPhone.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+                const numbersOnly = pastedText.replace(/\D/g, '');
+                e.target.value = this.formatPhoneNumberString(numbersOnly);
+            });
+        }
         const openBeverageModalBtn = document.getElementById('openBeverageModalBtn');
         const editBeveragesBtn = document.getElementById('editBeveragesBtn');
         const beverageCloseBtn = document.getElementById('beverageCloseBtn');
@@ -190,13 +231,24 @@ class ReservationManager {
             this.updateGuestCountDisplay();
             this.syncGuestCountInputs();
             this.calculatePrice();
+            this.calculateTables();
         });
 
         // Guest count manual input
         guestCountManual.addEventListener('input', () => {
             this.syncGuestCountFromManual();
             this.calculatePrice();
+            this.calculateTables();
         });
+
+        // Table configuration event listeners
+        const tableType = document.getElementById('tableType');
+        
+        if (tableType) {
+            tableType.addEventListener('change', () => {
+                this.handleTableTypeChange();
+            });
+        }
 
         // Event type selection
         const eventType = document.getElementById('eventType');
@@ -352,6 +404,7 @@ class ReservationManager {
             'bev-white-wine-35-1': 'white-wine-35-1',
             'bev-white-wine-35-2': 'white-wine-35-2',
             'bev-white-wine-40': 'white-wine-40',
+            'bev-descorche': 'descorche',
         };
         
         // Clear all input fields and remove selected class
@@ -458,6 +511,7 @@ class ReservationManager {
             { id: 'white-wine-35-1', name: 'Botella de Vino Blanco ($35)', price: 35, alcohol: true },
             { id: 'white-wine-35-2', name: 'Botella de Vino Blanco ($35)', price: 35, alcohol: true },
             { id: 'white-wine-40', name: 'Botella de Vino Blanco ($40)', price: 40, alcohol: true },
+            { id: 'descorche', name: 'Descorche', price: 0, alcohol: false },
         ];
     }
 
@@ -496,6 +550,7 @@ class ReservationManager {
             'bev-white-wine-35-1': 'white-wine-35-1',
             'bev-white-wine-35-2': 'white-wine-35-2',
             'bev-white-wine-40': 'white-wine-40',
+            'bev-descorche': 'descorche',
         };
         Object.entries(map).forEach(([inputId, key]) => {
             const el = document.getElementById(inputId);
@@ -564,6 +619,7 @@ class ReservationManager {
             { inputId: 'bev-white-wine-35-1', key: 'white-wine-35-1' },
             { inputId: 'bev-white-wine-35-2', key: 'white-wine-35-2' },
             { inputId: 'bev-white-wine-40', key: 'white-wine-40' },
+            { inputId: 'bev-descorche', key: 'descorche' },
         ];
         const selections = {};
         inputs.forEach(({ inputId, key }) => {
@@ -640,7 +696,8 @@ class ReservationManager {
             if (el) {
                 const qty = this.entremesesSelections[key] || 0;
                 el.value = qty;
-                const wrapper = el.parentElement;
+                const quantitySelector = el.parentElement;
+                const wrapper = quantitySelector ? quantitySelector.parentElement : null;
                 if (wrapper) {
                     if (qty > 0) wrapper.classList.add('selected');
                     else wrapper.classList.remove('selected');
@@ -657,6 +714,8 @@ class ReservationManager {
         if (cevicheCheckbox) {
             cevicheCheckbox.checked = this.entremesesSelections['ceviche'] === true;
         }
+        // Attach handlers for plus/minus buttons
+        this.attachEntremesesInputHandlers();
         // Show with entrance animation
         modal.classList.remove('hidden');
         // Force reflow so the next class triggers transition
@@ -752,7 +811,8 @@ class ReservationManager {
             const el = document.getElementById(inputId);
             if (el) {
                 el.value = 0;
-                const wrapper = el.parentElement;
+                const quantitySelector = el.parentElement;
+                const wrapper = quantitySelector ? quantitySelector.parentElement : null;
                 if (wrapper) {
                     wrapper.classList.remove('selected');
                 }
@@ -773,27 +833,131 @@ class ReservationManager {
         // Clear the selections object
         this.entremesesSelections = {};
     }
-
-    attachBeverageInputHandlers() {
-        const modal = document.getElementById('beverageModal');
+    
+    attachEntremesesInputHandlers() {
+        const modal = document.getElementById('entremesesModal');
         if (!modal) return;
+        
+        // Handle plus/minus buttons
+        const plusButtons = modal.querySelectorAll('.quantity-plus[data-entremes]');
+        const minusButtons = modal.querySelectorAll('.quantity-minus[data-entremes]');
+        
+        plusButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const entremesId = btn.getAttribute('data-entremes');
+                const input = document.getElementById(entremesId);
+                if (input) {
+                    let currentValue = parseInt(input.value) || 0;
+                    input.value = currentValue + 1;
+                    this.updateEntremesesSelectionState(input);
+                }
+            });
+        });
+        
+        minusButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const entremesId = btn.getAttribute('data-entremes');
+                const input = document.getElementById(entremesId);
+                if (input) {
+                    let currentValue = parseInt(input.value) || 0;
+                    if (currentValue > 0) {
+                        input.value = currentValue - 1;
+                        this.updateEntremesesSelectionState(input);
+                    }
+                }
+            });
+        });
+        
+        // Keep input handlers for any edge cases (though inputs are now readonly)
         const numberInputs = modal.querySelectorAll('input[type="number"]');
         numberInputs.forEach(input => {
             input.oninput = () => {
                 const qty = parseInt(input.value) || 0;
                 if (qty < 0) input.value = 0;
-                const wrapper = input.parentElement;
-                if (!wrapper) return;
-                if (qty > 0) {
-                    if (!wrapper.classList.contains('selected')) {
-                        wrapper.classList.add('selected', 'just-selected');
-                        setTimeout(() => wrapper.classList.remove('just-selected'), 650);
-                    }
-                } else {
-                    wrapper.classList.remove('selected');
-                }
+                this.updateEntremesesSelectionState(input);
             };
         });
+    }
+    
+    updateEntremesesSelectionState(input) {
+        const qty = parseInt(input.value) || 0;
+        // Find the wrapper div (parent of quantity-selector, which is parent of input)
+        const quantitySelector = input.parentElement;
+        const wrapper = quantitySelector ? quantitySelector.parentElement : null;
+        
+        if (!wrapper) return;
+        
+        if (qty > 0) {
+            if (!wrapper.classList.contains('selected')) {
+                wrapper.classList.add('selected', 'just-selected');
+                setTimeout(() => wrapper.classList.remove('just-selected'), 650);
+            }
+        } else {
+            wrapper.classList.remove('selected');
+        }
+    }
+
+    attachBeverageInputHandlers() {
+        const modal = document.getElementById('beverageModal');
+        if (!modal) return;
+        
+        // Handle plus/minus buttons
+        const plusButtons = modal.querySelectorAll('.quantity-plus');
+        const minusButtons = modal.querySelectorAll('.quantity-minus');
+        
+        plusButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const beverageId = btn.getAttribute('data-beverage');
+                const input = document.getElementById(beverageId);
+                if (input) {
+                    let currentValue = parseInt(input.value) || 0;
+                    input.value = currentValue + 1;
+                    this.updateBeverageSelectionState(input);
+                }
+            });
+        });
+        
+        minusButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const beverageId = btn.getAttribute('data-beverage');
+                const input = document.getElementById(beverageId);
+                if (input) {
+                    let currentValue = parseInt(input.value) || 0;
+                    if (currentValue > 0) {
+                        input.value = currentValue - 1;
+                        this.updateBeverageSelectionState(input);
+                    }
+                }
+            });
+        });
+        
+        // Keep input handlers for any edge cases (though inputs are now readonly)
+        const numberInputs = modal.querySelectorAll('input[type="number"]');
+        numberInputs.forEach(input => {
+            input.oninput = () => {
+                const qty = parseInt(input.value) || 0;
+                if (qty < 0) input.value = 0;
+                this.updateBeverageSelectionState(input);
+            };
+        });
+    }
+    
+    updateBeverageSelectionState(input) {
+        const qty = parseInt(input.value) || 0;
+        // Find the wrapper div (parent of quantity-selector, which is parent of input)
+        const quantitySelector = input.parentElement;
+        const wrapper = quantitySelector ? quantitySelector.parentElement : null;
+        
+        if (!wrapper) return;
+        
+        if (qty > 0) {
+            if (!wrapper.classList.contains('selected')) {
+                wrapper.classList.add('selected', 'just-selected');
+                setTimeout(() => wrapper.classList.remove('just-selected'), 650);
+            }
+        } else {
+            wrapper.classList.remove('selected');
+        }
     }
 
     // Stable accordion animation (height transition with JS)
@@ -863,6 +1027,63 @@ class ReservationManager {
     }
 
     // Handle event type change
+    handleTableTypeChange() {
+        this.calculateTables();
+    }
+    
+    calculateTables() {
+        const guestCountManual = document.getElementById('guestCountManual');
+        const tableType = document.getElementById('tableType');
+        const tableCalculation = document.getElementById('tableCalculation');
+        const calculatedTableCount = document.getElementById('calculatedTableCount');
+        
+        if (!guestCountManual || !tableType || !tableCalculation || !calculatedTableCount) return;
+        
+        const guestCount = parseInt(guestCountManual.value) || parseInt(document.getElementById('guestCount')?.value) || 0;
+        const tableValue = tableType.value || '';
+        
+        // Parse table type and seats from value like "round-8" or "rectangular-10"
+        const parts = tableValue.split('-');
+        if (parts.length === 2) {
+            const seats = parseInt(parts[1]) || 0;
+            
+            if (guestCount > 0 && seats > 0) {
+                const tableCount = Math.ceil(guestCount / seats);
+                calculatedTableCount.textContent = tableCount;
+                tableCalculation.classList.remove('hidden');
+            } else {
+                tableCalculation.classList.add('hidden');
+            }
+        } else {
+            tableCalculation.classList.add('hidden');
+        }
+    }
+    
+    parseTableConfiguration(tableValue) {
+        if (!tableValue) return { tableType: null, seatsPerTable: null };
+        
+        const parts = tableValue.split('-');
+        if (parts.length === 2) {
+            return {
+                tableType: parts[0], // 'round' or 'rectangular'
+                seatsPerTable: parseInt(parts[1]) || null
+            };
+        }
+        return { tableType: null, seatsPerTable: null };
+    }
+    
+    formatTableConfiguration(tableType, seatsPerTable) {
+        if (!tableType || !seatsPerTable) return '';
+        return `${tableType}-${seatsPerTable}`;
+    }
+    
+    calculateTableCount(guestCount, seatsPerTable) {
+        if (guestCount > 0 && seatsPerTable > 0) {
+            return Math.ceil(guestCount / seatsPerTable);
+        }
+        return 0;
+    }
+
     handleEventTypeChange() {
         const eventType = document.getElementById('eventType');
         const otherEventTypeGroup = document.getElementById('otherEventTypeGroup');
@@ -1125,6 +1346,7 @@ class ReservationManager {
             eventTime: formData.get('eventTime'),
             eventType: eventType === 'other' ? formData.get('otherEventType') : eventType,
             eventDuration: formData.get('eventDuration'),
+            companyName: formData.get('companyName') || '',
             roomType: formData.get('roomType'),
             foodType: formData.get('foodType'),
             buffet: this.isBuffet(formData.get('foodType')) ? {
@@ -1140,11 +1362,15 @@ class ReservationManager {
             beverages: this.beverageSelections,
             entremeses: this.entremesesSelections,
             guestCount: pricing.guestCount,
-            tableConfiguration: {
-                tableType: null,
-                seatsPerTable: null,
-                tableCount: 0
-            },
+            tableConfiguration: (() => {
+                const tableValue = formData.get('tableType') || '';
+                const config = this.parseTableConfiguration(tableValue);
+                return {
+                    tableType: config.tableType,
+                    seatsPerTable: config.seatsPerTable,
+                    tableCount: this.calculateTableCount(pricing.guestCount, config.seatsPerTable)
+                };
+            })(),
             additionalServices: {
                 audioVisual: formData.get('audioVisual') === 'on',
                 decorations: formData.get('decorations') === 'on',
@@ -1497,6 +1723,12 @@ class ReservationManager {
                             <span class="detail-label">Tipo de Evento:</span>
                             <span class="detail-value">${reservation.eventType || 'N/A'}</span>
                         </div>
+                        ${reservation.companyName ? `
+                        <div class="detail-item">
+                            <span class="detail-label">Nombre de Compania:</span>
+                            <span class="detail-value">${reservation.companyName}</span>
+                        </div>
+                        ` : ''}
                         <div class="detail-item">
                             <span class="detail-label">Fecha:</span>
                             <span class="detail-value">${formattedDate}</span>
@@ -1523,6 +1755,12 @@ class ReservationManager {
                             <span class="detail-label">Número de Invitados:</span>
                             <span class="detail-value">${reservation.guestCount}</span>
                         </div>
+                        ${reservation.tableConfiguration?.tableType && reservation.tableConfiguration?.tableCount > 0 ? `
+                        <div class="detail-item">
+                            <span class="detail-label">Configuración de Mesas:</span>
+                            <span class="detail-value">${reservation.tableConfiguration.tableCount} ${reservation.tableConfiguration.tableCount === 1 ? 'Mesa' : 'Mesas'} ${reservation.tableConfiguration.tableType === 'round' ? 'Redonda' : 'Rectangular'}${reservation.tableConfiguration.seatsPerTable ? ` (${reservation.tableConfiguration.seatsPerTable} asientos c/u)` : ''}</span>
+                        </div>
+                        ` : ''}
                     </div>
                 </div>
                 
@@ -1855,8 +2093,20 @@ class ReservationManager {
 
     // Get table configuration display
     getTableConfigurationDisplay(tableConfig) {
-        // Table configuration has been removed, return empty string
-        return '';
+        if (!tableConfig || !tableConfig.tableType || tableConfig.tableCount === 0) {
+            return '';
+        }
+        const tableTypeNames = {
+            'round': 'Mesa Redonda',
+            'rectangular': 'Mesa Rectangular'
+        };
+        const tableTypeName = tableTypeNames[tableConfig.tableType] || tableConfig.tableType;
+        return `
+            <div class="reservation-detail">
+                <strong>Configuración de Mesas:</strong>
+                <span>${tableConfig.tableCount} ${tableConfig.tableCount === 1 ? 'Mesa' : 'Mesas'} ${tableTypeName}${tableConfig.seatsPerTable ? ` (${tableConfig.seatsPerTable} asientos c/u)` : ''}</span>
+            </div>
+        `;
     }
 
     // Get additional services display
@@ -1894,12 +2144,18 @@ class ReservationManager {
         // Populate form with reservation data
         document.getElementById('clientName').value = reservation.clientName;
         document.getElementById('clientEmail').value = reservation.clientEmail;
-        document.getElementById('clientPhone').value = reservation.clientPhone;
+        // Format phone number when loading into edit form
+        const clientPhoneInput = document.getElementById('clientPhone');
+        if (clientPhoneInput) {
+            const phoneNumbers = reservation.clientPhone.replace(/\D/g, '');
+            clientPhoneInput.value = this.formatPhoneNumberString(phoneNumbers);
+        }
         document.getElementById('eventDate').value = reservation.eventDate;
         document.getElementById('eventTime').value = reservation.eventTime;
+        document.getElementById('companyName').value = reservation.companyName || '';
         
         // Handle event type - check if it's a standard option or "other"
-        const standardEventTypes = ['wedding', 'birthdays', 'pharmaceutical', 'baptism', 'graduation'];
+        const standardEventTypes = ['wedding', 'birthdays', 'pharmaceutical', 'baptism', 'graduation', 'fiesta-navidad'];
         const eventTypeValue = reservation.eventType || '';
         if (standardEventTypes.includes(eventTypeValue)) {
             document.getElementById('eventType').value = eventTypeValue;
@@ -1911,6 +2167,17 @@ class ReservationManager {
         }
         
         document.getElementById('eventDuration').value = reservation.eventDuration;
+        document.getElementById('companyName').value = reservation.companyName || '';
+        // Handle table configuration
+        const tableType = document.getElementById('tableType');
+        if (tableType && reservation.tableConfiguration?.tableType && reservation.tableConfiguration?.seatsPerTable) {
+            const tableValue = this.formatTableConfiguration(
+                reservation.tableConfiguration.tableType,
+                reservation.tableConfiguration.seatsPerTable
+            );
+            tableType.value = tableValue;
+            this.calculateTables();
+        }
         document.getElementById('roomType').value = reservation.roomType;
         document.getElementById('foodType').value = reservation.foodType;
         // no drinkType select anymore
@@ -2495,6 +2762,13 @@ class ReservationManager {
         yPos += 8;
 
         // Client info (two columns for space efficiency)
+        // Show company name if available
+        if (reservation.companyName) {
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.text(`Company: ${reservation.companyName}`, 20, yPos);
+            yPos += 6;
+        }
         doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
         doc.text('ISSUED TO:', 20, yPos);

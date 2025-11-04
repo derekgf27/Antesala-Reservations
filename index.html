@@ -187,6 +187,7 @@
                                             <option value="pharmaceutical">Farmacéutico</option>
                                             <option value="baptism">Bautismo</option>
                                             <option value="graduation">Graduación</option>
+                                            <option value="fiesta-navidad">Fiesta de Navidad</option>
                                             <option value="other">Otro</option>
                                         </select>
                                     </div>
@@ -205,6 +206,10 @@
                                             <option value="6">6 horas</option>
                                             <option value="8">8 horas</option>
                                         </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="companyName">Nombre de Compania</label>
+                                        <input type="text" id="companyName" name="companyName" placeholder="Nombre de la compañía">
                                     </div>
                                 </div>
                             </div>
@@ -240,6 +245,25 @@
                                                 <label for="guestCountManual">O ingrese el número exacto:</label>
                                                 <input type="number" id="guestCountManual" name="guestCountManual" min="0" max="500" value="50" placeholder="Ingrese número de invitados">
                                             </div>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="tableType">Tipo de Mesa y Asientos</label>
+                                        <select id="tableType" name="tableType">
+                                            <option value="">Seleccionar Tipo de Mesa</option>
+                                            <option value="round-6">Mesa Redonda - 6 Asientos</option>
+                                            <option value="round-8">Mesa Redonda - 8 Asientos</option>
+                                            <option value="round-10">Mesa Redonda - 10 Asientos</option>
+                                            <option value="round-12">Mesa Redonda - 12 Asientos</option>
+                                            <option value="rectangular-6">Mesa Rectangular - 6 Asientos</option>
+                                            <option value="rectangular-8">Mesa Rectangular - 8 Asientos</option>
+                                            <option value="rectangular-10">Mesa Rectangular - 10 Asientos</option>
+                                            <option value="rectangular-12">Mesa Rectangular - 12 Asientos</option>
+                                        </select>
+                                    </div>
+                                    <div id="tableCalculation" class="table-calculation hidden">
+                                        <div class="table-info">
+                                            Número de Mesas Necesarias: <span id="calculatedTableCount">0</span>
                                         </div>
                                     </div>
                                 </div>
@@ -551,27 +575,51 @@
                         <div class="protein-grid">
                             <div>
                                 <label for="bev-michelob">Michelob ($72)</label>
-                                <input type="number" id="bev-michelob" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-michelob">−</button>
+                                    <input type="number" id="bev-michelob" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-michelob">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-medalla">Medalla ($72)</label>
-                                <input type="number" id="bev-medalla" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-medalla">−</button>
+                                    <input type="number" id="bev-medalla" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-medalla">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-heineken">Heineken ($72)</label>
-                                <input type="number" id="bev-heineken" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-heineken">−</button>
+                                    <input type="number" id="bev-heineken" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-heineken">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-coors">Coors Light ($72)</label>
-                                <input type="number" id="bev-coors" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-coors">−</button>
+                                    <input type="number" id="bev-coors" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-coors">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-corona">Corona ($72)</label>
-                                <input type="number" id="bev-corona" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-corona">−</button>
+                                    <input type="number" id="bev-corona" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-corona">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-modelo">Modelo ($72)</label>
-                                <input type="number" id="bev-modelo" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-modelo">−</button>
+                                    <input type="number" id="bev-modelo" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-modelo">+</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -583,51 +631,99 @@
                         <div id="liquorsContainer" class="protein-grid">
                             <div>
                                 <label for="bev-black-label-1l">1 Litro Black Label ($65)</label>
-                                <input type="number" id="bev-black-label-1l" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-black-label-1l">−</button>
+                                    <input type="number" id="bev-black-label-1l" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-black-label-1l">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-tito-1l">1 Litro Tito Vodka ($45)</label>
-                                <input type="number" id="bev-tito-1l" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-tito-1l">−</button>
+                                    <input type="number" id="bev-tito-1l" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-tito-1l">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-dewars-12-handle">Gancho Dewars 12 ($200)</label>
-                                <input type="number" id="bev-dewars-12-handle" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-dewars-12-handle">−</button>
+                                    <input type="number" id="bev-dewars-12-handle" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-dewars-12-handle">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-dewars-handle">Gancho Dewars Reg. ($150)</label>
-                                <input type="number" id="bev-dewars-handle" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-dewars-handle">−</button>
+                                    <input type="number" id="bev-dewars-handle" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-dewars-handle">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-donq-cristal-handle">Gancho Don Q Cristal ($75)</label>
-                                <input type="number" id="bev-donq-cristal-handle" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-donq-cristal-handle">−</button>
+                                    <input type="number" id="bev-donq-cristal-handle" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-donq-cristal-handle">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-donq-limon-handle">Gancho Don Q Limón ($75)</label>
-                                <input type="number" id="bev-donq-limon-handle" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-donq-limon-handle">−</button>
+                                    <input type="number" id="bev-donq-limon-handle" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-donq-limon-handle">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-donq-passion-handle">Gancho Don Q Passion ($75)</label>
-                                <input type="number" id="bev-donq-passion-handle" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-donq-passion-handle">−</button>
+                                    <input type="number" id="bev-donq-passion-handle" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-donq-passion-handle">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-donq-coco-handle">Gancho Don Q Coco ($75)</label>
-                                <input type="number" id="bev-donq-coco-handle" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-donq-coco-handle">−</button>
+                                    <input type="number" id="bev-donq-coco-handle" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-donq-coco-handle">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-donq-naranja-handle">Gancho Don Q Naranja ($75)</label>
-                                <input type="number" id="bev-donq-naranja-handle" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-donq-naranja-handle">−</button>
+                                    <input type="number" id="bev-donq-naranja-handle" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-donq-naranja-handle">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-donq-oro-handle">Gancho Don Q Oro ($75)</label>
-                                <input type="number" id="bev-donq-oro-handle" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-donq-oro-handle">−</button>
+                                    <input type="number" id="bev-donq-oro-handle" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-donq-oro-handle">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-tito-handle">Gancho Tito Vodka ($150)</label>
-                                <input type="number" id="bev-tito-handle" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-tito-handle">−</button>
+                                    <input type="number" id="bev-tito-handle" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-tito-handle">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-sangria">Jarra de Sangria ($25)</label>
-                                <input type="number" id="bev-sangria" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-sangria">−</button>
+                                    <input type="number" id="bev-sangria" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-sangria">+</button>
+                                </div>
                             </div>
                             
                         </div>
@@ -640,43 +736,91 @@
                         <div class="protein-grid">
                             <div>
                                 <label for="bev-red-wine-25">Botella de Vino Tinto ($25)</label>
-                                <input type="number" id="bev-red-wine-25" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-red-wine-25">−</button>
+                                    <input type="number" id="bev-red-wine-25" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-red-wine-25">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-red-wine-30">Botella de Vino Tinto ($30)</label>
-                                <input type="number" id="bev-red-wine-30" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-red-wine-30">−</button>
+                                    <input type="number" id="bev-red-wine-30" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-red-wine-30">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-red-wine-35-1">Botella de Vino Tinto ($35)</label>
-                                <input type="number" id="bev-red-wine-35-1" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-red-wine-35-1">−</button>
+                                    <input type="number" id="bev-red-wine-35-1" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-red-wine-35-1">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-red-wine-35-2">Botella de Vino Tinto ($35)</label>
-                                <input type="number" id="bev-red-wine-35-2" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-red-wine-35-2">−</button>
+                                    <input type="number" id="bev-red-wine-35-2" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-red-wine-35-2">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-red-wine-40">Botella de Vino Tinto ($40)</label>
-                                <input type="number" id="bev-red-wine-40" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-red-wine-40">−</button>
+                                    <input type="number" id="bev-red-wine-40" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-red-wine-40">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-white-wine-25">Botella de Vino Blanco ($25)</label>
-                                <input type="number" id="bev-white-wine-25" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-white-wine-25">−</button>
+                                    <input type="number" id="bev-white-wine-25" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-white-wine-25">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-white-wine-30">Botella de Vino Blanco ($30)</label>
-                                <input type="number" id="bev-white-wine-30" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-white-wine-30">−</button>
+                                    <input type="number" id="bev-white-wine-30" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-white-wine-30">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-white-wine-35-1">Botella de Vino Blanco ($35)</label>
-                                <input type="number" id="bev-white-wine-35-1" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-white-wine-35-1">−</button>
+                                    <input type="number" id="bev-white-wine-35-1" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-white-wine-35-1">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-white-wine-35-2">Botella de Vino Blanco ($35)</label>
-                                <input type="number" id="bev-white-wine-35-2" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-white-wine-35-2">−</button>
+                                    <input type="number" id="bev-white-wine-35-2" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-white-wine-35-2">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-white-wine-40">Botella de Vino Blanco ($40)</label>
-                                <input type="number" id="bev-white-wine-40" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-white-wine-40">−</button>
+                                    <input type="number" id="bev-white-wine-40" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-white-wine-40">+</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="bev-descorche">Descorche</label>
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-descorche">−</button>
+                                    <input type="number" id="bev-descorche" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-descorche">+</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -688,11 +832,19 @@
                         <div class="protein-grid">
                             <div>
                                 <label for="bev-soft-drinks">Caja de Refrescos (24) ($35)</label>
-                                <input type="number" id="bev-soft-drinks" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-soft-drinks">−</button>
+                                    <input type="number" id="bev-soft-drinks" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-soft-drinks">+</button>
+                                </div>
                             </div>
                             <div>
                                 <label for="bev-water">Caja de Agua (24) ($20)</label>
-                                <input type="number" id="bev-water" min="0" value="0">
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-water">−</button>
+                                    <input type="number" id="bev-water" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-water">+</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -725,19 +877,35 @@
                 <div class="protein-grid">
                     <div>
                         <label for="entr-bandeja-surtido">Bandeja de Surtido ($100)</label>
-                        <input type="number" id="entr-bandeja-surtido" min="0" value="0">
+                        <div class="quantity-selector">
+                            <button type="button" class="quantity-btn quantity-minus" data-entremes="entr-bandeja-surtido">−</button>
+                            <input type="number" id="entr-bandeja-surtido" min="0" value="0" readonly>
+                            <button type="button" class="quantity-btn quantity-plus" data-entremes="entr-bandeja-surtido">+</button>
+                        </div>
                     </div>
                     <div>
                         <label for="entr-media-bandeja">Media Bandeja de Surtidos ($50)</label>
-                        <input type="number" id="entr-media-bandeja" min="0" value="0">
+                        <div class="quantity-selector">
+                            <button type="button" class="quantity-btn quantity-minus" data-entremes="entr-media-bandeja">−</button>
+                            <input type="number" id="entr-media-bandeja" min="0" value="0" readonly>
+                            <button type="button" class="quantity-btn quantity-plus" data-entremes="entr-media-bandeja">+</button>
+                        </div>
                     </div>
                     <div>
                         <label for="entr-bandeja-cortes-frios">Bandeja Cortes Frios ($150)</label>
-                        <input type="number" id="entr-bandeja-cortes-frios" min="0" value="0">
+                        <div class="quantity-selector">
+                            <button type="button" class="quantity-btn quantity-minus" data-entremes="entr-bandeja-cortes-frios">−</button>
+                            <input type="number" id="entr-bandeja-cortes-frios" min="0" value="0" readonly>
+                            <button type="button" class="quantity-btn quantity-plus" data-entremes="entr-bandeja-cortes-frios">+</button>
+                        </div>
                     </div>
                     <div>
                         <label for="entr-platos-entremeses">Platos de Entremeses ($20)</label>
-                        <input type="number" id="entr-platos-entremeses" min="0" value="0">
+                        <div class="quantity-selector">
+                            <button type="button" class="quantity-btn quantity-minus" data-entremes="entr-platos-entremeses">−</button>
+                            <input type="number" id="entr-platos-entremeses" min="0" value="0" readonly>
+                            <button type="button" class="quantity-btn quantity-plus" data-entremes="entr-platos-entremeses">+</button>
+                        </div>
                     </div>
                 </div>
                 <div class="form-group entremeses-asopao-group">
