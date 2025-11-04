@@ -1563,6 +1563,10 @@ class ReservationManager {
                             </span>
                         </div>
                         ` : ''}
+                        <div class="pricing-row balance-row">
+                            <span>Balance:</span>
+                            <span>$${((reservation.depositPaid ? reservation.pricing.totalCost - reservation.pricing.depositAmount : reservation.pricing.totalCost)).toFixed(2)}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1742,6 +1746,10 @@ class ReservationManager {
                         </span>
                     </div>
                     ` : ''}
+                    <div class="reservation-detail">
+                        <strong>Balance:</strong>
+                        <span>$${((reservation.depositPaid ? reservation.pricing.totalCost - reservation.pricing.depositAmount : reservation.pricing.totalCost)).toFixed(2)}</span>
+                    </div>
                 </div>
                 ${this.getTableConfigurationDisplay(reservation.tableConfiguration)}
                 ${this.getAdditionalServicesDisplay(reservation.additionalServices)}
@@ -2271,8 +2279,10 @@ class ReservationManager {
         // Calculate subtotal (before taxes) - use actual additional services total
         const subtotal = reservation.pricing.roomCost + reservation.pricing.foodCost + reservation.pricing.drinkCost + (reservation.pricing.entremesesCost || 0) + additionalServicesTotal;
         
-        // Calculate balance
-        const balance = reservation.pricing.totalCost - reservation.pricing.depositAmount;
+        // Calculate balance: if deposit is paid, subtract it; if not paid, balance equals total
+        const balance = reservation.depositPaid 
+            ? reservation.pricing.totalCost - reservation.pricing.depositAmount 
+            : reservation.pricing.totalCost;
 
         // Build items array for PDF table
         const itemsData = [];
@@ -2545,8 +2555,12 @@ class ReservationManager {
 
         doc.setFontSize(10);
         doc.setTextColor(242, 123, 33);
-        doc.text('DEPOSITO 20%', 20, yPos);
-        const depositText = `$${reservation.pricing.depositAmount.toFixed(2)} ${reservation.depositPaid ? '✓ PAID' : ''}`;
+        doc.text('Deposito a Pagar', 20, yPos);
+        const depositAmount = reservation.pricing.depositAmount || 0;
+        let depositText = `$${depositAmount.toFixed(2)}`;
+        if (reservation.depositPaid) {
+            depositText += ' - PAID';
+        }
         doc.text(depositText, 190, yPos, { align: 'right' });
         yPos += 7;
 
