@@ -22,10 +22,10 @@ body {
 /* Mobile Menu Toggle Button */
 .mobile-menu-toggle {
     display: none;
-    position: fixed;
-    top: 20px;
-    right: 60px;
-    z-index: 1001;
+    position: absolute;
+    top: 30px;
+    right: 30px;
+    z-index: 1002;
     background: #3F4B5B;
     color: white;
     border: none;
@@ -35,6 +35,7 @@ body {
     font-size: 1.2rem;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     transition: all 0.3s ease;
+    pointer-events: auto;
 }
 
 .mobile-menu-toggle:hover {
@@ -74,11 +75,13 @@ body {
     z-index: 999;
     opacity: 0;
     transition: opacity 0.3s ease;
+    pointer-events: none;
 }
 
 .mobile-menu-overlay.active {
     display: block;
     opacity: 1;
+    pointer-events: auto;
 }
 
 .sidebar-footer {
@@ -800,6 +803,61 @@ body {
     animation: pulseSelect 0.6s ease-out;
 }
 
+/* Quantity Selector Styles */
+.quantity-selector {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+    max-width: 150px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+}
+
+.quantity-btn {
+    background: #3F4B5B;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    min-width: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.quantity-btn:hover {
+    background: #2d3748;
+}
+
+.quantity-btn:active {
+    transform: scale(0.95);
+}
+
+.quantity-selector input[type="number"] {
+    flex: 1;
+    border: none;
+    text-align: center;
+    padding: 10px 5px;
+    font-size: 1rem;
+    font-weight: 600;
+    background: white;
+    min-width: 50px;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.quantity-selector input[type="number"]::-webkit-outer-spin-button,
+.quantity-selector input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
 @media (max-width: 600px) {
     .modal .protein-grid > div {
         flex-direction: column;
@@ -807,6 +865,9 @@ body {
     }
     .modal .protein-grid input[type="number"] {
         width: 100%;
+    }
+    .quantity-selector {
+        max-width: 100%;
     }
 }
 
@@ -941,6 +1002,8 @@ body {
     align-items: center;
     gap: 8px;
     text-align: center;
+    position: relative;
+    z-index: 10;
 }
 
 .btn-primary {
@@ -1055,6 +1118,7 @@ body {
     display: flex;
     gap: 10px;
     justify-content: flex-end;
+    margin-top: 20px;
 }
 
 .btn-small {
@@ -1554,8 +1618,20 @@ body {
     }
     
     .main-content {
+        position: relative;
+        z-index: 1;
         margin-left: 0;
         padding: 20px;
+    }
+    
+    .mobile-menu-toggle {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+    }
+    
+    .section-header {
+        padding-right: 80px;
     }
     
     .form-grid {
