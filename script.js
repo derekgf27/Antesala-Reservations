@@ -220,7 +220,7 @@ class ReservationManager {
         // Real-time updates for pricing
         const pricingInputs = [
             'roomType', 'foodType', 'drinkType', 'eventDuration',
-            'audioVisual', 'decorations', 'waitstaff', 'valet', 'tipPercentage'
+            'audioVisual', 'decorations', 'waitstaff', 'valet', 'tipPercentage', 'depositPercentage'
         ];
 
         pricingInputs.forEach(inputId => {
@@ -1149,13 +1149,8 @@ class ReservationManager {
         const foodType = document.getElementById('foodType');
         const eventDuration = parseInt(document.getElementById('eventDuration').value) || 1;
 
-        // Room cost - only apply if "No Food Service" is selected
-        const foodTypeValue = foodType.value;
-        let roomCost = 0;
-        if (foodTypeValue === 'no-food') {
-        const roomPrice = roomType.selectedOptions[0]?.dataset.price || 0;
-            roomCost = parseFloat(roomPrice) * eventDuration;
-        }
+        // Room cost - event spaces are now free (no cost)
+        const roomCost = 0;
 
         // Food cost
         const foodPrice = foodType.selectedOptions[0]?.dataset.price || 0;
@@ -1247,9 +1242,10 @@ class ReservationManager {
         const totalCost = subtotalBeforeTaxes + totalTaxes + tipAmount;
         document.getElementById('totalCost').textContent = `$${totalCost.toFixed(2)}`;
         
-        // Calculate deposit (20% of total cost)
-        const depositAmount = totalCost * 0.20;
-        document.getElementById('depositAmount').textContent = `$${depositAmount.toFixed(2)}`;
+        // Calculate deposit (based on selected percentage of total cost)
+        const depositPercentage = parseFloat(document.getElementById('depositPercentage')?.value || 20);
+        const depositAmount = totalCost * (depositPercentage / 100);
+        document.getElementById('depositAmount').textContent = `$${depositAmount.toFixed(2)} (${depositPercentage}%)`;
 
         return {
             roomCost,
@@ -1270,6 +1266,7 @@ class ReservationManager {
             subtotalBeforeTaxes,
             totalCost,
             depositAmount,
+            depositPercentage,
             guestCount,
             eventDuration
         };
@@ -1424,6 +1421,7 @@ class ReservationManager {
                 valet: formData.get('valet') === 'on'
             },
             tipPercentage: parseFloat(formData.get('tipPercentage') || 0),
+            depositPercentage: parseFloat(formData.get('depositPercentage') || 20),
             depositPaid: false, // Default to unpaid, can be toggled later
             pricing: pricing,
             createdAt: new Date().toISOString()
@@ -1459,7 +1457,9 @@ class ReservationManager {
         document.getElementById('taxSubtotal').textContent = '$0.00';
         document.getElementById('tipAmount').textContent = '$0.00 (0%)';
         document.getElementById('totalCost').textContent = '$0.00';
-        document.getElementById('depositAmount').textContent = '$0.00';
+        document.getElementById('depositAmount').textContent = '$0.00 (20%)';
+        const depositPercentage = document.getElementById('depositPercentage');
+        if (depositPercentage) depositPercentage.value = '20';
         
         // Hide alcohol tax row if visible
         const alcoholRow = document.getElementById('alcoholTaxRow');
@@ -1883,7 +1883,7 @@ class ReservationManager {
                         </div>
                         ${reservation.pricing.depositAmount > 0 ? `
                         <div class="pricing-row deposit-row">
-                            <span>Depósito (20%):</span>
+                            <span>Depósito (${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%):</span>
                             <span>
                                 $${reservation.pricing.depositAmount.toFixed(2)}
                                 <span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" onclick="reservationManager.toggleDepositStatus('${reservation.id}')" data-reservation-id="${reservation.id}">
@@ -2281,6 +2281,12 @@ class ReservationManager {
         const tipPercentageEl = document.getElementById('tipPercentage');
         if (tipPercentageEl) {
             tipPercentageEl.value = tipPercentage.toString();
+        }
+
+        const depositPercentage = reservation.depositPercentage || reservation.pricing?.depositPercentage || 20;
+        const depositPercentageEl = document.getElementById('depositPercentage');
+        if (depositPercentageEl) {
+            depositPercentageEl.value = depositPercentage.toString();
         }
 
         // Update displays

@@ -229,9 +229,9 @@
                                         <label for="roomType">Espacio para Evento</label>
                                         <select id="roomType" name="roomType" required>
                                             <option value="">Seleccionar Espacio</option>
-                                            <option value="grand-hall" data-price="0">Salon 1 </option>
-                                            <option value="intimate-room" data-price="100">Salon 2 - $100/hour</option>
-                                            <option value="outdoor-terrace" data-price="150">Salon 3 - $150/hour</option>
+                                            <option value="grand-hall" data-price="0">Salon 1</option>
+                                            <option value="intimate-room" data-price="0">Salon 2</option>
+                                            <option value="outdoor-terrace" data-price="0">Salon 3</option>
                                         </select>
                                     </div>
                                     <div class="form-group">
@@ -388,8 +388,17 @@
                                             <span id="totalCost">$0</span>
                                         </div>
                                         <div class="pricing-item deposit">
-                                            <span>Depósito (20%):</span>
-                                            <span id="depositAmount">$0</span>
+                                            <label for="depositPercentage" class="tip-label">Depósito:</label>
+                                            <select id="depositPercentage" name="depositPercentage" class="tip-select">
+                                                <option value="0">Sin Depósito</option>
+                                                <option value="10">10%</option>
+                                                <option value="15">15%</option>
+                                                <option value="20" selected>20%</option>
+                                                <option value="25">25%</option>
+                                                <option value="30">30%</option>
+                                                <option value="50">50%</option>
+                                            </select>
+                                            <span id="depositAmount" class="tip-amount">$0.00</span>
                                         </div>
                                     </div>
                                     <div class="form-actions">
