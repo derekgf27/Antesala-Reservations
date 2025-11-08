@@ -1,12 +1,14 @@
 // Reservation Management System
 class ReservationManager {
     constructor() {
-        this.reservations = this.loadReservations();
+        this.reservations = [];
         this.beverageSelections = {};
         this.entremesesSelections = {};
         this.currentSection = 'dashboard';
         this.currentCalendarMonth = new Date().getMonth();
         this.currentCalendarYear = new Date().getFullYear();
+        this.firebaseUnsubscribe = null;
+        this.initializeStorage();
         this.initializeEventListeners();
         this.initializeNavigation();
         this.updateGuestCountDisplay();
@@ -16,6 +18,45 @@ class ReservationManager {
         this.updateEntremesesSummary();
         this.updateDashboard();
         this.displayReservations();
+    }
+
+    // Initialize storage (Firebase or localStorage)
+    async initializeStorage() {
+        // Wait a bit for Firebase to initialize
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        if (window.FIREBASE_LOADED && window.firestore) {
+            console.log('Using Firebase Firestore for data storage');
+            await this.loadReservationsFromFirestore();
+            this.setupFirestoreListener();
+        } else {
+            console.log('Using localStorage for data storage');
+            this.reservations = this.loadReservationsFromLocalStorage();
+        }
+        this.displayReservations();
+        this.updateDashboard();
+    }
+
+    // Setup real-time Firestore listener
+    setupFirestoreListener() {
+        if (!window.FIREBASE_LOADED || !window.firestore) return;
+
+        const reservationsRef = window.firestore.collection('reservations');
+        
+        this.firebaseUnsubscribe = reservationsRef.onSnapshot((snapshot) => {
+            const reservations = [];
+            snapshot.forEach((doc) => {
+                reservations.push(doc.data());
+            });
+            // Sort by date
+            reservations.sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate));
+            this.reservations = reservations;
+            this.displayReservations();
+            this.updateDashboard();
+            console.log('Reservations synced from Firestore:', reservations.length);
+        }, (error) => {
+            console.error('Firestore sync error:', error);
+        });
     }
 
     // Initialize navigation
@@ -1235,7 +1276,7 @@ class ReservationManager {
     }
 
     // Save reservation
-    saveReservation() {
+    async saveReservation() {
         const formEl = document.getElementById('reservationForm');
         const formData = new FormData(formEl);
         const pricing = this.calculatePrice();
@@ -1260,6 +1301,11 @@ class ReservationManager {
             
             // Skip email field (it's optional)
             if (field.id === 'clientEmail' || field.name === 'clientEmail') {
+                return;
+            }
+            
+            // Skip company name field (it's optional)
+            if (field.id === 'companyName' || field.name === 'companyName') {
                 return;
             }
             
@@ -1385,10 +1431,7 @@ class ReservationManager {
 
         // Add to reservations
         this.reservations.push(reservation);
-        this.saveReservations();
-        
-        // Reload reservations from localStorage to ensure sync
-        this.reservations = this.loadReservations();
+        await this.saveReservations();
         this.displayReservations();
         this.clearForm();
 
@@ -2069,6 +2112,8 @@ class ReservationManager {
         const foodNames = {
             'individual-plates': 'Platos Individuales',
             'cocktail-reception': 'Recepción de Cóctel',
+            'desayuno-9.95': 'Desayuno $9.95',
+            'desayuno-10.95': 'Desayuno $10.95',
             'no-food': 'Sin Servicio de Comida'
         };
         return foodNames[foodType] || foodType;
@@ -2376,13 +2421,84 @@ class ReservationManager {
     }
 
     // Local storage methods
-    saveReservations() {
+    // Save reservations to storage (Firestore or localStorage)
+    async saveReservations() {
+        if (window.FIREBASE_LOADED && window.firestore) {
+            await this.saveReservationsToFirestore();
+        } else {
+            this.saveReservationsToLocalStorage();
+        }
+    }
+
+    // Save to Firestore
+    async saveReservationsToFirestore() {
+        if (!window.FIREBASE_LOADED || !window.firestore) return;
+
+        try {
+            const batch = window.firestore.batch();
+            const reservationsRef = window.firestore.collection('reservations');
+
+            // Delete all existing documents first
+            const snapshot = await reservationsRef.get();
+            snapshot.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+
+            // Add all current reservations
+            this.reservations.forEach((reservation) => {
+                const docRef = reservationsRef.doc(reservation.id);
+                batch.set(docRef, reservation);
+            });
+
+            await batch.commit();
+            console.log('Reservations saved to Firestore:', this.reservations.length);
+        } catch (error) {
+            console.error('Error saving to Firestore:', error);
+            // Fallback to localStorage on error
+            this.saveReservationsToLocalStorage();
+        }
+    }
+
+    // Load from Firestore
+    async loadReservationsFromFirestore() {
+        if (!window.FIREBASE_LOADED || !window.firestore) return [];
+
+        try {
+            const snapshot = await window.firestore.collection('reservations').get();
+            const reservations = [];
+            snapshot.forEach((doc) => {
+                reservations.push(doc.data());
+            });
+            // Sort by date
+            reservations.sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate));
+            this.reservations = reservations;
+            console.log('Reservations loaded from Firestore:', reservations.length);
+            return reservations;
+        } catch (error) {
+            console.error('Error loading from Firestore:', error);
+            // Fallback to localStorage on error
+            return this.loadReservationsFromLocalStorage();
+        }
+    }
+
+    // Save to localStorage
+    saveReservationsToLocalStorage() {
         localStorage.setItem('antesalaReservations', JSON.stringify(this.reservations));
     }
 
-    loadReservations() {
+    // Load from localStorage
+    loadReservationsFromLocalStorage() {
         const saved = localStorage.getItem('antesalaReservations');
         return saved ? JSON.parse(saved) : [];
+    }
+
+    // Legacy method for backward compatibility
+    loadReservations() {
+        if (window.FIREBASE_LOADED && window.firestore) {
+            return this.reservations; // Already loaded via listener
+        } else {
+            return this.loadReservationsFromLocalStorage();
+        }
     }
 
     // Export reservation as invoice
@@ -2398,8 +2514,12 @@ class ReservationManager {
             }
             console.log('jsPDF library loaded successfully');
 
-            // Reload reservations from localStorage to ensure we have the latest data
-            this.reservations = this.loadReservations();
+            // Reload reservations to ensure we have the latest data
+            if (window.FIREBASE_LOADED && window.firestore) {
+                await this.loadReservationsFromFirestore();
+            } else {
+                this.reservations = this.loadReservations();
+            }
             console.log('Total reservations loaded:', this.reservations.length);
             console.log('Looking for reservation ID:', id);
             console.log('Available reservation IDs:', this.reservations.map(r => r.id));
