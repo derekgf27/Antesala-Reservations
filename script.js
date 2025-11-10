@@ -404,7 +404,7 @@ class ReservationManager {
     }
 
     clearBuffetSelections() {
-        ['buffetRice','buffetProtein1','buffetProtein2','buffetSide','buffetSalad']
+        ['buffetRice','buffetRice2','buffetProtein1','buffetProtein2','buffetSide','buffetSalad']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         const panecillosEl = document.getElementById('buffetPanecillos');
         if (panecillosEl) panecillosEl.checked = false;
@@ -492,6 +492,7 @@ class ReservationManager {
         }
 
         const rice = document.getElementById('buffetRice');
+        const rice2 = document.getElementById('buffetRice2');
         const p1 = document.getElementById('buffetProtein1');
         const p2 = document.getElementById('buffetProtein2');
         const side = document.getElementById('buffetSide');
@@ -501,6 +502,7 @@ class ReservationManager {
 
         const items = [];
         if (rice?.value) items.push(`<li>Arroz: ${rice.selectedOptions[0].text}</li>`);
+        if (rice2?.value) items.push(`<li>${rice2.selectedOptions[0].text}</li>`);
         if (p1?.value) items.push(`<li>Proteína 1: ${p1.selectedOptions[0].text}</li>`);
         if (p2?.value) items.push(`<li>Proteína 2: ${p2.selectedOptions[0].text}</li>`);
         if (side?.value) items.push(`<li>Complemento: ${side.selectedOptions[0].text}</li>`);
@@ -1339,6 +1341,7 @@ class ReservationManager {
         let buffetSelections = null;
         if (this.isBuffet(formData.get('foodType'))) {
             const riceEl = document.getElementById('buffetRice');
+            const rice2El = document.getElementById('buffetRice2');
             const p1El = document.getElementById('buffetProtein1');
             const p2El = document.getElementById('buffetProtein2');
             const sideEl = document.getElementById('buffetSide');
@@ -1348,6 +1351,7 @@ class ReservationManager {
 
             buffetSelections = {
                 rice: riceEl?.value || '',
+                rice2: rice2El?.value || '',
                 protein1: p1El?.value || '',
                 protein2: p2El?.value || '',
                 side: sideEl?.value || '',
@@ -1394,6 +1398,7 @@ class ReservationManager {
             foodType: formData.get('foodType'),
             buffet: this.isBuffet(formData.get('foodType')) ? {
                 rice: buffetSelections?.rice || null,
+                rice2: buffetSelections?.rice2 || null,
                 protein1: buffetSelections?.protein1 || null,
                 protein2: buffetSelections?.protein2 || null,
                 side: buffetSelections?.side || null,
@@ -1816,6 +1821,7 @@ class ReservationManager {
                             ${this.isBuffet(reservation.foodType) && reservation.buffet ? `
                             <ul class="detail-bullet-list">
                                 ${reservation.buffet.rice ? `<li>${this.getBuffetItemName('rice', reservation.buffet.rice)}</li>` : ''}
+                                ${reservation.buffet.rice2 ? `<li>${this.getBuffetItemName('rice', reservation.buffet.rice2)}</li>` : ''}
                                 ${reservation.buffet.protein1 ? `<li>${this.getBuffetItemName('protein', reservation.buffet.protein1)}</li>` : ''}
                                 ${reservation.buffet.protein2 ? `<li>${this.getBuffetItemName('protein', reservation.buffet.protein2)}</li>` : ''}
                                 ${reservation.buffet.side ? `<li>${this.getBuffetItemName('side', reservation.buffet.side)}</li>` : ''}
@@ -2251,11 +2257,13 @@ class ReservationManager {
         if (this.isBuffet(reservation.foodType)) {
             const buffet = reservation.buffet || {};
             const riceEl = document.getElementById('buffetRice');
+            const rice2El = document.getElementById('buffetRice2');
             const p1El = document.getElementById('buffetProtein1');
             const p2El = document.getElementById('buffetProtein2');
             const sideEl = document.getElementById('buffetSide');
             const saladEl = document.getElementById('buffetSalad');
             if (riceEl) riceEl.value = buffet.rice || '';
+            if (rice2El) rice2El.value = buffet.rice2 || '';
             if (p1El) p1El.value = buffet.protein1 || '';
             if (p2El) p2El.value = buffet.protein2 || '';
             if (sideEl) sideEl.value = buffet.side || '';
@@ -2578,6 +2586,7 @@ class ReservationManager {
         if (this.isBuffet(reservation.foodType) && reservation.buffet) {
             const buffetItems = [];
             if (reservation.buffet.rice) buffetItems.push(this.getBuffetItemName('rice', reservation.buffet.rice));
+            if (reservation.buffet.rice2) buffetItems.push(this.getBuffetItemName('rice', reservation.buffet.rice2));
             if (reservation.buffet.protein1) buffetItems.push(this.getBuffetItemName('protein', reservation.buffet.protein1));
             if (reservation.buffet.protein2) buffetItems.push(this.getBuffetItemName('protein', reservation.buffet.protein2));
             if (reservation.buffet.side) buffetItems.push(this.getBuffetItemName('side', reservation.buffet.side));
@@ -2732,6 +2741,7 @@ class ReservationManager {
         if (this.isBuffet(reservation.foodType) && reservation.buffet) {
             const buffetItems = [];
             if (reservation.buffet.rice) buffetItems.push(this.getBuffetItemName('rice', reservation.buffet.rice));
+            if (reservation.buffet.rice2) buffetItems.push(this.getBuffetItemName('rice', reservation.buffet.rice2));
             if (reservation.buffet.protein1) buffetItems.push(this.getBuffetItemName('protein', reservation.buffet.protein1));
             if (reservation.buffet.protein2) buffetItems.push(this.getBuffetItemName('protein', reservation.buffet.protein2));
             if (reservation.buffet.side) buffetItems.push(this.getBuffetItemName('side', reservation.buffet.side));
