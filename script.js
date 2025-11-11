@@ -3056,7 +3056,11 @@ El restaurante no se hace responsable por cancelaciones debidas a eventos fuera 
 
 10. Firma y Aceptación
 
-El cliente reconoce haber leído y aceptado estos términos y condiciones al firmar el contrato de reservación.`;
+El cliente reconoce haber leído y aceptado estos términos y condiciones al firmar el contrato de reservación.
+
+11. Confeti y Pirotecnia
+
+Queda estrictamente prohibido el uso de confeti, serpentinas, pirotecnia, fuegos artificiales o cualquier material similar dentro o fuera del salón. El uso de estos elementos puede causar daños al salón, representar un riesgo de seguridad y generar costos adicionales de limpieza. El cliente será responsable de cualquier daño o costo adicional resultante del uso no autorizado de estos materiales. En caso de incumplimiento, el salón se reserva el derecho de aplicar cargos adicionales y/o terminar el evento inmediatamente.`;
 
         // Split text into lines and format
         const termsLines = doc.splitTextToSize(termsText, 170);
