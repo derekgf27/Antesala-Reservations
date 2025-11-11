@@ -2835,7 +2835,7 @@ class ReservationManager {
             format: 'a4'
         });
 
-        let yPos = 8;
+        let yPos = 5;
 
         // Add logo
         if (logoBase64) {
