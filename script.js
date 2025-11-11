@@ -1430,6 +1430,11 @@ class ReservationManager {
                 return;
             }
             
+            // Skip breakfast field (it's optional - defaults to "Sin Desayuno")
+            if (field.id === 'breakfastType' || field.name === 'breakfastType') {
+                return;
+            }
+            
             const value = field.value ? field.value.trim() : '';
             const fieldId = field.id || field.name;
             
@@ -2493,7 +2498,9 @@ class ReservationManager {
             tipPercentageEl.value = tipPercentage.toString();
         }
 
-        const depositPercentage = reservation.depositPercentage || reservation.pricing?.depositPercentage || 20;
+        // Get deposit percentage - allow 0 as a valid value (Sin Depósito)
+        // Use nullish coalescing (??) to only default when value is null/undefined, not when it's 0
+        const depositPercentage = reservation.depositPercentage ?? reservation.pricing?.depositPercentage ?? 20;
         const depositPercentageEl = document.getElementById('depositPercentage');
         if (depositPercentageEl) {
             depositPercentageEl.value = depositPercentage.toString();
@@ -2973,7 +2980,7 @@ class ReservationManager {
         });
 
         // Calculate subtotal (before taxes) - use actual additional services total
-        const subtotal = reservation.pricing.roomCost + reservation.pricing.foodCost + reservation.pricing.drinkCost + (reservation.pricing.entremesesCost || 0) + additionalServicesTotal;
+        const subtotal = reservation.pricing.roomCost + reservation.pricing.foodCost + reservation.pricing.breakfastCost + reservation.pricing.drinkCost + (reservation.pricing.entremesesCost || 0) + additionalServicesTotal;
         
         // Calculate balance: if deposit is paid, subtract it; if not paid, balance equals total
         const balance = reservation.depositPaid 
