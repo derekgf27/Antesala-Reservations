@@ -1884,12 +1884,10 @@ class ReservationManager {
         
         // Format date
         const eventDate = new Date(reservation.eventDate + 'T00:00:00');
-        const formattedDate = eventDate.toLocaleDateString('es-ES', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-        });
+        const month = String(eventDate.getMonth() + 1).padStart(2, '0');
+        const day = String(eventDate.getDate()).padStart(2, '0');
+        const year = eventDate.getFullYear();
+        const formattedDate = `${month}/${day}/${year}`;
         
         // Build reservation details HTML
         let detailsHTML = `
@@ -2226,7 +2224,13 @@ class ReservationManager {
                 <div class="reservation-details">
                     <div class="reservation-detail">
                         <strong>Fecha:</strong>
-                        <span>${new Date(reservation.eventDate + 'T00:00:00').toLocaleDateString('es-ES')}</span>
+                        <span>${(() => {
+                            const eventDate = new Date(reservation.eventDate + 'T00:00:00');
+                            const month = String(eventDate.getMonth() + 1).padStart(2, '0');
+                            const day = String(eventDate.getDate()).padStart(2, '0');
+                            const year = eventDate.getFullYear();
+                            return `${month}/${day}/${year}`;
+                        })()}</span>
                     </div>
                     <div class="reservation-detail">
                         <strong>Hora:</strong>
@@ -2779,11 +2783,10 @@ class ReservationManager {
 
         // Format date
         const eventDate = new Date(reservation.eventDate + 'T00:00:00');
-        const formattedDate = eventDate.toLocaleDateString('es-ES', { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-        });
+        const month = String(eventDate.getMonth() + 1).padStart(2, '0');
+        const day = String(eventDate.getDate()).padStart(2, '0');
+        const year = eventDate.getFullYear();
+        const formattedDate = `${month}/${day}/${year}`;
 
         // Generate invoice number (based on year and reservation index)
         const reservationIndex = this.reservations.findIndex(r => r.id === reservation.id) + 1;
