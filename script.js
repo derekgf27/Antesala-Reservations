@@ -3382,7 +3382,12 @@ Queda estrictamente prohibido el uso de confeti, serpentinas, pirotecnia, fuegos
             // Check if line starts with a number (section header)
             if (/^\d+\./.test(line.trim())) {
                 doc.setFont(undefined, 'bold');
-                termsYPos += 3; // Extra space before section
+                // Less space before "9. Fuerza Mayor" to keep it closer to previous section
+                if (line.trim().startsWith('9.')) {
+                    termsYPos += 1; // Reduced space before section 9
+                } else {
+                    termsYPos += 3; // Extra space before section
+                }
             } else {
                 doc.setFont(undefined, 'normal');
             }
