@@ -272,24 +272,14 @@ class ReservationManager {
             this.updateGuestCountDisplay();
             this.syncGuestCountInputs();
             this.calculatePrice();
-            this.calculateTables();
         });
 
         // Guest count manual input
         guestCountManual.addEventListener('input', () => {
             this.syncGuestCountFromManual();
             this.calculatePrice();
-            this.calculateTables();
         });
 
-        // Table configuration event listeners
-        const tableType = document.getElementById('tableType');
-        
-        if (tableType) {
-            tableType.addEventListener('change', () => {
-                this.handleTableTypeChange();
-            });
-        }
 
         // Event type selection
         const eventType = document.getElementById('eventType');
@@ -1069,11 +1059,6 @@ class ReservationManager {
         display.textContent = value;
     }
 
-    // Handle event type change
-    handleTableTypeChange() {
-        this.calculateTables();
-    }
-    
     calculateTables() {
         const guestCountManual = document.getElementById('guestCountManual');
         const tableType = document.getElementById('tableType');
@@ -1202,12 +1187,14 @@ class ReservationManager {
         // Additional services cost
         const servicePrices = {
             'audioVisual': 0, // Manteles has no cost
+            'sillas': 0,
+            'mesas': 0,
             'decorations': 150,
             'waitstaff': 100,
             'valet': 50
         };
         
-        const additionalServices = ['audioVisual', 'decorations', 'waitstaff', 'valet'];
+        const additionalServices = ['audioVisual', 'sillas', 'mesas', 'decorations', 'waitstaff', 'valet'];
         let additionalCost = 0;
         
         additionalServices.forEach(service => {
@@ -1410,17 +1397,11 @@ class ReservationManager {
             beverages: this.beverageSelections,
             entremeses: this.entremesesSelections,
             guestCount: pricing.guestCount,
-            tableConfiguration: (() => {
-                const tableValue = formData.get('tableType') || '';
-                const config = this.parseTableConfiguration(tableValue);
-                return {
-                    tableType: config.tableType,
-                    seatsPerTable: config.seatsPerTable,
-                    tableCount: this.calculateTableCount(pricing.guestCount, config.seatsPerTable)
-                };
-            })(),
+            tableConfiguration: null,
             additionalServices: {
                 audioVisual: formData.get('audioVisual') === 'on',
+                sillas: formData.get('sillas') === 'on',
+                mesas: formData.get('mesas') === 'on',
                 decorations: formData.get('decorations') === 'on',
                 waitstaff: formData.get('waitstaff') === 'on',
                 valet: formData.get('valet') === 'on'
@@ -1803,12 +1784,6 @@ class ReservationManager {
                             <span class="detail-label">Número de Invitados:</span>
                             <span class="detail-value">${reservation.guestCount}</span>
                         </div>
-                        ${reservation.tableConfiguration?.tableType && reservation.tableConfiguration?.tableCount > 0 ? `
-                        <div class="detail-item">
-                            <span class="detail-label">Configuración de Mesas:</span>
-                            <span class="detail-value">${reservation.tableConfiguration.tableCount} ${reservation.tableConfiguration.tableCount === 1 ? 'Mesa' : 'Mesas'} ${reservation.tableConfiguration.tableType === 'round' ? 'Redonda' : 'Rectangular'}${reservation.tableConfiguration.seatsPerTable ? ` (${reservation.tableConfiguration.seatsPerTable} asientos c/u)` : ''}</span>
-                        </div>
-                        ` : ''}
                     </div>
                 </div>
                 
@@ -1914,6 +1889,8 @@ class ReservationManager {
     getServiceName(key) {
         const serviceNames = {
             'audioVisual': 'Manteles',
+            'sillas': 'Sillas',
+            'mesas': 'Mesas',
             'decorations': 'Basic Decorations',
             'waitstaff': 'Additional Waitstaff',
             'valet': 'Valet Parking'
@@ -2086,7 +2063,6 @@ class ReservationManager {
                         <span>$${((reservation.depositPaid ? reservation.pricing.totalCost - reservation.pricing.depositAmount : reservation.pricing.totalCost)).toFixed(2)}</span>
                     </div>
                 </div>
-                ${this.getTableConfigurationDisplay(reservation.tableConfiguration)}
                 ${this.getAdditionalServicesDisplay(reservation.additionalServices)}
                 <div class="reservation-actions">
                     <button class="btn btn-small btn-primary" onclick="exportReservationInvoice('${reservation.id}')">
@@ -2167,6 +2143,8 @@ class ReservationManager {
             .map(([key, value]) => {
                 const serviceNames = {
                     'audioVisual': 'Manteles',
+                    'sillas': 'Sillas',
+                    'mesas': 'Mesas',
                     'decorations': 'Basic Decorations',
                     'waitstaff': 'Additional Waitstaff',
                     'valet': 'Valet Parking'
@@ -2219,16 +2197,6 @@ class ReservationManager {
         
         document.getElementById('eventDuration').value = reservation.eventDuration;
         document.getElementById('companyName').value = reservation.companyName || '';
-        // Handle table configuration
-        const tableType = document.getElementById('tableType');
-        if (tableType && reservation.tableConfiguration?.tableType && reservation.tableConfiguration?.seatsPerTable) {
-            const tableValue = this.formatTableConfiguration(
-                reservation.tableConfiguration.tableType,
-                reservation.tableConfiguration.seatsPerTable
-            );
-            tableType.value = tableValue;
-            this.calculateTables();
-        }
         document.getElementById('roomType').value = reservation.roomType;
         document.getElementById('foodType').value = reservation.foodType;
         // no drinkType select anymore
@@ -2694,6 +2662,8 @@ class ReservationManager {
         // Additional services - get individual prices
         const servicePrices = {
             'audioVisual': 0, // Manteles has no cost
+            'sillas': 0,
+            'mesas': 0,
             'decorations': 150,
             'waitstaff': 100,
             'valet': 50
@@ -2835,6 +2805,8 @@ class ReservationManager {
         // Additional services
         const servicePrices2 = {
             'audioVisual': 0,
+            'sillas': 0,
+            'mesas': 0,
             'decorations': 150,
             'waitstaff': 100,
             'valet': 50

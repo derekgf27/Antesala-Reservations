@@ -251,25 +251,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="form-group">
-                                        <label for="tableType">Tipo de Mesa y Asientos</label>
-                                        <select id="tableType" name="tableType">
-                                            <option value="">Seleccionar Tipo de Mesa</option>
-                                            <option value="round-6">Mesa Redonda - 6 Asientos</option>
-                                            <option value="round-8">Mesa Redonda - 8 Asientos</option>
-                                            <option value="round-10">Mesa Redonda - 10 Asientos</option>
-                                            <option value="round-12">Mesa Redonda - 12 Asientos</option>
-                                            <option value="rectangular-6">Mesa Rectangular - 6 Asientos</option>
-                                            <option value="rectangular-8">Mesa Rectangular - 8 Asientos</option>
-                                            <option value="rectangular-10">Mesa Rectangular - 10 Asientos</option>
-                                            <option value="rectangular-12">Mesa Rectangular - 12 Asientos</option>
-                                        </select>
-                                    </div>
-                                    <div id="tableCalculation" class="table-calculation hidden">
-                                        <div class="table-info">
-                                            Número de Mesas Necesarias: <span id="calculatedTableCount">0</span>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
 
@@ -324,6 +305,20 @@
                                             <input type="checkbox" id="audioVisual" name="audioVisual" data-price="0">
                                             <span class="checkmark"></span>
                                             Manteles
+                                        </label>
+                                    </div>
+                                    <div class="checkbox-group">
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="sillas" name="sillas" data-price="0">
+                                            <span class="checkmark"></span>
+                                            Sillas
+                                        </label>
+                                    </div>
+                                    <div class="checkbox-group">
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="mesas" name="mesas" data-price="0">
+                                            <span class="checkmark"></span>
+                                            Mesas
                                         </label>
                                     </div>
                                 </div>
@@ -526,7 +521,7 @@
                             <option value="pechuga-cilantro">Pechuga salsa Cilantro</option>
                             <option value="pechuga-tres-quesos">Pechuga tres quesos</option>
                             <option value="pechuga-ajillo">Pechuga Ajillo</option>
-                            <option value="pavo-cranberry">Filete Pavo Frito salsa cranberry</option>
+                            <option value="pavo-cranberry">Filete de pavo salsa a escoger</option>
                             <option value="medallones-guayaba">Medallones salsa Guayaba</option>
                             <option value="pernil-asado">Pernil Asado</option>
                             <option value="pescado-ajillo">Filete de Pescado Ajillo</option>
@@ -537,7 +532,7 @@
                             <option value="pechuga-cilantro">Pechuga salsa Cilantro</option>
                             <option value="pechuga-tres-quesos">Pechuga tres quesos</option>
                             <option value="pechuga-ajillo">Pechuga Ajillo</option>
-                            <option value="pavo-cranberry">Filete Pavo Frito salsa cranberry</option>
+                            <option value="pavo-cranberry">Filete de pavo salsa a escoger</option>
                             <option value="medallones-guayaba">Medallones salsa Guayaba</option>
                             <option value="pernil-asado">Pernil Asado</option>
                             <option value="pescado-ajillo">Filete de Pescado Ajillo</option>

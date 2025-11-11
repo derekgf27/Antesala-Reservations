@@ -7,6 +7,7 @@
 
 body {
     font-family: 'Inter', sans-serif;
+    font-size: 18px;
     background: #f8fafc;
     color: #1a202c;
     line-height: 1.6;
@@ -455,7 +456,7 @@ body {
 .checkbox-group {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 20px;
 }
 
 .form-group.entremeses-asopao-group {
@@ -505,7 +506,7 @@ body {
     transform: translate(-50%, -50%);
     color: white;
     font-weight: bold;
-    font-size: 12px;
+    font-size: 14px;
 }
 
 /* Checkbox Box Design for Panecillos */
@@ -553,7 +554,7 @@ body {
     transform: translate(-50%, -50%);
     color: white;
     font-weight: bold;
-    font-size: 14px;
+    font-size: 16px;
     line-height: 1;
 }
 
