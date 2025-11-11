@@ -2981,7 +2981,7 @@ class ReservationManager {
         doc.setFont(undefined, 'bold');
         doc.line(20, yPos, 190, yPos);
         yPos += 7;
-        doc.text('SUB TOTAL', 20, yPos);
+        doc.text('TOTAL', 20, yPos);
         doc.text(`$${reservation.pricing.totalCost.toFixed(2)}`, 190, yPos, { align: 'right' });
         yPos += 7;
 
