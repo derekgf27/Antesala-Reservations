@@ -2835,13 +2835,13 @@ class ReservationManager {
             format: 'a4'
         });
 
-        let yPos = 5;
+        let yPos = 8;
 
         // Add logo
         if (logoBase64) {
             try {
                 doc.addImage(logoBase64, 'PNG', 87, yPos, 30, 30);
-                yPos += 32;
+                yPos += 40;
             } catch (error) {
                 console.warn('Could not add logo to PDF:', error);
                 yPos += 8;
