@@ -2840,28 +2840,28 @@ class ReservationManager {
         // Add logo
         if (logoBase64) {
             try {
-                doc.addImage(logoBase64, 'PNG', 82, yPos, 40, 40);
-                yPos += 45;
+                doc.addImage(logoBase64, 'PNG', 87, yPos, 30, 30);
+                yPos += 32;
             } catch (error) {
                 console.warn('Could not add logo to PDF:', error);
-                yPos += 12;
+                yPos += 8;
             }
         } else {
-            yPos += 12;
+            yPos += 8;
         }
 
         // Company name and info
-        doc.setFontSize(18);
+        doc.setFontSize(22);
         doc.setFont(undefined, 'bold');
         doc.text('LA ANTESALA BY FUSION', 105, yPos, { align: 'center' });
-        yPos += 8;
+        yPos += 7;
 
-        doc.setFontSize(10);
+        doc.setFontSize(14);
         doc.setFont(undefined, 'normal');
         doc.text('Avenida Hostos 105, Ponce, PR 00717', 105, yPos, { align: 'center' });
         yPos += 6;
         doc.text('Tel. 787-428-2228', 105, yPos, { align: 'center' });
-        yPos += 12;
+        yPos += 10;
 
         // Invoice header
         doc.setDrawColor(226, 232, 240);
@@ -2872,25 +2872,25 @@ class ReservationManager {
         // Client info (two columns for space efficiency)
         // Show company name if available
         if (reservation.companyName) {
-            doc.setFontSize(10);
+            doc.setFontSize(14);
             doc.setFont(undefined, 'bold');
             doc.text(`Company: ${reservation.companyName}`, 20, yPos);
             yPos += 6;
         }
-        doc.setFontSize(10);
+        doc.setFontSize(14);
         doc.setFont(undefined, 'bold');
         doc.text('ISSUED TO:', 20, yPos);
         doc.text('INVOICE NO:', 140, yPos);
         yPos += 7;
         doc.setFont(undefined, 'normal');
-        doc.setFontSize(9);
+        doc.setFontSize(13);
         doc.text(`A: ${reservation.clientName}`, 20, yPos);
         doc.setFont(undefined, 'bold');
-        doc.setFontSize(12);
+        doc.setFontSize(16);
         doc.text(invoiceNumber, 190, yPos, { align: 'right' });
         yPos += 6;
         doc.setFont(undefined, 'normal');
-        doc.setFontSize(9);
+        doc.setFontSize(13);
         doc.text(`Tel: ${reservation.clientPhone}`, 20, yPos);
         yPos += 6;
         doc.text(`Actividad: ${reservation.eventType || 'Evento'}`, 20, yPos);
@@ -2907,7 +2907,7 @@ class ReservationManager {
         yPos += 4;
 
         // Table header
-        doc.setFontSize(10);
+        doc.setFontSize(14);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(255, 255, 255);
         doc.setFillColor(45, 55, 72);
@@ -2920,7 +2920,7 @@ class ReservationManager {
 
         // Table rows
         doc.setFont(undefined, 'normal');
-        doc.setFontSize(9);
+        doc.setFontSize(13);
         itemsData.forEach(item => {
             const description = typeof item.description === 'string' ? item.description : '';
             
@@ -2959,7 +2959,7 @@ class ReservationManager {
         doc.line(20, yPos, 190, yPos);
         yPos += 7;
 
-        doc.setFontSize(9);
+        doc.setFontSize(13);
         doc.setFont(undefined, 'normal');
         doc.text('SUB-TOTAL', 20, yPos);
         doc.text(`$${subtotal.toFixed(2)}`, 190, yPos, { align: 'right' });
@@ -2975,7 +2975,7 @@ class ReservationManager {
             yPos += 6;
         }
 
-        doc.setFontSize(11);
+        doc.setFontSize(15);
         doc.setFont(undefined, 'bold');
         doc.line(20, yPos, 190, yPos);
         yPos += 7;
@@ -2983,7 +2983,7 @@ class ReservationManager {
         doc.text(`$${reservation.pricing.totalCost.toFixed(2)}`, 190, yPos, { align: 'right' });
         yPos += 7;
 
-        doc.setFontSize(10);
+        doc.setFontSize(14);
         doc.setTextColor(242, 123, 33);
         doc.text('Deposito a Pagar', 20, yPos);
         const depositAmount = reservation.pricing.depositAmount || 0;
@@ -3002,7 +3002,7 @@ class ReservationManager {
 
         // Footer
         doc.setTextColor(242, 123, 33);
-        doc.setFontSize(11);
+        doc.setFontSize(15);
         doc.setFont(undefined, 'bold');
         doc.text('THANK YOU', 190, 285, { align: 'right' });
 
@@ -3011,14 +3011,14 @@ class ReservationManager {
         
         // Terms and Conditions Header
         let termsYPos = 20;
-        doc.setFontSize(14);
+        doc.setFontSize(18);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(45, 55, 72);
         doc.text('Términos y Condiciones – Salón de Actividades', 105, termsYPos, { align: 'center' });
         termsYPos += 15;
 
         // Terms and Conditions Content
-        doc.setFontSize(9);
+        doc.setFontSize(13);
         doc.setFont(undefined, 'normal');
         doc.setTextColor(0, 0, 0);
         
@@ -3091,7 +3091,7 @@ El cliente reconoce haber leído y aceptado estos términos y condiciones al fir
         doc.setLineWidth(0.3);
         doc.line(20, termsYPos, 120, termsYPos); // Signature line
         termsYPos += 5;
-        doc.setFontSize(8);
+        doc.setFontSize(12);
         doc.setFont(undefined, 'normal');
         doc.setTextColor(74, 85, 104);
         doc.text('Firma del Cliente', 20, termsYPos);
