@@ -50,6 +50,12 @@
                     <span>Análisis</span>
                 </li>
             </ul>
+            <div class="dark-mode-toggle-container">
+                <button class="dark-mode-toggle" id="darkModeToggle" aria-label="Toggle dark mode">
+                    <i class="fas fa-moon"></i>
+                    <span>Modo Oscuro</span>
+                </button>
+            </div>
             <div class="sidebar-footer">
                 Te Amo Mami <3
             </div>
@@ -184,7 +190,7 @@
                                     </div>
                                     <div class="form-group">
                                         <label for="eventType">Tipo de Evento</label>
-                                        <select id="eventType" name="eventType" required>
+                                        <select id="eventType" name="eventType">
                                             <option value="">Seleccionar Tipo de Evento</option>
                                             <option value="wedding">Boda</option>
                                             <option value="birthdays">Cumpleaños</option>
@@ -201,7 +207,7 @@
                                     </div>
                                     <div class="form-group">
                                         <label for="eventDuration">Duración (horas)</label>
-                                        <select id="eventDuration" name="eventDuration" required>
+                                        <select id="eventDuration" name="eventDuration">
                                             <option value="">Seleccionar Duración</option>
                                             <option value="2">2 horas</option>
                                             <option value="3">3 horas</option>
@@ -263,7 +269,7 @@
                                 <div class="card-content">
                                     <div class="form-group">
                                         <label for="foodType">Servicio de Comida</label>
-                                        <select id="foodType" name="foodType" required>
+                                        <select id="foodType" name="foodType">
                                             <option value="">Seleccionar Servicio de Comida</option>
                                             <option value="buffet-20" data-price="20">Buffet - $20 por persona</option>
                                             <option value="buffet-23" data-price="23">Buffet - $23 por persona</option>
@@ -271,12 +277,25 @@
                                             <option value="buffet-30" data-price="30">Buffet - $30 por persona</option>
                                             <option value="buffet-35" data-price="35">Buffet - $35 por persona</option>
                                             <option value="individual-plates" data-price="35">Platos Individuales</option>
-                                            <option value="desayuno-9.95" data-price="9.95">Desayuno - $9.95</option>
-                                            <option value="desayuno-10.95" data-price="10.95">Desayuno - $10.95</option>
                                             <option value="no-food" data-price="0">Sin Servicio de Comida</option>
                                         </select>
                                     </div>
+                                    <div id="foodServiceSummary" class="food-summary"></div>
+                                    <button type="button" id="editBuffetBtn" class="btn btn-outline hidden">Editar Opciones de Buffet</button>
+                                    <div class="form-group" style="margin-top: 20px;">
+                                        <label></label>
+                                    </div>
                                     <div class="form-group">
+                                        <label for="breakfastType">Desayuno</label>
+                                        <select id="breakfastType" name="breakfastType">
+                                            <option value="">Sin Desayuno</option>
+                                            <option value="desayuno-9.95" data-price="9.95">Desayuno - $9.95</option>
+                                            <option value="desayuno-10.95" data-price="10.95">Desayuno - $10.95</option>
+                                        </select>
+                                    </div>
+                                    <div id="breakfastServiceSummary" class="food-summary"></div>
+                                    <button type="button" id="editBreakfastBtn" class="btn btn-outline hidden">Editar Opciones de Desayuno</button>
+                                    <div class="form-group" style="margin-top: 20px;">
                                         <label>Bebidas</label>
                                     </div>
                                     <div id="beverageSummary" class="food-summary hidden"></div>
@@ -288,8 +307,6 @@
                                     <div id="entremesesSummary" class="food-summary hidden"></div>
                                     <button type="button" id="openEntremesesModalBtn" class="btn btn-outline">Seleccionar Entremeses</button>
                                     <button type="button" id="editEntremesesBtn" class="btn btn-outline hidden">Editar Entremeses</button>
-                                    <div id="foodServiceSummary" class="food-summary"></div>
-                                    <button type="button" id="editBuffetBtn" class="btn btn-outline hidden">Editar Opciones de Buffet</button>
                                 </div>
                             </div>
 
@@ -339,6 +356,10 @@
                                         <div class="pricing-item">
                                             <span>Servicio de Comida:</span>
                                             <span id="foodCost">$0</span>
+                                        </div>
+                                        <div class="pricing-item">
+                                            <span>Desayuno:</span>
+                                            <span id="breakfastCost">$0</span>
                                         </div>
                                         <div class="pricing-item">
                                             <span>Servicio de Bebidas:</span>
@@ -579,6 +600,58 @@
                 <button type="button" class="btn btn-outline" id="buffetClearBtn">Limpiar Todo</button>
                 <button type="button" class="btn btn-outline" id="buffetCancelBtn">Cancel</button>
                 <button type="button" class="btn btn-primary" id="buffetSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Breakfast Options Modal -->
+    <div id="breakfastModal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Breakfast Options</h3>
+                <button type="button" class="modal-close" id="breakfastCloseBtn" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group panecillos-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="breakfastCafe" name="breakfastCafe">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Café</span>
+                    </label>
+                </div>
+                <div class="form-group panecillos-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="breakfastJugo" name="breakfastJugo">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Jugo</span>
+                    </label>
+                </div>
+                <div class="form-group panecillos-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="breakfastAvena" name="breakfastAvena">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Avena</span>
+                    </label>
+                </div>
+                <div class="form-group panecillos-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="breakfastWrapJamonQueso" name="breakfastWrapJamonQueso">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Wrap de Jamón y Queso</span>
+                    </label>
+                </div>
+                <div class="form-group panecillos-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="breakfastBocadilloJamonQueso" name="breakfastBocadilloJamonQueso">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Bocadillo de Jamón y Queso</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" id="breakfastClearBtn">Limpiar Todo</button>
+                <button type="button" class="btn btn-outline" id="breakfastCancelBtn">Cancel</button>
+                <button type="button" class="btn btn-primary" id="breakfastSaveBtn">Save</button>
             </div>
         </div>
     </div>

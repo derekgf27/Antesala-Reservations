@@ -219,7 +219,7 @@ class ReservationManager {
 
         // Real-time updates for pricing
         const pricingInputs = [
-            'roomType', 'foodType', 'drinkType', 'eventDuration',
+            'roomType', 'foodType', 'breakfastType', 'drinkType', 'eventDuration',
             'audioVisual', 'decorations', 'waitstaff', 'valet', 'tipPercentage', 'depositPercentage'
         ];
 
@@ -238,6 +238,12 @@ class ReservationManager {
         const foodType = document.getElementById('foodType');
         foodType.addEventListener('change', () => {
             this.handleFoodTypeChange();
+        });
+
+        // Breakfast type behavior
+        const breakfastType = document.getElementById('breakfastType');
+        breakfastType?.addEventListener('change', () => {
+            this.handleBreakfastTypeChange();
         });
 
         const buffetCloseBtn = document.getElementById('buffetCloseBtn');
@@ -266,6 +272,38 @@ class ReservationManager {
             e.stopPropagation();
             this.openBuffetModal();
         });
+
+        // Breakfast modal behavior
+        const breakfastCloseBtn = document.getElementById('breakfastCloseBtn');
+        const breakfastCancelBtn = document.getElementById('breakfastCancelBtn');
+        const breakfastSaveBtn = document.getElementById('breakfastSaveBtn');
+        const editBreakfastBtn = document.getElementById('editBreakfastBtn');
+
+        breakfastCloseBtn?.addEventListener('click', () => this.closeBreakfastModal());
+        breakfastCancelBtn?.addEventListener('click', () => {
+            // reset breakfastType if cancel from initial open
+            const bt = document.getElementById('breakfastType');
+            if (bt && this.isBreakfast(bt.value)) {
+                bt.value = '';
+            }
+            this.clearBreakfastSelections();
+            this.closeBreakfastModal();
+            this.calculatePrice();
+        });
+        breakfastSaveBtn?.addEventListener('click', () => {
+            this.closeBreakfastModal();
+            this.calculatePrice();
+            this.updateBreakfastServiceSummary();
+        });
+        editBreakfastBtn?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.openBreakfastModal();
+        });
+
+        // Clear breakfast selections button in modal
+        const breakfastClearBtn = document.getElementById('breakfastClearBtn');
+        breakfastClearBtn?.addEventListener('click', () => this.clearBreakfastSelectionsInModal());
 
         // Guest count slider
         guestCountSlider.addEventListener('input', () => {
@@ -374,6 +412,19 @@ class ReservationManager {
         this.updateFoodServiceSummary();
     }
 
+    // Launch modal when breakfast is selected
+    handleBreakfastTypeChange() {
+        const breakfastType = document.getElementById('breakfastType');
+        if (breakfastType && this.isBreakfast(breakfastType.value)) {
+            this.openBreakfastModal();
+        } else {
+            this.clearBreakfastSelections();
+        }
+        // Recalculate price to keep totals fresh
+        this.calculatePrice();
+        this.updateBreakfastServiceSummary();
+    }
+
     openBuffetModal() {
         const modal = document.getElementById('buffetModal');
         if (!modal) return;
@@ -465,46 +516,118 @@ class ReservationManager {
         this.clearBuffetSelections();
     }
 
+    // Launch modal when breakfast is selected
+    openBreakfastModal() {
+        const modal = document.getElementById('breakfastModal');
+        if (!modal) return;
+        // Show with entrance animation
+        modal.classList.remove('hidden');
+        // Force reflow so the next class triggers transition
+        void modal.offsetWidth;
+        modal.classList.add('visible');
+    }
+
+    closeBreakfastModal() {
+        const modal = document.getElementById('breakfastModal');
+        if (!modal) return;
+        modal.classList.remove('visible');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 220);
+    }
+
+    clearBreakfastSelections() {
+        const cafeEl = document.getElementById('breakfastCafe');
+        if (cafeEl) cafeEl.checked = false;
+        const jugoEl = document.getElementById('breakfastJugo');
+        if (jugoEl) jugoEl.checked = false;
+        const avenaEl = document.getElementById('breakfastAvena');
+        if (avenaEl) avenaEl.checked = false;
+        const wrapJamonQuesoEl = document.getElementById('breakfastWrapJamonQueso');
+        if (wrapJamonQuesoEl) wrapJamonQuesoEl.checked = false;
+        const bocadilloJamonQuesoEl = document.getElementById('breakfastBocadilloJamonQueso');
+        if (bocadilloJamonQuesoEl) bocadilloJamonQuesoEl.checked = false;
+    }
+
+    // Clear all breakfast selections in the modal
+    clearBreakfastSelectionsInModal() {
+        this.clearBreakfastSelections();
+    }
+
     // Build and render Food & Beverage summary (buffet only)
     updateFoodServiceSummary() {
         const container = document.getElementById('foodServiceSummary');
-        const editBtn = document.getElementById('editBuffetBtn');
+        const editBuffetBtn = document.getElementById('editBuffetBtn');
         if (!container) return;
 
         const foodTypeEl = document.getElementById('foodType');
         const foodType = foodTypeEl?.value || '';
         
-        if (!this.isBuffet(foodType)) {
+        if (this.isBuffet(foodType)) {
+            const rice = document.getElementById('buffetRice');
+            const rice2 = document.getElementById('buffetRice2');
+            const p1 = document.getElementById('buffetProtein1');
+            const p2 = document.getElementById('buffetProtein2');
+            const side = document.getElementById('buffetSide');
+            const salad = document.getElementById('buffetSalad');
+            const panecillos = document.getElementById('buffetPanecillos');
+            const aguaRefresco = document.getElementById('buffetAguaRefresco');
+
+            const items = [];
+            if (rice?.value) items.push(`<li>Arroz: ${rice.selectedOptions[0].text}</li>`);
+            if (rice2?.value) items.push(`<li>${rice2.selectedOptions[0].text}</li>`);
+            if (p1?.value) items.push(`<li>Proteína 1: ${p1.selectedOptions[0].text}</li>`);
+            if (p2?.value) items.push(`<li>Proteína 2: ${p2.selectedOptions[0].text}</li>`);
+            if (side?.value) items.push(`<li>Complemento: ${side.selectedOptions[0].text}</li>`);
+            if (salad?.value) items.push(`<li>Ensalada: ${salad.selectedOptions[0].text}</li>`);
+            if (panecillos?.checked) items.push(`<li>Panecillos</li>`);
+            if (aguaRefresco?.checked) items.push(`<li>Agua y/o Refresco</li>`);
+
+            container.classList.remove('hidden');
+            editBuffetBtn?.classList.remove('hidden');
+            container.innerHTML = items.length
+                ? `<ul>${items.join('')}</ul>`
+                : '<em>Seleccione opciones del buffet y haga clic en Save.</em>';
+        } else {
             container.classList.add('hidden');
             container.innerHTML = '';
-            editBtn?.classList.add('hidden');
-            return;
+            editBuffetBtn?.classList.add('hidden');
         }
+    }
 
-        const rice = document.getElementById('buffetRice');
-        const rice2 = document.getElementById('buffetRice2');
-        const p1 = document.getElementById('buffetProtein1');
-        const p2 = document.getElementById('buffetProtein2');
-        const side = document.getElementById('buffetSide');
-        const salad = document.getElementById('buffetSalad');
-        const panecillos = document.getElementById('buffetPanecillos');
-        const aguaRefresco = document.getElementById('buffetAguaRefresco');
+    // Build and render Breakfast summary
+    updateBreakfastServiceSummary() {
+        const container = document.getElementById('breakfastServiceSummary');
+        const editBreakfastBtn = document.getElementById('editBreakfastBtn');
+        if (!container) return;
 
-        const items = [];
-        if (rice?.value) items.push(`<li>Arroz: ${rice.selectedOptions[0].text}</li>`);
-        if (rice2?.value) items.push(`<li>${rice2.selectedOptions[0].text}</li>`);
-        if (p1?.value) items.push(`<li>Proteína 1: ${p1.selectedOptions[0].text}</li>`);
-        if (p2?.value) items.push(`<li>Proteína 2: ${p2.selectedOptions[0].text}</li>`);
-        if (side?.value) items.push(`<li>Complemento: ${side.selectedOptions[0].text}</li>`);
-        if (salad?.value) items.push(`<li>Ensalada: ${salad.selectedOptions[0].text}</li>`);
-        if (panecillos?.checked) items.push(`<li>Panecillos</li>`);
-        if (aguaRefresco?.checked) items.push(`<li>Agua y/o Refresco</li>`);
+        const breakfastTypeEl = document.getElementById('breakfastType');
+        const breakfastType = breakfastTypeEl?.value || '';
+        
+        if (this.isBreakfast(breakfastType)) {
+            const cafe = document.getElementById('breakfastCafe');
+            const jugo = document.getElementById('breakfastJugo');
+            const avena = document.getElementById('breakfastAvena');
+            const wrapJamonQueso = document.getElementById('breakfastWrapJamonQueso');
+            const bocadilloJamonQueso = document.getElementById('breakfastBocadilloJamonQueso');
 
-        container.classList.remove('hidden');
-        editBtn?.classList.remove('hidden');
-        container.innerHTML = items.length
-            ? `<ul>${items.join('')}</ul>`
-            : '<em>Seleccione opciones del buffet y haga clic en Save.</em>';
+            const items = [];
+            if (cafe?.checked) items.push(`<li>Café</li>`);
+            if (jugo?.checked) items.push(`<li>Jugo</li>`);
+            if (avena?.checked) items.push(`<li>Avena</li>`);
+            if (wrapJamonQueso?.checked) items.push(`<li>Wrap de Jamón y Queso</li>`);
+            if (bocadilloJamonQueso?.checked) items.push(`<li>Bocadillo de Jamón y Queso</li>`);
+
+            container.classList.remove('hidden');
+            editBreakfastBtn?.classList.remove('hidden');
+            container.innerHTML = items.length
+                ? `<ul>${items.join('')}</ul>`
+                : '<em>Seleccione opciones del desayuno y haga clic en Save.</em>';
+        } else {
+            container.classList.add('hidden');
+            container.innerHTML = '';
+            editBreakfastBtn?.classList.add('hidden');
+        }
     }
 
     // ----- Beverages modal helpers -----
@@ -1001,6 +1124,10 @@ class ReservationManager {
         return typeof value === 'string' && value.startsWith('buffet');
     }
 
+    isBreakfast(value) {
+        return typeof value === 'string' && value.startsWith('desayuno');
+    }
+
     // Convert 24-hour time to 12-hour format
     formatTime12Hour(time24) {
         if (!time24) return '';
@@ -1143,6 +1270,11 @@ class ReservationManager {
         const foodPrice = foodType.selectedOptions[0]?.dataset.price || 0;
         const foodCost = parseFloat(foodPrice) * guestCount;
 
+        // Breakfast cost (separate from food cost)
+        const breakfastType = document.getElementById('breakfastType');
+        const breakfastPrice = breakfastType?.selectedOptions[0]?.dataset.price || 0;
+        const breakfastCost = parseFloat(breakfastPrice) * guestCount;
+
         // Drink cost
         // Beverage cost from selections
         const beverages = this.getBeverageItems();
@@ -1178,10 +1310,11 @@ class ReservationManager {
             }
         });
 
-        // Taxes (apply only to food and alcoholic beverages)
+        // Taxes (apply only to food, breakfast, entremeses, and alcoholic beverages)
         const isAlcoholic = alcoholicQty > 0;
-        const foodStateReducedTax = foodCost * 0.06; // 6%
-        const foodCityTax = foodCost * 0.01; // 1%
+        const totalFoodCost = foodCost + breakfastCost + entremesesCost; // Combine food, breakfast, and entremeses for tax calculation
+        const foodStateReducedTax = totalFoodCost * 0.06; // 6%
+        const foodCityTax = totalFoodCost * 0.01; // 1%
         const alcoholStateTax = isAlcoholic ? drinkCost * 0.105 : 0; // 10.5%
 
         // Additional services cost
@@ -1207,6 +1340,7 @@ class ReservationManager {
         // Update display
         document.getElementById('roomCost').textContent = `$${roomCost.toFixed(2)}`;
         document.getElementById('foodCost').textContent = `$${foodCost.toFixed(2)}`;
+        document.getElementById('breakfastCost').textContent = `$${breakfastCost.toFixed(2)}`;
         document.getElementById('drinkCost').textContent = `$${drinkCost.toFixed(2)}`;
         document.getElementById('entremesesCost').textContent = `$${entremesesCost.toFixed(2)}`;
         document.getElementById('foodStateReducedTax').textContent = `$${foodStateReducedTax.toFixed(2)}`;
@@ -1220,7 +1354,7 @@ class ReservationManager {
         document.getElementById('taxSubtotal').textContent = `$${totalTaxes.toFixed(2)}`;
         
         // Calculate subtotal (before taxes and tip)
-        const subtotalBeforeTaxes = roomCost + foodCost + drinkCost + entremesesCost + additionalCost;
+        const subtotalBeforeTaxes = roomCost + foodCost + breakfastCost + drinkCost + entremesesCost + additionalCost;
         
         // Calculate tip (from subtotal before taxes)
         const tipPercentage = parseFloat(document.getElementById('tipPercentage')?.value || 0);
@@ -1239,6 +1373,7 @@ class ReservationManager {
         return {
             roomCost,
             foodCost,
+            breakfastCost,
             drinkCost,
             entremesesCost,
             additionalCost,
@@ -1364,6 +1499,25 @@ class ReservationManager {
             }
         }
 
+        // Extra validation when breakfast is chosen (modal fields are outside the form)
+        let breakfastSelections = null;
+        const breakfastType = formData.get('breakfastType');
+        if (this.isBreakfast(breakfastType)) {
+            const cafeEl = document.getElementById('breakfastCafe');
+            const jugoEl = document.getElementById('breakfastJugo');
+            const avenaEl = document.getElementById('breakfastAvena');
+            const wrapJamonQuesoEl = document.getElementById('breakfastWrapJamonQueso');
+            const bocadilloJamonQuesoEl = document.getElementById('breakfastBocadilloJamonQueso');
+
+            breakfastSelections = {
+                cafe: cafeEl?.checked || false,
+                jugo: jugoEl?.checked || false,
+                avena: avenaEl?.checked || false,
+                wrapJamonQueso: wrapJamonQuesoEl?.checked || false,
+                bocadilloJamonQueso: bocadilloJamonQuesoEl?.checked || false
+            };
+        }
+
         if (missingFields.length > 0) {
             console.log('Missing fields detected:', missingFields); // Debug log
             this.showValidationError(missingFields);
@@ -1383,6 +1537,7 @@ class ReservationManager {
             companyName: formData.get('companyName') || '',
             roomType: formData.get('roomType'),
             foodType: formData.get('foodType'),
+            breakfastType: breakfastType || null,
             buffet: this.isBuffet(formData.get('foodType')) ? {
                 rice: buffetSelections?.rice || null,
                 rice2: buffetSelections?.rice2 || null,
@@ -1392,6 +1547,13 @@ class ReservationManager {
                 salad: buffetSelections?.salad || null,
                 panecillos: buffetSelections?.panecillos || false,
                 aguaRefresco: buffetSelections?.aguaRefresco || false
+            } : null,
+            breakfast: this.isBreakfast(breakfastType) ? {
+                cafe: breakfastSelections?.cafe || false,
+                jugo: breakfastSelections?.jugo || false,
+                avena: breakfastSelections?.avena || false,
+                wrapJamonQueso: breakfastSelections?.wrapJamonQueso || false,
+                bocadilloJamonQueso: breakfastSelections?.bocadilloJamonQueso || false
             } : null,
             // drinkType removed; beverages are captured in the beverages map
             beverages: this.beverageSelections,
@@ -1768,7 +1930,7 @@ class ReservationManager {
                         </div>
                         <div class="detail-item">
                             <span class="detail-label">Duración:</span>
-                            <span class="detail-value">${reservation.eventDuration} horas</span>
+                            <span class="detail-value">${reservation.eventDuration ? reservation.eventDuration + ' horas' : 'N/A'}</span>
                         </div>
                     </div>
                 </div>
@@ -1787,9 +1949,11 @@ class ReservationManager {
                     </div>
                 </div>
                 
+                ${(reservation.foodType && reservation.foodType !== 'no-food') || (reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) || (reservation.breakfastType && this.isBreakfast(reservation.breakfastType)) ? `
                 <div class="detail-section">
                     <h4><i class="fas fa-utensils"></i> Comida y Bebidas</h4>
                     <div class="food-beverage-content">
+                        ${reservation.foodType && reservation.foodType !== 'no-food' ? `
                         <div class="food-service-section">
                             <span class="detail-label">Servicio de Comida:</span>
                             <span class="detail-value">${this.getFoodDisplayName(reservation.foodType)}</span>
@@ -1806,12 +1970,29 @@ class ReservationManager {
                             </ul>
                             ` : ''}
                         </div>
+                        ` : ''}
+                        ${reservation.breakfastType && this.isBreakfast(reservation.breakfastType) && reservation.breakfast ? `
+                        <div class="food-service-section">
+                            <span class="detail-label">Desayuno:</span>
+                            <span class="detail-value">${this.getFoodDisplayName(reservation.breakfastType)}</span>
+                            <ul class="detail-bullet-list">
+                                ${reservation.breakfast.cafe ? `<li>Café</li>` : ''}
+                                ${reservation.breakfast.jugo ? `<li>Jugo</li>` : ''}
+                                ${reservation.breakfast.avena ? `<li>Avena</li>` : ''}
+                                ${reservation.breakfast.wrapJamonQueso ? `<li>Wrap de Jamón y Queso</li>` : ''}
+                                ${reservation.breakfast.bocadilloJamonQueso ? `<li>Bocadillo de Jamón y Queso</li>` : ''}
+                            </ul>
+                        </div>
+                        ` : ''}
+                        ${reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => (typeof qty === 'number' && qty > 0) || qty === true) ? `
                         <div class="beverage-section">
                             <span class="detail-label">Bebidas:</span>
                             ${this.getBeverageBulletList(reservation.beverages)}
                         </div>
+                        ` : ''}
                     </div>
                 </div>
+                ` : ''}
                 
                 ${Object.values(reservation.additionalServices).some(v => v) ? `
                 <div class="detail-section">
@@ -1977,8 +2158,31 @@ class ReservationManager {
         // Save to localStorage
         this.saveReservations();
         
-        // Update displays
-        this.displayReservations();
+        // Update only the specific card elements without re-rendering all cards
+        const depositToggle = document.querySelector(`[data-reservation-id="${id}"].deposit-status-toggle`);
+        if (depositToggle) {
+            // Update the toggle button
+            depositToggle.className = `deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}`;
+            depositToggle.textContent = reservation.depositPaid ? '✓ Pagado' : 'No Pagado';
+            
+            // Update the balance text in the same card
+            const card = depositToggle.closest('.reservation-card');
+            if (card) {
+                // Find the balance element by looking for the strong tag with "Balance:" text
+                const balanceSpans = card.querySelectorAll('.reservation-detail strong');
+                balanceSpans.forEach(strong => {
+                    if (strong.textContent.trim() === 'Balance:') {
+                        const balanceSpan = strong.nextElementSibling;
+                        if (balanceSpan && balanceSpan.tagName === 'SPAN') {
+                            const newBalance = reservation.depositPaid 
+                                ? reservation.pricing.totalCost - reservation.pricing.depositAmount 
+                                : reservation.pricing.totalCost;
+                            balanceSpan.textContent = `$${newBalance.toFixed(2)}`;
+                        }
+                    }
+                });
+            }
+        }
         
         // If modal is open, refresh it
         const modal = document.getElementById('reservationDetailsModal');
@@ -2025,7 +2229,7 @@ class ReservationManager {
                     </div>
                     <div class="reservation-detail">
                         <strong>Duración:</strong>
-                        <span>${reservation.eventDuration} horas</span>
+                        <span>${reservation.eventDuration ? reservation.eventDuration + ' horas' : 'N/A'}</span>
                     </div>
                     <div class="reservation-detail">
                         <strong>Salón:</strong>
@@ -2035,19 +2239,29 @@ class ReservationManager {
                         <strong>Invitados:</strong>
                         <span>${reservation.guestCount}</span>
                     </div>
+                    ${reservation.foodType && reservation.foodType !== 'no-food' ? `
                     <div class="reservation-detail">
                         <strong>Comida:</strong>
                         <span>${this.getFoodDisplayName(reservation.foodType)}</span>
                     </div>
+                    ` : ''}
+                    ${reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => (typeof qty === 'number' && qty > 0) || qty === true) ? `
                     <div class="reservation-detail">
                         <strong>Bebidas:</strong>
                         <span>${this.getBeverageSummaryString(reservation.beverages)}</span>
                     </div>
+                    ` : ''}
+                    ${reservation.breakfastType && this.isBreakfast(reservation.breakfastType) ? `
+                    <div class="reservation-detail">
+                        <strong>Desayuno:</strong>
+                        <span>${this.getFoodDisplayName(reservation.breakfastType)}</span>
+                    </div>
+                    ` : ''}
                     <div class="reservation-detail">
                         <strong>Contacto:</strong>
                         <span>${reservation.clientPhone}</span>
                     </div>
-                    ${reservation.pricing.depositAmount > 0 ? `
+                    ${reservation.pricing.depositAmount > 0 && (reservation.depositPercentage || reservation.pricing.depositPercentage || 0) > 0 ? `
                     <div class="reservation-detail">
                         <strong>Depósito:</strong>
                         <span>
@@ -2057,11 +2271,11 @@ class ReservationManager {
                             </span>
                         </span>
                     </div>
-                    ` : ''}
                     <div class="reservation-detail">
                         <strong>Balance:</strong>
                         <span>$${((reservation.depositPaid ? reservation.pricing.totalCost - reservation.pricing.depositAmount : reservation.pricing.totalCost)).toFixed(2)}</span>
                     </div>
+                    ` : ''}
                 </div>
                 ${this.getAdditionalServicesDisplay(reservation.additionalServices)}
                 <div class="reservation-actions">
@@ -2199,6 +2413,8 @@ class ReservationManager {
         document.getElementById('companyName').value = reservation.companyName || '';
         document.getElementById('roomType').value = reservation.roomType;
         document.getElementById('foodType').value = reservation.foodType;
+        const breakfastTypeEl = document.getElementById('breakfastType');
+        if (breakfastTypeEl) breakfastTypeEl.value = reservation.breakfastType || '';
         // no drinkType select anymore
         this.beverageSelections = reservation.beverages || {};
         this.updateBeverageSummary();
@@ -2240,8 +2456,26 @@ class ReservationManager {
             if (panecillosEl) panecillosEl.checked = buffet.panecillos || false;
             const aguaRefrescoEl = document.getElementById('buffetAguaRefresco');
             if (aguaRefrescoEl) aguaRefrescoEl.checked = buffet.aguaRefresco || false;
+            this.clearBreakfastSelections();
         } else {
             this.clearBuffetSelections();
+        }
+
+        // Populate breakfast modal fields (do not open the modal)
+        if (reservation.breakfastType && this.isBreakfast(reservation.breakfastType)) {
+            const breakfast = reservation.breakfast || {};
+            const cafeEl = document.getElementById('breakfastCafe');
+            if (cafeEl) cafeEl.checked = breakfast.cafe || false;
+            const jugoEl = document.getElementById('breakfastJugo');
+            if (jugoEl) jugoEl.checked = breakfast.jugo || false;
+            const avenaEl = document.getElementById('breakfastAvena');
+            if (avenaEl) avenaEl.checked = breakfast.avena || false;
+            const wrapJamonQuesoEl = document.getElementById('breakfastWrapJamonQueso');
+            if (wrapJamonQuesoEl) wrapJamonQuesoEl.checked = breakfast.wrapJamonQueso || false;
+            const bocadilloJamonQuesoEl = document.getElementById('breakfastBocadilloJamonQueso');
+            if (bocadilloJamonQuesoEl) bocadilloJamonQuesoEl.checked = breakfast.bocadilloJamonQueso || false;
+        } else {
+            this.clearBreakfastSelections();
         }
 
         // Set additional services checkboxes
@@ -2269,6 +2503,7 @@ class ReservationManager {
         this.updateGuestCountDisplay();
         this.calculatePrice();
         this.updateFoodServiceSummary();
+        this.updateBreakfastServiceSummary();
 
         // Remove the reservation from the list (will be re-added when saved)
         this.reservations = this.reservations.filter(r => r.id !== id);
@@ -2578,7 +2813,7 @@ class ReservationManager {
                     <td>$${reservation.pricing.foodCost.toFixed(2)}</td>
                 </tr>
             `;
-        } else if (reservation.pricing.foodCost > 0) {
+        } else if (reservation.pricing.foodCost > 0 && reservation.foodType && reservation.foodType !== 'no-food') {
             itemsHTML += `
                 <tr>
                     <td><strong>${this.getFoodDisplayName(reservation.foodType)}</strong></td>
@@ -2588,28 +2823,68 @@ class ReservationManager {
             `;
         }
 
+        // Breakfast (separate from food service)
+        if (reservation.breakfastType && this.isBreakfast(reservation.breakfastType) && reservation.breakfast && reservation.pricing.breakfastCost > 0) {
+            const breakfastItems = [];
+            if (reservation.breakfast.cafe) breakfastItems.push('Café');
+            if (reservation.breakfast.jugo) breakfastItems.push('Jugo');
+            if (reservation.breakfast.avena) breakfastItems.push('Avena');
+            if (reservation.breakfast.wrapJamonQueso) breakfastItems.push('Wrap de Jamón y Queso');
+            if (reservation.breakfast.bocadilloJamonQueso) breakfastItems.push('Bocadillo de Jamón y Queso');
+            
+            // Build bullet points for breakfast options
+            const breakfastOptionsList = breakfastItems.map(item => `<li style="margin-left: 20px; padding: 2px 0; list-style: disc;">${item}</li>`).join('');
+            
+            // Show Breakfast as a single row with bullet points below
+            itemsHTML += `
+                <tr>
+                    <td>
+                        <strong>Desayuno</strong>
+                        <ul style="margin: 8px 0 0 20px; padding-left: 0; list-style-type: disc;">
+                            ${breakfastOptionsList}
+                        </ul>
+                    </td>
+                    <td>${reservation.guestCount}</td>
+                    <td>$${reservation.pricing.breakfastCost.toFixed(2)}</td>
+                </tr>
+            `;
+        }
+
         // Beverages
-        if (reservation.beverages && Object.keys(reservation.beverages).length > 0) {
+        if (reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) {
             const items = this.getBeverageItems();
             Object.entries(reservation.beverages).forEach(([id, qty]) => {
-                if (qty > 0) {
+                if ((typeof qty === 'number' && qty > 0) || qty === true) {
                     const item = items.find(i => i.id === id);
                     if (item) {
-                        const total = item.price * qty;
-                        itemsHTML += `
-                            <tr>
-                                <td><strong>${item.name}</strong></td>
-                                <td>${qty}</td>
-                                <td>$${total.toFixed(2)}</td>
-                            </tr>
-                        `;
+                        let total;
+                        // Handle Mimosa separately - it's per person
+                        if (id === 'mimosa' && qty === true) {
+                            total = 3.95 * reservation.guestCount;
+                            itemsHTML += `
+                                <tr>
+                                    <td><strong>${item.name}</strong></td>
+                                    <td>${reservation.guestCount}</td>
+                                    <td>$${total.toFixed(2)}</td>
+                                </tr>
+                            `;
+                        } else if (typeof qty === 'number' && qty > 0) {
+                            total = item.price * qty;
+                            itemsHTML += `
+                                <tr>
+                                    <td><strong>${item.name}</strong></td>
+                                    <td>${qty}</td>
+                                    <td>$${total.toFixed(2)}</td>
+                                </tr>
+                            `;
+                        }
                     }
                 }
             });
         }
 
         // Entremeses
-        if (reservation.entremeses && Object.keys(reservation.entremeses).length > 0) {
+        if (reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) {
             const entremesesItems = this.getEntremesesItems();
             Object.entries(reservation.entremeses).forEach(([id, qty]) => {
                 // Handle Asopao and Ceviche - they're per person
@@ -2650,9 +2925,10 @@ class ReservationManager {
 
         // Event space (if applicable)
         if (reservation.pricing.roomCost > 0) {
+            const durationText = reservation.eventDuration ? ` - ${reservation.eventDuration} hours` : '';
             itemsHTML += `
                 <tr>
-                    <td><strong>${this.getRoomDisplayName(reservation.roomType)} - ${reservation.eventDuration} hours</strong></td>
+                    <td><strong>${this.getRoomDisplayName(reservation.roomType)}${durationText}</strong></td>
                     <td>1</td>
                     <td>$${reservation.pricing.roomCost.toFixed(2)}</td>
                 </tr>
@@ -2727,7 +3003,7 @@ class ReservationManager {
                 total: `$${reservation.pricing.foodCost.toFixed(2)}`,
                 isBuffet: true
             });
-        } else if (reservation.pricing.foodCost > 0) {
+        } else if (reservation.pricing.foodCost > 0 && reservation.foodType && reservation.foodType !== 'no-food') {
             itemsData.push({
                 description: this.getFoodDisplayName(reservation.foodType),
                 qty: reservation.guestCount.toString(),
@@ -2735,8 +3011,27 @@ class ReservationManager {
             });
         }
 
+        // Breakfast (separate from food service)
+        if (reservation.breakfastType && this.isBreakfast(reservation.breakfastType) && reservation.breakfast && reservation.pricing.breakfastCost > 0) {
+            const breakfastItems = [];
+            if (reservation.breakfast.cafe) breakfastItems.push('Café');
+            if (reservation.breakfast.jugo) breakfastItems.push('Jugo');
+            if (reservation.breakfast.avena) breakfastItems.push('Avena');
+            if (reservation.breakfast.wrapJamonQueso) breakfastItems.push('Wrap de Jamón y Queso');
+            if (reservation.breakfast.bocadilloJamonQueso) breakfastItems.push('Bocadillo de Jamón y Queso');
+            
+            // For breakfast, create description with title and bullet points
+            const breakfastDesc = 'Desayuno\n' + breakfastItems.map(item => '• ' + item).join('\n');
+            itemsData.push({
+                description: breakfastDesc,
+                qty: reservation.guestCount.toString(),
+                total: `$${reservation.pricing.breakfastCost.toFixed(2)}`,
+                isBuffet: true
+            });
+        }
+
         // Beverages
-        if (reservation.beverages && Object.keys(reservation.beverages).length > 0) {
+        if (reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) {
             const items = this.getBeverageItems();
             Object.entries(reservation.beverages).forEach(([id, qty]) => {
                 // Handle Mimosa separately - it's per person
@@ -2762,7 +3057,7 @@ class ReservationManager {
         }
 
         // Entremeses
-        if (reservation.entremeses && Object.keys(reservation.entremeses).length > 0) {
+        if (reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) {
             const entremesesItems = this.getEntremesesItems();
             Object.entries(reservation.entremeses).forEach(([id, qty]) => {
                 if (id === 'asopao' && qty === true) {
@@ -2795,8 +3090,9 @@ class ReservationManager {
 
         // Event space
         if (reservation.pricing.roomCost > 0) {
+            const durationText = reservation.eventDuration ? ` - ${reservation.eventDuration} hours` : '';
             itemsData.push({
-                description: `${this.getRoomDisplayName(reservation.roomType)} - ${reservation.eventDuration} hours`,
+                description: `${this.getRoomDisplayName(reservation.roomType)}${durationText}`,
                 qty: '1',
                 total: `$${reservation.pricing.roomCost.toFixed(2)}`
             });
@@ -3154,6 +3450,63 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
+// Dark Mode Functionality
+function initializeDarkMode() {
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    const htmlElement = document.documentElement;
+    
+    // Check for saved theme preference or default to light mode
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    const isDarkMode = savedTheme === 'dark';
+    
+    // Apply the theme
+    if (isDarkMode) {
+        htmlElement.setAttribute('data-theme', 'dark');
+        updateDarkModeIcon(true);
+    } else {
+        htmlElement.removeAttribute('data-theme');
+        updateDarkModeIcon(false);
+    }
+    
+    // Toggle dark mode on button click
+    if (darkModeToggle) {
+        darkModeToggle.addEventListener('click', () => {
+            const currentTheme = htmlElement.getAttribute('data-theme');
+            const isCurrentlyDark = currentTheme === 'dark';
+            
+            if (isCurrentlyDark) {
+                // Switch to light mode
+                htmlElement.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'light');
+                updateDarkModeIcon(false);
+            } else {
+                // Switch to dark mode
+                htmlElement.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+                updateDarkModeIcon(true);
+            }
+        });
+    }
+}
+
+function updateDarkModeIcon(isDarkMode) {
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    if (darkModeToggle) {
+        const icon = darkModeToggle.querySelector('i');
+        const text = darkModeToggle.querySelector('span');
+        if (icon) {
+            if (isDarkMode) {
+                icon.className = 'fas fa-sun';
+            } else {
+                icon.className = 'fas fa-moon';
+            }
+        }
+        if (text) {
+            text.textContent = isDarkMode ? 'Modo Claro' : 'Modo Oscuro';
+        }
+    }
+}
+
 // Initialize the reservation manager when the page loads
 let reservationManager;
 document.addEventListener('DOMContentLoaded', () => {
@@ -3176,6 +3529,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Set minimum date to today
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('eventDate').min = today;
+    
+    // Initialize dark mode
+    initializeDarkMode();
     
     // Add keyboard shortcuts
     document.addEventListener('keydown', (e) => {
