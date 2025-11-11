@@ -3002,12 +3002,6 @@ class ReservationManager {
         doc.text('Balance', 20, yPos);
         doc.text(`$${balance.toFixed(2)}`, 190, yPos, { align: 'right' });
 
-        // Footer
-        doc.setTextColor(242, 123, 33);
-        doc.setFontSize(15);
-        doc.setFont(undefined, 'bold');
-        doc.text('THANK YOU', 190, 285, { align: 'right' });
-
         // Add new page for Terms and Conditions
         doc.addPage();
         
