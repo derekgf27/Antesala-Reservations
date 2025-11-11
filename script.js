@@ -2937,7 +2937,7 @@ class ReservationManager {
                         doc.text(item.qty, 140, yPos);
                         doc.text(item.total, 190, yPos, { align: 'right' });
                         }
-                        yPos += index === 0 ? 6 : 4;
+                        yPos += index === 0 ? 8 : 6;
                     }
                 });
             } else {
@@ -2947,8 +2947,10 @@ class ReservationManager {
                 doc.setFont(undefined, 'normal');
                 doc.text(item.qty, 140, yPos);
                 doc.text(item.total, 190, yPos, { align: 'right' });
-                yPos += Math.max(6, descLines.length * 5);
+                yPos += Math.max(8, descLines.length * 6);
             }
+            // Add spacing between items
+            yPos += 2;
         });
 
         // Financial summary
