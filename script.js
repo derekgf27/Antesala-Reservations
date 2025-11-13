@@ -638,6 +638,10 @@ class ReservationManager {
         if (bizcochoZanahoriaEl) bizcochoZanahoriaEl.checked = false;
         const tresLechesEl = document.getElementById('dessertTresLeches');
         if (tresLechesEl) tresLechesEl.checked = false;
+        const temblequeEl = document.getElementById('dessertTembleque');
+        if (temblequeEl) temblequeEl.checked = false;
+        const postresSurtidosEl = document.getElementById('dessertPostresSurtidos');
+        if (postresSurtidosEl) postresSurtidosEl.checked = false;
     }
 
     // Clear all dessert selections in the modal
@@ -737,6 +741,8 @@ class ReservationManager {
             const bizcochoChocolate = document.getElementById('dessertBizcochoChocolate');
             const bizcochoZanahoria = document.getElementById('dessertBizcochoZanahoria');
             const tresLeches = document.getElementById('dessertTresLeches');
+            const tembleque = document.getElementById('dessertTembleque');
+            const postresSurtidos = document.getElementById('dessertPostresSurtidos');
 
             const items = [];
             if (flanQueso?.checked) items.push(`<li>Flan de Queso</li>`);
@@ -746,6 +752,8 @@ class ReservationManager {
             if (bizcochoChocolate?.checked) items.push(`<li>Bizcocho de Chocolate</li>`);
             if (bizcochoZanahoria?.checked) items.push(`<li>Bizcocho de Zanahoria</li>`);
             if (tresLeches?.checked) items.push(`<li>Tres Leches</li>`);
+            if (tembleque?.checked) items.push(`<li>Tembleque</li>`);
+            if (postresSurtidos?.checked) items.push(`<li>Postres Surtidos</li>`);
 
             container.classList.remove('hidden');
             editDessertBtn?.classList.remove('hidden');
@@ -1670,6 +1678,8 @@ class ReservationManager {
             const bizcochoChocolateEl = document.getElementById('dessertBizcochoChocolate');
             const bizcochoZanahoriaEl = document.getElementById('dessertBizcochoZanahoria');
             const tresLechesEl = document.getElementById('dessertTresLeches');
+            const temblequeEl = document.getElementById('dessertTembleque');
+            const postresSurtidosEl = document.getElementById('dessertPostresSurtidos');
 
             dessertSelections = {
                 flanQueso: flanQuesoEl?.checked || false,
@@ -1678,7 +1688,9 @@ class ReservationManager {
                 cheesecake: cheesecakeEl?.checked || false,
                 bizcochoChocolate: bizcochoChocolateEl?.checked || false,
                 bizcochoZanahoria: bizcochoZanahoriaEl?.checked || false,
-                tresLeches: tresLechesEl?.checked || false
+                tresLeches: tresLechesEl?.checked || false,
+                tembleque: temblequeEl?.checked || false,
+                postresSurtidos: postresSurtidosEl?.checked || false
             };
         }
 
@@ -1727,7 +1739,9 @@ class ReservationManager {
                 cheesecake: dessertSelections?.cheesecake || false,
                 bizcochoChocolate: dessertSelections?.bizcochoChocolate || false,
                 bizcochoZanahoria: dessertSelections?.bizcochoZanahoria || false,
-                tresLeches: dessertSelections?.tresLeches || false
+                tresLeches: dessertSelections?.tresLeches || false,
+                tembleque: dessertSelections?.tembleque || false,
+                postresSurtidos: dessertSelections?.postresSurtidos || false
             } : null,
             // drinkType removed; beverages are captured in the beverages map
             beverages: this.beverageSelections,
@@ -2172,6 +2186,8 @@ class ReservationManager {
                                 ${reservation.dessert.bizcochoChocolate ? `<li>Bizcocho de Chocolate</li>` : ''}
                                 ${reservation.dessert.bizcochoZanahoria ? `<li>Bizcocho de Zanahoria</li>` : ''}
                                 ${reservation.dessert.tresLeches ? `<li>Tres Leches</li>` : ''}
+                                ${reservation.dessert.tembleque ? `<li>Tembleque</li>` : ''}
+                                ${reservation.dessert.postresSurtidos ? `<li>Postres Surtidos</li>` : ''}
                             </ul>
                         </div>
                         ` : ''}
@@ -2464,7 +2480,9 @@ class ReservationManager {
                             reservation.dessert.cheesecake ? 'Cheesecake' : '',
                             reservation.dessert.bizcochoChocolate ? 'Bizcocho de Chocolate' : '',
                             reservation.dessert.bizcochoZanahoria ? 'Bizcocho de Zanahoria' : '',
-                            reservation.dessert.tresLeches ? 'Tres Leches' : ''
+                            reservation.dessert.tresLeches ? 'Tres Leches' : '',
+                            reservation.dessert.tembleque ? 'Tembleque' : '',
+                            reservation.dessert.postresSurtidos ? 'Postres Surtidos' : ''
                         ].filter(Boolean).join(', ')}</span>
                     </div>
                     ` : ''}
@@ -2708,6 +2726,10 @@ class ReservationManager {
             if (bizcochoZanahoriaEl) bizcochoZanahoriaEl.checked = dessert.bizcochoZanahoria || false;
             const tresLechesEl = document.getElementById('dessertTresLeches');
             if (tresLechesEl) tresLechesEl.checked = dessert.tresLeches || false;
+            const temblequeEl = document.getElementById('dessertTembleque');
+            if (temblequeEl) temblequeEl.checked = dessert.tembleque || false;
+            const postresSurtidosEl = document.getElementById('dessertPostresSurtidos');
+            if (postresSurtidosEl) postresSurtidosEl.checked = dessert.postresSurtidos || false;
         } else {
             this.clearDessertSelections();
         }
