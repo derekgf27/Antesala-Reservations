@@ -3289,6 +3289,31 @@ class ReservationManager {
             });
         }
 
+        // Desserts
+        if (reservation.dessertType && this.isDessert(reservation.dessertType) && reservation.dessert) {
+            const dessertItems = [];
+            if (reservation.dessert.flanQueso) dessertItems.push('Flan de Queso');
+            if (reservation.dessert.flanVainilla) dessertItems.push('Flan de Vainilla');
+            if (reservation.dessert.flanCoco) dessertItems.push('Flan de Coco');
+            if (reservation.dessert.cheesecake) dessertItems.push('Cheesecake');
+            if (reservation.dessert.bizcochoChocolate) dessertItems.push('Bizcocho de Chocolate');
+            if (reservation.dessert.bizcochoZanahoria) dessertItems.push('Bizcocho de Zanahoria');
+            if (reservation.dessert.tresLeches) dessertItems.push('Tres Leches');
+            if (reservation.dessert.tembleque) dessertItems.push('Tembleque');
+            if (reservation.dessert.postresSurtidos) dessertItems.push('Postres Surtidos');
+            
+            // For desserts, create description with title and bullet points
+            if (dessertItems.length > 0) {
+                const dessertDesc = 'Postres\n' + dessertItems.map(item => '• ' + item).join('\n');
+                itemsData.push({
+                    description: dessertDesc,
+                    qty: '-',
+                    total: 'Incluido',
+                    isBuffet: true
+                });
+            }
+        }
+
         // Beverages
         if (reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) {
             const items = this.getBeverageItems();
