@@ -3417,37 +3417,33 @@ class ReservationManager {
 
         let yPos = 8;
 
-        // Add logo
+        // Add logo to top-right corner
         if (logoBase64) {
             try {
-                doc.addImage(logoBase64, 'PNG', 87, yPos, 30, 30);
-                yPos += 40;
+                doc.addImage(logoBase64, 'PNG', 170, yPos, 25, 25);
             } catch (error) {
                 console.warn('Could not add logo to PDF:', error);
-                yPos += 8;
             }
-        } else {
-            yPos += 8;
         }
 
-        // Company name and info
+        // Company name and info - start higher up
         doc.setFontSize(22);
         doc.setFont(undefined, 'bold');
-        doc.text('LA ANTESALA BY FUSION', 105, yPos, { align: 'center' });
-        yPos += 7;
+        doc.text('LA ANTESALA BY FUSION', 105, yPos + 5, { align: 'center' });
+        yPos += 12;
 
         doc.setFontSize(14);
         doc.setFont(undefined, 'normal');
         doc.text('Avenida Hostos 105, Ponce, PR 00717', 105, yPos, { align: 'center' });
-        yPos += 6;
+        yPos += 5;
         doc.text('Tel. 787-428-2228', 105, yPos, { align: 'center' });
-        yPos += 10;
+        yPos += 8;
 
         // Invoice header
         doc.setDrawColor(226, 232, 240);
         doc.setLineWidth(0.4);
         doc.line(20, yPos, 190, yPos);
-        yPos += 8;
+        yPos += 6;
 
         // Client info (two columns for space efficiency)
         // Show company name if available
@@ -3455,30 +3451,30 @@ class ReservationManager {
             doc.setFontSize(14);
             doc.setFont(undefined, 'bold');
             doc.text(`Company: ${reservation.companyName}`, 20, yPos);
-            yPos += 6;
+            yPos += 5;
         }
         doc.setFontSize(14);
         doc.setFont(undefined, 'bold');
         doc.text('ISSUED TO:', 20, yPos);
         doc.text('INVOICE NO:', 140, yPos);
-        yPos += 7;
+        yPos += 6;
         doc.setFont(undefined, 'normal');
         doc.setFontSize(13);
         doc.text(`A: ${reservation.clientName}`, 20, yPos);
         doc.setFont(undefined, 'bold');
         doc.setFontSize(16);
         doc.text(invoiceNumber, 190, yPos, { align: 'right' });
-        yPos += 6;
+        yPos += 5;
         doc.setFont(undefined, 'normal');
         doc.setFontSize(13);
         doc.text(`Tel: ${reservation.clientPhone}`, 20, yPos);
-        yPos += 6;
+        yPos += 5;
         doc.text(`Actividad: ${reservation.eventType || 'Evento'}`, 20, yPos);
-        yPos += 6;
+        yPos += 5;
         doc.text(`Día: ${formattedDate}`, 20, yPos);
-        yPos += 6;
+        yPos += 5;
         doc.text(`Hora: ${this.formatTime12Hour(reservation.eventTime)}`, 20, yPos);
-        yPos += 12;
+        yPos += 8;
 
         // Items table
         doc.setLineWidth(0.4);
@@ -3534,36 +3530,36 @@ class ReservationManager {
         });
 
         // Financial summary
-        yPos += 8;
+        yPos += 6;
 
         doc.setDrawColor(226, 232, 240);
         doc.setLineWidth(0.4);
         doc.line(20, yPos, 190, yPos);
-        yPos += 7;
+        yPos += 6;
 
         doc.setFontSize(13);
         doc.setFont(undefined, 'normal');
         doc.text('SUB-TOTAL', 20, yPos);
         doc.text(`$${subtotal.toFixed(2)}`, 190, yPos, { align: 'right' });
-        yPos += 6;
+        yPos += 5;
 
         doc.text('TAXES AND FEE', 20, yPos);
         doc.text(`$${reservation.pricing.taxes.totalTaxes.toFixed(2)}`, 190, yPos, { align: 'right' });
-        yPos += 6;
+        yPos += 5;
 
         if (reservation.pricing.tip && reservation.pricing.tip.amount > 0) {
             doc.text(`PROPINA ${reservation.pricing.tip.percentage}%`, 20, yPos);
             doc.text(`$${reservation.pricing.tip.amount.toFixed(2)}`, 190, yPos, { align: 'right' });
-            yPos += 6;
+            yPos += 5;
         }
 
         doc.setFontSize(15);
         doc.setFont(undefined, 'bold');
         doc.line(20, yPos, 190, yPos);
-        yPos += 7;
+        yPos += 6;
         doc.text('TOTAL', 20, yPos);
         doc.text(`$${reservation.pricing.totalCost.toFixed(2)}`, 190, yPos, { align: 'right' });
-        yPos += 7;
+        yPos += 6;
 
         doc.setFontSize(14);
         doc.setTextColor(242, 123, 33);
@@ -3574,11 +3570,11 @@ class ReservationManager {
             depositText += ' - PAID';
         }
         doc.text(depositText, 190, yPos, { align: 'right' });
-        yPos += 7;
+        yPos += 6;
 
         doc.setTextColor(72, 187, 120);
         doc.line(20, yPos, 190, yPos);
-        yPos += 7;
+        yPos += 6;
         doc.text('Balance', 20, yPos);
         doc.text(`$${balance.toFixed(2)}`, 190, yPos, { align: 'right' });
 
