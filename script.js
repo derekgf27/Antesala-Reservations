@@ -219,7 +219,7 @@ class ReservationManager {
 
         // Real-time updates for pricing
         const pricingInputs = [
-            'roomType', 'foodType', 'breakfastType', 'drinkType', 'eventDuration',
+            'roomType', 'foodType', 'breakfastType', 'dessertType', 'drinkType', 'eventDuration',
             'audioVisual', 'decorations', 'waitstaff', 'valet', 'tipPercentage', 'depositPercentage'
         ];
 
@@ -244,6 +244,12 @@ class ReservationManager {
         const breakfastType = document.getElementById('breakfastType');
         breakfastType?.addEventListener('change', () => {
             this.handleBreakfastTypeChange();
+        });
+
+        // Dessert type behavior
+        const dessertType = document.getElementById('dessertType');
+        dessertType?.addEventListener('change', () => {
+            this.handleDessertTypeChange();
         });
 
         const buffetCloseBtn = document.getElementById('buffetCloseBtn');
@@ -304,6 +310,38 @@ class ReservationManager {
         // Clear breakfast selections button in modal
         const breakfastClearBtn = document.getElementById('breakfastClearBtn');
         breakfastClearBtn?.addEventListener('click', () => this.clearBreakfastSelectionsInModal());
+
+        // Dessert modal behavior
+        const dessertCloseBtn = document.getElementById('dessertCloseBtn');
+        const dessertCancelBtn = document.getElementById('dessertCancelBtn');
+        const dessertSaveBtn = document.getElementById('dessertSaveBtn');
+        const editDessertBtn = document.getElementById('editDessertBtn');
+
+        dessertCloseBtn?.addEventListener('click', () => this.closeDessertModal());
+        dessertCancelBtn?.addEventListener('click', () => {
+            // reset dessertType if cancel from initial open
+            const dt = document.getElementById('dessertType');
+            if (dt && this.isDessert(dt.value)) {
+                dt.value = '';
+            }
+            this.clearDessertSelections();
+            this.closeDessertModal();
+            this.calculatePrice();
+        });
+        dessertSaveBtn?.addEventListener('click', () => {
+            this.closeDessertModal();
+            this.calculatePrice();
+            this.updateDessertServiceSummary();
+        });
+        editDessertBtn?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.openDessertModal();
+        });
+
+        // Clear dessert selections button in modal
+        const dessertClearBtn = document.getElementById('dessertClearBtn');
+        dessertClearBtn?.addEventListener('click', () => this.clearDessertSelectionsInModal());
 
         // Guest count slider
         guestCountSlider.addEventListener('input', () => {
@@ -425,6 +463,18 @@ class ReservationManager {
         this.updateBreakfastServiceSummary();
     }
 
+    handleDessertTypeChange() {
+        const dessertType = document.getElementById('dessertType');
+        if (dessertType && this.isDessert(dessertType.value)) {
+            this.openDessertModal();
+        } else {
+            this.clearDessertSelections();
+        }
+        // Recalculate price to keep totals fresh
+        this.calculatePrice();
+        this.updateDessertServiceSummary();
+    }
+
     openBuffetModal() {
         const modal = document.getElementById('buffetModal');
         if (!modal) return;
@@ -536,6 +586,25 @@ class ReservationManager {
         }, 220);
     }
 
+    openDessertModal() {
+        const modal = document.getElementById('dessertModal');
+        if (!modal) return;
+        // Show with entrance animation
+        modal.classList.remove('hidden');
+        // Force reflow so the next class triggers transition
+        void modal.offsetWidth;
+        modal.classList.add('visible');
+    }
+
+    closeDessertModal() {
+        const modal = document.getElementById('dessertModal');
+        if (!modal) return;
+        modal.classList.remove('visible');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 220);
+    }
+
     clearBreakfastSelections() {
         const cafeEl = document.getElementById('breakfastCafe');
         if (cafeEl) cafeEl.checked = false;
@@ -552,6 +621,28 @@ class ReservationManager {
     // Clear all breakfast selections in the modal
     clearBreakfastSelectionsInModal() {
         this.clearBreakfastSelections();
+    }
+
+    clearDessertSelections() {
+        const flanQuesoEl = document.getElementById('dessertFlanQueso');
+        if (flanQuesoEl) flanQuesoEl.checked = false;
+        const flanVainillaEl = document.getElementById('dessertFlanVainilla');
+        if (flanVainillaEl) flanVainillaEl.checked = false;
+        const flanCocoEl = document.getElementById('dessertFlanCoco');
+        if (flanCocoEl) flanCocoEl.checked = false;
+        const cheesecakeEl = document.getElementById('dessertCheesecake');
+        if (cheesecakeEl) cheesecakeEl.checked = false;
+        const bizcochoChocolateEl = document.getElementById('dessertBizcochoChocolate');
+        if (bizcochoChocolateEl) bizcochoChocolateEl.checked = false;
+        const bizcochoZanahoriaEl = document.getElementById('dessertBizcochoZanahoria');
+        if (bizcochoZanahoriaEl) bizcochoZanahoriaEl.checked = false;
+        const tresLechesEl = document.getElementById('dessertTresLeches');
+        if (tresLechesEl) tresLechesEl.checked = false;
+    }
+
+    // Clear all dessert selections in the modal
+    clearDessertSelectionsInModal() {
+        this.clearDessertSelections();
     }
 
     // Build and render Food & Beverage summary (buffet only)
@@ -627,6 +718,44 @@ class ReservationManager {
             container.classList.add('hidden');
             container.innerHTML = '';
             editBreakfastBtn?.classList.add('hidden');
+        }
+    }
+
+    updateDessertServiceSummary() {
+        const container = document.getElementById('dessertServiceSummary');
+        const editDessertBtn = document.getElementById('editDessertBtn');
+        if (!container) return;
+
+        const dessertTypeEl = document.getElementById('dessertType');
+        const dessertType = dessertTypeEl?.value || '';
+        
+        if (this.isDessert(dessertType)) {
+            const flanQueso = document.getElementById('dessertFlanQueso');
+            const flanVainilla = document.getElementById('dessertFlanVainilla');
+            const flanCoco = document.getElementById('dessertFlanCoco');
+            const cheesecake = document.getElementById('dessertCheesecake');
+            const bizcochoChocolate = document.getElementById('dessertBizcochoChocolate');
+            const bizcochoZanahoria = document.getElementById('dessertBizcochoZanahoria');
+            const tresLeches = document.getElementById('dessertTresLeches');
+
+            const items = [];
+            if (flanQueso?.checked) items.push(`<li>Flan de Queso</li>`);
+            if (flanVainilla?.checked) items.push(`<li>Flan de Vainilla</li>`);
+            if (flanCoco?.checked) items.push(`<li>Flan de Coco</li>`);
+            if (cheesecake?.checked) items.push(`<li>Cheesecake</li>`);
+            if (bizcochoChocolate?.checked) items.push(`<li>Bizcocho de Chocolate</li>`);
+            if (bizcochoZanahoria?.checked) items.push(`<li>Bizcocho de Zanahoria</li>`);
+            if (tresLeches?.checked) items.push(`<li>Tres Leches</li>`);
+
+            container.classList.remove('hidden');
+            editDessertBtn?.classList.remove('hidden');
+            container.innerHTML = items.length
+                ? `<ul>${items.join('')}</ul>`
+                : '<em>Seleccione opciones de postres y haga clic en Save.</em>';
+        } else {
+            container.classList.add('hidden');
+            container.innerHTML = '';
+            editDessertBtn?.classList.add('hidden');
         }
     }
 
@@ -1128,6 +1257,10 @@ class ReservationManager {
         return typeof value === 'string' && value.startsWith('desayuno');
     }
 
+    isDessert(value) {
+        return typeof value === 'string' && value === 'postres';
+    }
+
     // Convert 24-hour time to 12-hour format
     formatTime12Hour(time24) {
         if (!time24) return '';
@@ -1435,6 +1568,11 @@ class ReservationManager {
                 return;
             }
             
+            // Skip dessert field (it's optional - defaults to "Sin Postres")
+            if (field.id === 'dessertType' || field.name === 'dessertType') {
+                return;
+            }
+            
             const value = field.value ? field.value.trim() : '';
             const fieldId = field.id || field.name;
             
@@ -1493,9 +1631,7 @@ class ReservationManager {
             if (!buffetSelections.protein1) {
                 if (!missingFields.includes('buffetProtein1')) missingFields.push('buffetProtein1');
             }
-            if (!buffetSelections.protein2) {
-                if (!missingFields.includes('buffetProtein2')) missingFields.push('buffetProtein2');
-            }
+            // Protein 2 is optional, no validation needed
             if (!buffetSelections.side) {
                 if (!missingFields.includes('buffetSide')) missingFields.push('buffetSide');
             }
@@ -1523,6 +1659,29 @@ class ReservationManager {
             };
         }
 
+        // Extra validation when dessert is chosen (modal fields are outside the form)
+        let dessertSelections = null;
+        const dessertType = formData.get('dessertType');
+        if (this.isDessert(dessertType)) {
+            const flanQuesoEl = document.getElementById('dessertFlanQueso');
+            const flanVainillaEl = document.getElementById('dessertFlanVainilla');
+            const flanCocoEl = document.getElementById('dessertFlanCoco');
+            const cheesecakeEl = document.getElementById('dessertCheesecake');
+            const bizcochoChocolateEl = document.getElementById('dessertBizcochoChocolate');
+            const bizcochoZanahoriaEl = document.getElementById('dessertBizcochoZanahoria');
+            const tresLechesEl = document.getElementById('dessertTresLeches');
+
+            dessertSelections = {
+                flanQueso: flanQuesoEl?.checked || false,
+                flanVainilla: flanVainillaEl?.checked || false,
+                flanCoco: flanCocoEl?.checked || false,
+                cheesecake: cheesecakeEl?.checked || false,
+                bizcochoChocolate: bizcochoChocolateEl?.checked || false,
+                bizcochoZanahoria: bizcochoZanahoriaEl?.checked || false,
+                tresLeches: tresLechesEl?.checked || false
+            };
+        }
+
         if (missingFields.length > 0) {
             console.log('Missing fields detected:', missingFields); // Debug log
             this.showValidationError(missingFields);
@@ -1543,6 +1702,7 @@ class ReservationManager {
             roomType: formData.get('roomType'),
             foodType: formData.get('foodType'),
             breakfastType: breakfastType || null,
+            dessertType: dessertType || null,
             buffet: this.isBuffet(formData.get('foodType')) ? {
                 rice: buffetSelections?.rice || null,
                 rice2: buffetSelections?.rice2 || null,
@@ -1559,6 +1719,15 @@ class ReservationManager {
                 avena: breakfastSelections?.avena || false,
                 wrapJamonQueso: breakfastSelections?.wrapJamonQueso || false,
                 bocadilloJamonQueso: breakfastSelections?.bocadilloJamonQueso || false
+            } : null,
+            dessert: this.isDessert(dessertType) ? {
+                flanQueso: dessertSelections?.flanQueso || false,
+                flanVainilla: dessertSelections?.flanVainilla || false,
+                flanCoco: dessertSelections?.flanCoco || false,
+                cheesecake: dessertSelections?.cheesecake || false,
+                bizcochoChocolate: dessertSelections?.bizcochoChocolate || false,
+                bizcochoZanahoria: dessertSelections?.bizcochoZanahoria || false,
+                tresLeches: dessertSelections?.tresLeches || false
             } : null,
             // drinkType removed; beverages are captured in the beverages map
             beverages: this.beverageSelections,
@@ -1597,6 +1766,8 @@ class ReservationManager {
         this.syncGuestCountInputs();
         this.handleEventTypeChange();
         this.handleFoodTypeChange();
+        this.handleBreakfastTypeChange();
+        this.handleDessertTypeChange();
         
         // Reset all pricing displays to zero
         document.getElementById('roomCost').textContent = '$0.00';
@@ -1623,6 +1794,8 @@ class ReservationManager {
         if (tipPercentage) tipPercentage.value = '0';
         
         this.updateFoodServiceSummary();
+        this.updateBreakfastServiceSummary();
+        this.updateDessertServiceSummary();
         this.beverageSelections = {};
         this.updateBeverageSummary();
         this.entremesesSelections = {};
@@ -1952,7 +2125,7 @@ class ReservationManager {
                     </div>
                 </div>
                 
-                ${(reservation.foodType && reservation.foodType !== 'no-food') || (reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) || (reservation.breakfastType && this.isBreakfast(reservation.breakfastType)) ? `
+                ${(reservation.foodType && reservation.foodType !== 'no-food') || (reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) || (reservation.breakfastType && this.isBreakfast(reservation.breakfastType)) || (reservation.dessertType && this.isDessert(reservation.dessertType)) ? `
                 <div class="detail-section">
                     <h4><i class="fas fa-utensils"></i> Comida y Bebidas</h4>
                     <div class="food-beverage-content">
@@ -1984,6 +2157,21 @@ class ReservationManager {
                                 ${reservation.breakfast.avena ? `<li>Avena</li>` : ''}
                                 ${reservation.breakfast.wrapJamonQueso ? `<li>Wrap de Jamón y Queso</li>` : ''}
                                 ${reservation.breakfast.bocadilloJamonQueso ? `<li>Bocadillo de Jamón y Queso</li>` : ''}
+                            </ul>
+                        </div>
+                        ` : ''}
+                        ${reservation.dessertType && this.isDessert(reservation.dessertType) && reservation.dessert ? `
+                        <div class="food-service-section">
+                            <span class="detail-label">Postres:</span>
+                            <span class="detail-value">Postres</span>
+                            <ul class="detail-bullet-list">
+                                ${reservation.dessert.flanQueso ? `<li>Flan de Queso</li>` : ''}
+                                ${reservation.dessert.flanVainilla ? `<li>Flan de Vainilla</li>` : ''}
+                                ${reservation.dessert.flanCoco ? `<li>Flan de Coco</li>` : ''}
+                                ${reservation.dessert.cheesecake ? `<li>Cheesecake</li>` : ''}
+                                ${reservation.dessert.bizcochoChocolate ? `<li>Bizcocho de Chocolate</li>` : ''}
+                                ${reservation.dessert.bizcochoZanahoria ? `<li>Bizcocho de Zanahoria</li>` : ''}
+                                ${reservation.dessert.tresLeches ? `<li>Tres Leches</li>` : ''}
                             </ul>
                         </div>
                         ` : ''}
@@ -2266,6 +2454,20 @@ class ReservationManager {
                         <span>${this.getFoodDisplayName(reservation.breakfastType)}</span>
                     </div>
                     ` : ''}
+                    ${reservation.dessertType && this.isDessert(reservation.dessertType) && reservation.dessert ? `
+                    <div class="reservation-detail">
+                        <strong>Postres:</strong>
+                        <span>${[
+                            reservation.dessert.flanQueso ? 'Flan de Queso' : '',
+                            reservation.dessert.flanVainilla ? 'Flan de Vainilla' : '',
+                            reservation.dessert.flanCoco ? 'Flan de Coco' : '',
+                            reservation.dessert.cheesecake ? 'Cheesecake' : '',
+                            reservation.dessert.bizcochoChocolate ? 'Bizcocho de Chocolate' : '',
+                            reservation.dessert.bizcochoZanahoria ? 'Bizcocho de Zanahoria' : '',
+                            reservation.dessert.tresLeches ? 'Tres Leches' : ''
+                        ].filter(Boolean).join(', ')}</span>
+                    </div>
+                    ` : ''}
                     <div class="reservation-detail">
                         <strong>Contacto:</strong>
                         <span>${reservation.clientPhone}</span>
@@ -2424,6 +2626,8 @@ class ReservationManager {
         document.getElementById('foodType').value = reservation.foodType;
         const breakfastTypeEl = document.getElementById('breakfastType');
         if (breakfastTypeEl) breakfastTypeEl.value = reservation.breakfastType || '';
+        const dessertTypeEl = document.getElementById('dessertType');
+        if (dessertTypeEl) dessertTypeEl.value = reservation.dessertType || '';
         // no drinkType select anymore
         this.beverageSelections = reservation.beverages || {};
         this.updateBeverageSummary();
@@ -2487,6 +2691,27 @@ class ReservationManager {
             this.clearBreakfastSelections();
         }
 
+        // Populate dessert modal fields (do not open the modal)
+        if (reservation.dessertType && this.isDessert(reservation.dessertType)) {
+            const dessert = reservation.dessert || {};
+            const flanQuesoEl = document.getElementById('dessertFlanQueso');
+            if (flanQuesoEl) flanQuesoEl.checked = dessert.flanQueso || false;
+            const flanVainillaEl = document.getElementById('dessertFlanVainilla');
+            if (flanVainillaEl) flanVainillaEl.checked = dessert.flanVainilla || false;
+            const flanCocoEl = document.getElementById('dessertFlanCoco');
+            if (flanCocoEl) flanCocoEl.checked = dessert.flanCoco || false;
+            const cheesecakeEl = document.getElementById('dessertCheesecake');
+            if (cheesecakeEl) cheesecakeEl.checked = dessert.cheesecake || false;
+            const bizcochoChocolateEl = document.getElementById('dessertBizcochoChocolate');
+            if (bizcochoChocolateEl) bizcochoChocolateEl.checked = dessert.bizcochoChocolate || false;
+            const bizcochoZanahoriaEl = document.getElementById('dessertBizcochoZanahoria');
+            if (bizcochoZanahoriaEl) bizcochoZanahoriaEl.checked = dessert.bizcochoZanahoria || false;
+            const tresLechesEl = document.getElementById('dessertTresLeches');
+            if (tresLechesEl) tresLechesEl.checked = dessert.tresLeches || false;
+        } else {
+            this.clearDessertSelections();
+        }
+
         // Set additional services checkboxes
         Object.entries(reservation.additionalServices).forEach(([service, checked]) => {
             const checkbox = document.getElementById(service);
@@ -2515,6 +2740,7 @@ class ReservationManager {
         this.calculatePrice();
         this.updateFoodServiceSummary();
         this.updateBreakfastServiceSummary();
+        this.updateDessertServiceSummary();
 
         // Remove the reservation from the list (will be re-added when saved)
         this.reservations = this.reservations.filter(r => r.id !== id);
@@ -2560,6 +2786,7 @@ class ReservationManager {
             'otherEventType': 'Especificar Tipo de Evento',
             'roomType': 'Espacio del Evento',
             'foodType': 'Servicio de Comida',
+            'dessertType': 'Postres',
             'eventDuration': 'Duración del Evento',
             'guestCount': 'Número de Invitados',
             'guestCountManual': 'Número de Invitados',

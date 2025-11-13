@@ -296,6 +296,15 @@
                                     <div id="breakfastServiceSummary" class="food-summary"></div>
                                     <button type="button" id="editBreakfastBtn" class="btn btn-outline hidden">Editar Opciones de Desayuno</button>
                                     <div class="form-group" style="margin-top: 20px;">
+                                        <label for="dessertType">Postres</label>
+                                        <select id="dessertType" name="dessertType">
+                                            <option value="">Sin Postres</option>
+                                            <option value="postres" data-price="0">Postres</option>
+                                        </select>
+                                    </div>
+                                    <div id="dessertServiceSummary" class="food-summary"></div>
+                                    <button type="button" id="editDessertBtn" class="btn btn-outline hidden">Editar Opciones de Postres</button>
+                                    <div class="form-group" style="margin-top: 20px;">
                                         <label>Bebidas</label>
                                     </div>
                                     <div id="beverageSummary" class="food-summary hidden"></div>
@@ -535,7 +544,7 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Proteínas (Escoger 2)</label>
+                    <label>Proteínas (Escoger 1 o 2)</label>
                     <div class="protein-grid">
                         <select id="buffetProtein1" name="buffetProtein1" aria-label="Proteína 1">
                             <option value="">Proteína 1</option>
@@ -549,8 +558,8 @@
                             <option value="pescado-ajillo">Filete de Pescado Ajillo</option>
                             <option value="churrasco-setas">Churrasco salsa setas</option>
                         </select>
-                        <select id="buffetProtein2" name="buffetProtein2" aria-label="Proteína 2">
-                            <option value="">Proteína 2</option>
+                        <select id="buffetProtein2" name="buffetProtein2" aria-label="Proteína 2 (Opcional)">
+                            <option value="">Proteína 2 </option>
                             <option value="pechuga-cilantro">Pechuga salsa Cilantro</option>
                             <option value="pechuga-tres-quesos">Pechuga tres quesos</option>
                             <option value="pechuga-ajillo">Pechuga Ajillo</option>
@@ -654,6 +663,72 @@
                 <button type="button" class="btn btn-outline" id="breakfastClearBtn">Limpiar Todo</button>
                 <button type="button" class="btn btn-outline" id="breakfastCancelBtn">Cancel</button>
                 <button type="button" class="btn btn-primary" id="breakfastSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dessert Options Modal -->
+    <div id="dessertModal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Opciones de Postres</h3>
+                <button type="button" class="modal-close" id="dessertCloseBtn" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group panecillos-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="dessertFlanQueso" name="dessertFlanQueso">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Flan de Queso</span>
+                    </label>
+                </div>
+                <div class="form-group panecillos-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="dessertFlanVainilla" name="dessertFlanVainilla">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Flan de Vainilla</span>
+                    </label>
+                </div>
+                <div class="form-group panecillos-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="dessertFlanCoco" name="dessertFlanCoco">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Flan de Coco</span>
+                    </label>
+                </div>
+                <div class="form-group panecillos-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="dessertCheesecake" name="dessertCheesecake">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Cheesecake</span>
+                    </label>
+                </div>
+                <div class="form-group panecillos-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="dessertBizcochoChocolate" name="dessertBizcochoChocolate">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Bizcocho de Chocolate</span>
+                    </label>
+                </div>
+                <div class="form-group panecillos-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="dessertBizcochoZanahoria" name="dessertBizcochoZanahoria">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Bizcocho de Zanahoria</span>
+                    </label>
+                </div>
+                <div class="form-group panecillos-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="dessertTresLeches" name="dessertTresLeches">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Tres Leches</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" id="dessertClearBtn">Limpiar Todo</button>
+                <button type="button" class="btn btn-outline" id="dessertCancelBtn">Cancel</button>
+                <button type="button" class="btn btn-primary" id="dessertSaveBtn">Save</button>
             </div>
         </div>
     </div>
