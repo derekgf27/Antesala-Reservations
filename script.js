@@ -495,12 +495,14 @@ class ReservationManager {
     }
 
     clearBuffetSelections() {
-        ['buffetRice','buffetRice2','buffetProtein1','buffetProtein2','buffetSide','buffetSalad']
+        ['buffetRice','buffetRice2','buffetProtein1','buffetProtein2','buffetSide','buffetSalad','buffetSalad2']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         const panecillosEl = document.getElementById('buffetPanecillos');
         if (panecillosEl) panecillosEl.checked = false;
         const aguaRefrescoEl = document.getElementById('buffetAguaRefresco');
         if (aguaRefrescoEl) aguaRefrescoEl.checked = false;
+        const pastelesEl = document.getElementById('buffetPasteles');
+        if (pastelesEl) pastelesEl.checked = false;
     }
 
     // Clear all beverage selections in the modal
@@ -665,8 +667,10 @@ class ReservationManager {
             const p2 = document.getElementById('buffetProtein2');
             const side = document.getElementById('buffetSide');
             const salad = document.getElementById('buffetSalad');
+            const salad2 = document.getElementById('buffetSalad2');
             const panecillos = document.getElementById('buffetPanecillos');
             const aguaRefresco = document.getElementById('buffetAguaRefresco');
+            const pasteles = document.getElementById('buffetPasteles');
 
             const items = [];
             if (rice?.value) items.push(`<li>Arroz: ${rice.selectedOptions[0].text}</li>`);
@@ -674,9 +678,11 @@ class ReservationManager {
             if (p1?.value) items.push(`<li>Proteína 1: ${p1.selectedOptions[0].text}</li>`);
             if (p2?.value) items.push(`<li>Proteína 2: ${p2.selectedOptions[0].text}</li>`);
             if (side?.value) items.push(`<li>Complemento: ${side.selectedOptions[0].text}</li>`);
-            if (salad?.value) items.push(`<li>Ensalada: ${salad.selectedOptions[0].text}</li>`);
+            if (salad?.value) items.push(`<li>Ensalada 1: ${salad.selectedOptions[0].text}</li>`);
+            if (salad2?.value) items.push(`<li>Ensalada 2: ${salad2.selectedOptions[0].text}</li>`);
             if (panecillos?.checked) items.push(`<li>Panecillos</li>`);
             if (aguaRefresco?.checked) items.push(`<li>Agua y/o Refresco</li>`);
+            if (pasteles?.checked) items.push(`<li>Pasteles</li>`);
 
             container.classList.remove('hidden');
             editBuffetBtn?.classList.remove('hidden');
@@ -1619,8 +1625,10 @@ class ReservationManager {
             const p2El = document.getElementById('buffetProtein2');
             const sideEl = document.getElementById('buffetSide');
             const saladEl = document.getElementById('buffetSalad');
+            const salad2El = document.getElementById('buffetSalad2');
             const panecillosEl = document.getElementById('buffetPanecillos');
             const aguaRefrescoEl = document.getElementById('buffetAguaRefresco');
+            const pastelesEl = document.getElementById('buffetPasteles');
 
             buffetSelections = {
                 rice: riceEl?.value || '',
@@ -1629,8 +1637,10 @@ class ReservationManager {
                 protein2: p2El?.value || '',
                 side: sideEl?.value || '',
                 salad: saladEl?.value || '',
+                salad2: salad2El?.value || '',
                 panecillos: panecillosEl?.checked || false,
-                aguaRefresco: aguaRefrescoEl?.checked || false
+                aguaRefresco: aguaRefrescoEl?.checked || false,
+                pasteles: pastelesEl?.checked || false
             };
 
             if (!buffetSelections.rice) {
@@ -1646,6 +1656,7 @@ class ReservationManager {
             if (!buffetSelections.salad) {
                 if (!missingFields.includes('buffetSalad')) missingFields.push('buffetSalad');
             }
+            // Salad 2 is optional, no validation needed
         }
 
         // Extra validation when breakfast is chosen (modal fields are outside the form)
@@ -1722,8 +1733,10 @@ class ReservationManager {
                 protein2: buffetSelections?.protein2 || null,
                 side: buffetSelections?.side || null,
                 salad: buffetSelections?.salad || null,
+                salad2: buffetSelections?.salad2 || null,
                 panecillos: buffetSelections?.panecillos || false,
-                aguaRefresco: buffetSelections?.aguaRefresco || false
+                aguaRefresco: buffetSelections?.aguaRefresco || false,
+                pasteles: buffetSelections?.pasteles || false
             } : null,
             breakfast: this.isBreakfast(breakfastType) ? {
                 cafe: breakfastSelections?.cafe || false,
@@ -2155,8 +2168,10 @@ class ReservationManager {
                                 ${reservation.buffet.protein2 ? `<li>${this.getBuffetItemName('protein', reservation.buffet.protein2)}</li>` : ''}
                                 ${reservation.buffet.side ? `<li>${this.getBuffetItemName('side', reservation.buffet.side)}</li>` : ''}
                                 ${reservation.buffet.salad ? `<li>${this.getBuffetItemName('salad', reservation.buffet.salad)}</li>` : ''}
+                                ${reservation.buffet.salad2 ? `<li>${this.getBuffetItemName('salad', reservation.buffet.salad2)}</li>` : ''}
                                 ${reservation.buffet.panecillos ? `<li>Panecillos</li>` : ''}
                                 ${reservation.buffet.aguaRefresco ? `<li>Agua y Refresco</li>` : ''}
+                                ${reservation.buffet.pasteles ? `<li>Pasteles</li>` : ''}
                             </ul>
                             ` : ''}
                         </div>
@@ -2677,16 +2692,20 @@ class ReservationManager {
             const p2El = document.getElementById('buffetProtein2');
             const sideEl = document.getElementById('buffetSide');
             const saladEl = document.getElementById('buffetSalad');
+            const salad2El = document.getElementById('buffetSalad2');
             if (riceEl) riceEl.value = buffet.rice || '';
             if (rice2El) rice2El.value = buffet.rice2 || '';
             if (p1El) p1El.value = buffet.protein1 || '';
             if (p2El) p2El.value = buffet.protein2 || '';
             if (sideEl) sideEl.value = buffet.side || '';
             if (saladEl) saladEl.value = buffet.salad || '';
+            if (salad2El) salad2El.value = buffet.salad2 || '';
             const panecillosEl = document.getElementById('buffetPanecillos');
             if (panecillosEl) panecillosEl.checked = buffet.panecillos || false;
             const aguaRefrescoEl = document.getElementById('buffetAguaRefresco');
             if (aguaRefrescoEl) aguaRefrescoEl.checked = buffet.aguaRefresco || false;
+            const pastelesEl = document.getElementById('buffetPasteles');
+            if (pastelesEl) pastelesEl.checked = buffet.pasteles || false;
             this.clearBreakfastSelections();
         } else {
             this.clearBuffetSelections();
@@ -2816,7 +2835,8 @@ class ReservationManager {
             'buffetProtein1': 'Proteína 1 (Buffet)',
             'buffetProtein2': 'Proteína 2 (Buffet)',
             'buffetSide': 'Acompañamiento (Buffet)',
-            'buffetSalad': 'Ensalada (Buffet)'
+            'buffetSalad': 'Ensalada 1 (Buffet)',
+            'buffetSalad2': 'Ensalada 2 (Buffet)'
         };
 
         // If field name not in map, try to get it from the label
@@ -3053,8 +3073,10 @@ class ReservationManager {
             if (reservation.buffet.protein2) buffetItems.push(this.getBuffetItemName('protein', reservation.buffet.protein2));
             if (reservation.buffet.side) buffetItems.push(this.getBuffetItemName('side', reservation.buffet.side));
             if (reservation.buffet.salad) buffetItems.push(this.getBuffetItemName('salad', reservation.buffet.salad));
+            if (reservation.buffet.salad2) buffetItems.push(this.getBuffetItemName('salad', reservation.buffet.salad2));
             if (reservation.buffet.panecillos) buffetItems.push('Panecillos');
             if (reservation.buffet.aguaRefresco) buffetItems.push('Agua y Refresco');
+            if (reservation.buffet.pasteles) buffetItems.push('Pasteles');
             
             // Build bullet points for buffet options
             const buffetOptionsList = buffetItems.map(item => `<li style="margin-left: 20px; padding: 2px 0; list-style: disc;">${item}</li>`).join('');
@@ -3251,8 +3273,10 @@ class ReservationManager {
             if (reservation.buffet.protein2) buffetItems.push(this.getBuffetItemName('protein', reservation.buffet.protein2));
             if (reservation.buffet.side) buffetItems.push(this.getBuffetItemName('side', reservation.buffet.side));
             if (reservation.buffet.salad) buffetItems.push(this.getBuffetItemName('salad', reservation.buffet.salad));
+            if (reservation.buffet.salad2) buffetItems.push(this.getBuffetItemName('salad', reservation.buffet.salad2));
             if (reservation.buffet.panecillos) buffetItems.push('Panecillos');
             if (reservation.buffet.aguaRefresco) buffetItems.push('Agua y Refresco');
+            if (reservation.buffet.pasteles) buffetItems.push('Pasteles');
             
             // For buffet, create description with title and bullet points
             const buffetDesc = 'Buffet\n' + buffetItems.map(item => '• ' + item).join('\n');

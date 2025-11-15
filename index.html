@@ -583,14 +583,23 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="buffetSalad">Ensalada (Escoger 1)</label>
-                    <select id="buffetSalad" name="buffetSalad">
-                        <option value="">Seleccione ensalada</option>
-                        <option value="caesar">Ensalada Ceasar</option>
-                        <option value="verde">Ensalada Verde</option>
-                        <option value="papa">Ensalada de Papa</option>
-                        <option value="coditos">Ensalada de Coditos</option>
-                    </select>
+                    <label>Ensalada (Escoger 1 o 2)</label>
+                    <div class="protein-grid">
+                        <select id="buffetSalad" name="buffetSalad" aria-label="Ensalada 1">
+                            <option value="">Ensalada 1</option>
+                            <option value="caesar">Ensalada Ceasar</option>
+                            <option value="verde">Ensalada Verde</option>
+                            <option value="papa">Ensalada de Papa</option>
+                            <option value="coditos">Ensalada de Coditos</option>
+                        </select>
+                        <select id="buffetSalad2" name="buffetSalad2" aria-label="Ensalada 2 (Opcional)">
+                            <option value="">Ensalada 2</option>
+                            <option value="caesar">Ensalada Ceasar</option>
+                            <option value="verde">Ensalada Verde</option>
+                            <option value="papa">Ensalada de Papa</option>
+                            <option value="coditos">Ensalada de Coditos</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group panecillos-group">
                     <label class="panecillos-label">
@@ -604,6 +613,13 @@
                         <input type="checkbox" id="buffetAguaRefresco" name="buffetAguaRefresco">
                         <span class="check-box"></span>
                         <span class="panecillos-text">Agua y/o Refresco</span>
+                    </label>
+                </div>
+                <div class="form-group panecillos-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="buffetPasteles" name="buffetPasteles">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Pasteles</span>
                     </label>
                 </div>
             </div>
