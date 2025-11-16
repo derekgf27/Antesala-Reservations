@@ -1200,25 +1200,27 @@ class ReservationManager {
         const modal = document.getElementById('beverageModal');
         if (!modal) return;
         
-        // Handle plus/minus buttons
-        const plusButtons = modal.querySelectorAll('.quantity-plus');
-        const minusButtons = modal.querySelectorAll('.quantity-minus');
+        // Use event delegation to avoid duplicate listeners
+        // Check if handlers are already attached
+        if (modal.dataset.handlersAttached === 'true') return;
         
-        plusButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const beverageId = btn.getAttribute('data-beverage');
+        // Use event delegation on the modal for plus/minus buttons
+        modal.addEventListener('click', (e) => {
+            const target = e.target;
+            if (target.classList.contains('quantity-plus')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const beverageId = target.getAttribute('data-beverage');
                 const input = document.getElementById(beverageId);
                 if (input) {
                     let currentValue = parseInt(input.value) || 0;
                     input.value = currentValue + 1;
                     this.updateBeverageSelectionState(input);
                 }
-            });
-        });
-        
-        minusButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const beverageId = btn.getAttribute('data-beverage');
+            } else if (target.classList.contains('quantity-minus')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const beverageId = target.getAttribute('data-beverage');
                 const input = document.getElementById(beverageId);
                 if (input) {
                     let currentValue = parseInt(input.value) || 0;
@@ -1227,7 +1229,7 @@ class ReservationManager {
                         this.updateBeverageSelectionState(input);
                     }
                 }
-            });
+            }
         });
         
         // Keep input handlers for any edge cases (though inputs are now readonly)
@@ -1239,6 +1241,9 @@ class ReservationManager {
                 this.updateBeverageSelectionState(input);
             };
         });
+        
+        // Mark handlers as attached
+        modal.dataset.handlersAttached = 'true';
     }
     
     updateBeverageSelectionState(input) {
