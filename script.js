@@ -1228,8 +1228,8 @@ class ReservationManager {
                         input.value = currentValue - 1;
                         this.updateBeverageSelectionState(input);
                     }
+                    }
                 }
-            }
         });
         
         // Keep input handlers for any edge cases (though inputs are now readonly)
@@ -2559,6 +2559,7 @@ class ReservationManager {
             'cocktail-reception': 'Recepción de Cóctel',
             'desayuno-9.95': 'Desayuno $9.95',
             'desayuno-10.95': 'Desayuno $10.95',
+            'desayuno-12': 'Desayuno Continental $12',
             'no-food': 'Sin Servicio de Comida'
         };
         return foodNames[foodType] || foodType;
@@ -2573,9 +2574,13 @@ class ReservationManager {
         if (!beveragesMap || Object.keys(beveragesMap).length === 0) return 'Sin Servicio de Bebidas';
         const items = this.getBeverageItems();
         const parts = Object.entries(beveragesMap)
-            .filter(([, qty]) => qty > 0)
+            .filter(([, qty]) => (typeof qty === 'number' && qty > 0) || qty === true)
             .map(([id, qty]) => {
                 const item = items.find(i => i.id === id);
+                // Handle Mimosa separately - it's per person, so just show the name
+                if (id === 'mimosa' && qty === true) {
+                    return item ? item.name : 'Mimosa';
+                }
                 return `${qty} x ${item ? item.name : id}`;
             });
         return parts.length ? parts.join(', ') : 'Sin Servicio de Bebidas';
