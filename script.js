@@ -233,6 +233,27 @@ class ReservationManager {
                 }
             }
         });
+        
+        // Handle deposit percentage change to show/hide custom amount input
+        const depositPercentage = document.getElementById('depositPercentage');
+        const depositCustomAmount = document.getElementById('depositCustomAmount');
+        if (depositPercentage && depositCustomAmount) {
+            depositPercentage.addEventListener('change', () => {
+                if (depositPercentage.value === 'custom') {
+                    depositCustomAmount.classList.remove('hidden');
+                    depositCustomAmount.focus();
+                } else {
+                    depositCustomAmount.classList.add('hidden');
+                    depositCustomAmount.value = '';
+                }
+                this.calculatePrice();
+            });
+            
+            // Handle custom deposit amount input
+            depositCustomAmount.addEventListener('input', () => {
+                this.calculatePrice();
+            });
+        }
 
         // Buffet modal behavior
         const foodType = document.getElementById('foodType');
@@ -1522,10 +1543,29 @@ class ReservationManager {
         const totalCost = subtotalBeforeTaxes + totalTaxes + tipAmount;
         document.getElementById('totalCost').textContent = `$${totalCost.toFixed(2)}`;
         
-        // Calculate deposit (based on selected percentage of total cost)
-        const depositPercentage = parseFloat(document.getElementById('depositPercentage')?.value || 20);
-        const depositAmount = totalCost * (depositPercentage / 100);
-        document.getElementById('depositAmount').textContent = `$${depositAmount.toFixed(2)} (${depositPercentage}%)`;
+        // Calculate deposit (based on selected percentage or custom amount)
+        const depositPercentageEl = document.getElementById('depositPercentage');
+        const depositPercentage = depositPercentageEl?.value || '20';
+        let depositAmount = 0;
+        let depositDisplayText = '$0.00';
+        
+        if (depositPercentage === 'custom') {
+            // Use custom amount
+            const customAmount = parseFloat(document.getElementById('depositCustomAmount')?.value || 0);
+            depositAmount = Math.min(customAmount, totalCost); // Don't allow deposit to exceed total
+            depositDisplayText = `$${depositAmount.toFixed(2)} (Personalizado)`;
+        } else {
+            // Use percentage
+            const percentage = parseFloat(depositPercentage);
+            depositAmount = totalCost * (percentage / 100);
+            if (percentage > 0) {
+                depositDisplayText = `$${depositAmount.toFixed(2)} (${percentage}%)`;
+            } else {
+                depositDisplayText = '$0.00';
+            }
+        }
+        
+        document.getElementById('depositAmount').textContent = depositDisplayText;
 
         return {
             roomCost,
@@ -1547,7 +1587,8 @@ class ReservationManager {
             subtotalBeforeTaxes,
             totalCost,
             depositAmount,
-            depositPercentage,
+            depositPercentage: depositPercentage === 'custom' ? 'custom' : parseFloat(depositPercentage),
+            depositCustomAmount: depositPercentage === 'custom' ? depositAmount : null,
             guestCount,
             eventDuration
         };
@@ -1780,7 +1821,8 @@ class ReservationManager {
                 valet: formData.get('valet') === 'on'
             },
             tipPercentage: parseFloat(formData.get('tipPercentage') || 0),
-            depositPercentage: parseFloat(formData.get('depositPercentage') || 20),
+            depositPercentage: pricing.depositPercentage === 'custom' ? 'custom' : parseFloat(formData.get('depositPercentage') || 20),
+            depositCustomAmount: pricing.depositCustomAmount || null,
             depositPaid: false, // Default to unpaid, can be toggled later
             pricing: pricing,
             createdAt: new Date().toISOString()
@@ -1820,7 +1862,14 @@ class ReservationManager {
         document.getElementById('totalCost').textContent = '$0.00';
         document.getElementById('depositAmount').textContent = '$0.00 (20%)';
         const depositPercentage = document.getElementById('depositPercentage');
-        if (depositPercentage) depositPercentage.value = '20';
+        const depositCustomAmount = document.getElementById('depositCustomAmount');
+        if (depositPercentage) {
+            depositPercentage.value = '20';
+        }
+        if (depositCustomAmount) {
+            depositCustomAmount.classList.add('hidden');
+            depositCustomAmount.value = '';
+        }
         
         // Hide alcohol tax row if visible
         const alcoholRow = document.getElementById('alcoholTaxRow');
@@ -2277,7 +2326,7 @@ class ReservationManager {
                         </div>
                         ${reservation.pricing.depositAmount > 0 ? `
                         <div class="pricing-row deposit-row">
-                            <span>Depósito (${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%):</span>
+                            <span>Depósito ${reservation.depositPercentage === 'custom' || reservation.pricing.depositPercentage === 'custom' ? '(Personalizado)' : `(${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%)`}:</span>
                             <span>
                                 $${reservation.pricing.depositAmount.toFixed(2)}
                                 <span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" onclick="reservationManager.toggleDepositStatus('${reservation.id}')" data-reservation-id="${reservation.id}">
@@ -2515,11 +2564,11 @@ class ReservationManager {
                         <strong>Contacto:</strong>
                         <span>${reservation.clientPhone}</span>
                     </div>
-                    ${reservation.pricing.depositAmount > 0 && (reservation.depositPercentage || reservation.pricing.depositPercentage || 0) > 0 ? `
+                    ${reservation.pricing.depositAmount > 0 ? `
                     <div class="reservation-detail">
                         <strong>Depósito:</strong>
                         <span>
-                            $${reservation.pricing.depositAmount.toFixed(2)}
+                            $${reservation.pricing.depositAmount.toFixed(2)} ${reservation.depositPercentage === 'custom' || reservation.pricing.depositPercentage === 'custom' ? '(Personalizado)' : `(${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%)`}
                             <span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" onclick="reservationManager.toggleDepositStatus('${reservation.id}')" data-reservation-id="${reservation.id}">
                                 ${reservation.depositPaid ? '✓ Pagado' : 'No Pagado'}
                             </span>
@@ -2787,8 +2836,21 @@ class ReservationManager {
         // Use nullish coalescing (??) to only default when value is null/undefined, not when it's 0
         const depositPercentage = reservation.depositPercentage ?? reservation.pricing?.depositPercentage ?? 20;
         const depositPercentageEl = document.getElementById('depositPercentage');
+        const depositCustomAmountEl = document.getElementById('depositCustomAmount');
         if (depositPercentageEl) {
-            depositPercentageEl.value = depositPercentage.toString();
+            if (depositPercentage === 'custom') {
+                depositPercentageEl.value = 'custom';
+                if (depositCustomAmountEl) {
+                    depositCustomAmountEl.classList.remove('hidden');
+                    depositCustomAmountEl.value = reservation.depositCustomAmount || reservation.pricing?.depositCustomAmount || reservation.pricing?.depositAmount || 0;
+                }
+            } else {
+                depositPercentageEl.value = depositPercentage.toString();
+                if (depositCustomAmountEl) {
+                    depositCustomAmountEl.classList.add('hidden');
+                    depositCustomAmountEl.value = '';
+                }
+            }
         }
 
         // Update displays
@@ -3602,8 +3664,10 @@ class ReservationManager {
 
         doc.setFontSize(14);
         doc.setTextColor(242, 123, 33);
-        doc.text('Deposito a Pagar', 20, yPos);
         const depositAmount = reservation.pricing.depositAmount || 0;
+        const isCustomDeposit = reservation.depositPercentage === 'custom' || reservation.pricing?.depositPercentage === 'custom';
+        const depositLabel = isCustomDeposit ? 'Deposito a Pagar (Personalizado)' : `Deposito a Pagar (${reservation.depositPercentage || reservation.pricing?.depositPercentage || 20}%)`;
+        doc.text(depositLabel, 20, yPos);
         let depositText = `$${depositAmount.toFixed(2)}`;
         if (reservation.depositPaid) {
             depositText += ' - PAID';

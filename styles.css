@@ -1149,6 +1149,35 @@ body {
     border-radius: 8px;
 }
 
+.deposit-custom-input {
+    margin-left: 10px;
+    padding: 8px 12px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    width: 120px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.deposit-custom-input:focus {
+    outline: none;
+    border-color: #3F4B5B;
+    background: #3F4B5B;
+    color: white;
+}
+
+[data-theme="dark"] .deposit-custom-input:focus {
+    background: white;
+    color: #1a202c;
+    border-color: white;
+}
+
+.deposit-custom-input::placeholder {
+    color: var(--text-muted);
+}
+
 /* Button Styles */
 .btn {
     padding: 12px 20px;
