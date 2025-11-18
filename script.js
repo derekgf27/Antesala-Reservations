@@ -1137,25 +1137,27 @@ class ReservationManager {
         const modal = document.getElementById('entremesesModal');
         if (!modal) return;
         
-        // Handle plus/minus buttons
-        const plusButtons = modal.querySelectorAll('.quantity-plus[data-entremes]');
-        const minusButtons = modal.querySelectorAll('.quantity-minus[data-entremes]');
+        // Use event delegation to avoid duplicate listeners
+        // Check if handlers are already attached
+        if (modal.dataset.handlersAttached === 'true') return;
         
-        plusButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const entremesId = btn.getAttribute('data-entremes');
+        // Use event delegation on the modal for plus/minus buttons
+        modal.addEventListener('click', (e) => {
+            const target = e.target;
+            if (target.classList.contains('quantity-plus') && target.hasAttribute('data-entremes')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const entremesId = target.getAttribute('data-entremes');
                 const input = document.getElementById(entremesId);
                 if (input) {
                     let currentValue = parseInt(input.value) || 0;
                     input.value = currentValue + 1;
                     this.updateEntremesesSelectionState(input);
                 }
-            });
-        });
-        
-        minusButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const entremesId = btn.getAttribute('data-entremes');
+            } else if (target.classList.contains('quantity-minus') && target.hasAttribute('data-entremes')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const entremesId = target.getAttribute('data-entremes');
                 const input = document.getElementById(entremesId);
                 if (input) {
                     let currentValue = parseInt(input.value) || 0;
@@ -1164,7 +1166,7 @@ class ReservationManager {
                         this.updateEntremesesSelectionState(input);
                     }
                 }
-            });
+            }
         });
         
         // Keep input handlers for any edge cases (though inputs are now readonly)
@@ -1176,6 +1178,9 @@ class ReservationManager {
                 this.updateEntremesesSelectionState(input);
             };
         });
+        
+        // Mark handlers as attached
+        modal.dataset.handlersAttached = 'true';
     }
     
     updateEntremesesSelectionState(input) {
@@ -1207,7 +1212,7 @@ class ReservationManager {
         // Use event delegation on the modal for plus/minus buttons
         modal.addEventListener('click', (e) => {
             const target = e.target;
-            if (target.classList.contains('quantity-plus')) {
+            if (target.classList.contains('quantity-plus') && target.hasAttribute('data-beverage')) {
                 e.preventDefault();
                 e.stopPropagation();
                 const beverageId = target.getAttribute('data-beverage');
@@ -1217,7 +1222,7 @@ class ReservationManager {
                     input.value = currentValue + 1;
                     this.updateBeverageSelectionState(input);
                 }
-            } else if (target.classList.contains('quantity-minus')) {
+            } else if (target.classList.contains('quantity-minus') && target.hasAttribute('data-beverage')) {
                 e.preventDefault();
                 e.stopPropagation();
                 const beverageId = target.getAttribute('data-beverage');
@@ -1228,8 +1233,8 @@ class ReservationManager {
                         input.value = currentValue - 1;
                         this.updateBeverageSelectionState(input);
                     }
-                    }
                 }
+            }
         });
         
         // Keep input handlers for any edge cases (though inputs are now readonly)
