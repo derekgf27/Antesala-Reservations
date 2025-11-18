@@ -416,17 +416,19 @@
                                         </div>
                                         <div class="pricing-item deposit">
                                             <label for="depositPercentage" class="tip-label">Depósito:</label>
-                                            <select id="depositPercentage" name="depositPercentage" class="tip-select">
-                                                <option value="0">Sin Depósito</option>
-                                                <option value="10">10%</option>
-                                                <option value="15">15%</option>
-                                                <option value="20" selected>20%</option>
-                                                <option value="25">25%</option>
-                                                <option value="30">30%</option>
-                                                <option value="50">50%</option>
-                                                <option value="custom">Monto Personalizado</option>
-                                            </select>
-                                            <input type="number" id="depositCustomAmount" name="depositCustomAmount" class="deposit-custom-input hidden" placeholder="$0.00" min="0" step="0.01">
+                                            <div class="deposit-controls">
+                                                <select id="depositPercentage" name="depositPercentage" class="tip-select">
+                                                    <option value="0">Sin Depósito</option>
+                                                    <option value="10">10%</option>
+                                                    <option value="15">15%</option>
+                                                    <option value="20" selected>20%</option>
+                                                    <option value="25">25%</option>
+                                                    <option value="30">30%</option>
+                                                    <option value="50">50%</option>
+                                                    <option value="custom">Custom</option>
+                                                </select>
+                                                <input type="number" id="depositCustomAmount" name="depositCustomAmount" class="deposit-custom-input hidden" placeholder="$0.00" min="0" step="0.01">
+                                            </div>
                                             <span id="depositAmount" class="tip-amount">$0.00</span>
                                         </div>
                                     </div>

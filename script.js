@@ -1553,7 +1553,7 @@ class ReservationManager {
             // Use custom amount
             const customAmount = parseFloat(document.getElementById('depositCustomAmount')?.value || 0);
             depositAmount = Math.min(customAmount, totalCost); // Don't allow deposit to exceed total
-            depositDisplayText = `$${depositAmount.toFixed(2)} (Personalizado)`;
+            depositDisplayText = `$${depositAmount.toFixed(2)} (Custom)`;
         } else {
             // Use percentage
             const percentage = parseFloat(depositPercentage);
@@ -2326,7 +2326,7 @@ class ReservationManager {
                         </div>
                         ${reservation.pricing.depositAmount > 0 ? `
                         <div class="pricing-row deposit-row">
-                            <span>Depósito ${reservation.depositPercentage === 'custom' || reservation.pricing.depositPercentage === 'custom' ? '(Personalizado)' : `(${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%)`}:</span>
+                            <span>Depósito ${reservation.depositPercentage === 'custom' || reservation.pricing.depositPercentage === 'custom' ? '(Custom)' : `(${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%)`}:</span>
                             <span>
                                 $${reservation.pricing.depositAmount.toFixed(2)}
                                 <span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" onclick="reservationManager.toggleDepositStatus('${reservation.id}')" data-reservation-id="${reservation.id}">
@@ -2568,7 +2568,7 @@ class ReservationManager {
                     <div class="reservation-detail">
                         <strong>Depósito:</strong>
                         <span>
-                            $${reservation.pricing.depositAmount.toFixed(2)} ${reservation.depositPercentage === 'custom' || reservation.pricing.depositPercentage === 'custom' ? '(Personalizado)' : `(${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%)`}
+                            $${reservation.pricing.depositAmount.toFixed(2)} ${reservation.depositPercentage === 'custom' || reservation.pricing.depositPercentage === 'custom' ? '(Custom)' : `(${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%)`}
                             <span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" onclick="reservationManager.toggleDepositStatus('${reservation.id}')" data-reservation-id="${reservation.id}">
                                 ${reservation.depositPaid ? '✓ Pagado' : 'No Pagado'}
                             </span>
@@ -3666,7 +3666,7 @@ class ReservationManager {
         doc.setTextColor(242, 123, 33);
         const depositAmount = reservation.pricing.depositAmount || 0;
         const isCustomDeposit = reservation.depositPercentage === 'custom' || reservation.pricing?.depositPercentage === 'custom';
-        const depositLabel = isCustomDeposit ? 'Deposito a Pagar (Personalizado)' : `Deposito a Pagar (${reservation.depositPercentage || reservation.pricing?.depositPercentage || 20}%)`;
+        const depositLabel = isCustomDeposit ? 'Deposito a Pagar (Custom)' : `Deposito a Pagar (${reservation.depositPercentage || reservation.pricing?.depositPercentage || 20}%)`;
         doc.text(depositLabel, 20, yPos);
         let depositText = `$${depositAmount.toFixed(2)}`;
         if (reservation.depositPaid) {
