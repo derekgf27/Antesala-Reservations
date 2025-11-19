@@ -8,6 +8,9 @@ class ReservationManager {
         this.currentCalendarMonth = new Date().getMonth();
         this.currentCalendarYear = new Date().getFullYear();
         this.firebaseUnsubscribe = null;
+        this.sortOption = 'eventDate'; // Default sort by event date
+        this.sortDirection = 'asc'; // 'asc' for ascending, 'desc' for descending
+        this.isUpdatingDeposit = false; // Flag to prevent re-sorting when toggling deposit
         this.initializeStorage();
         this.initializeEventListeners();
         this.initializeNavigation();
@@ -48,10 +51,12 @@ class ReservationManager {
             snapshot.forEach((doc) => {
                 reservations.push(doc.data());
             });
-            // Sort by date
-            reservations.sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate));
             this.reservations = reservations;
-            this.displayReservations();
+            
+            // Only re-display if we're not updating a deposit (to prevent card movement)
+            if (!this.isUpdatingDeposit) {
+                this.displayReservations();
+            }
             this.updateDashboard();
             console.log('Reservations synced from Firestore:', reservations.length);
         }, (error) => {
@@ -456,6 +461,28 @@ class ReservationManager {
         // Clear buffet selections button in modal
         const buffetClearBtn = document.getElementById('buffetClearBtn');
         buffetClearBtn?.addEventListener('click', () => this.clearBuffetSelectionsInModal());
+        
+        // Sort dropdown for reservations
+        const reservationSort = document.getElementById('reservationSort');
+        if (reservationSort) {
+            // Set initial value
+            reservationSort.value = this.sortOption;
+            reservationSort.addEventListener('change', (e) => {
+                this.sortOption = e.target.value;
+                this.displayReservations();
+            });
+        }
+        
+        // Sort direction toggle button
+        const sortDirectionToggle = document.getElementById('sortDirectionToggle');
+        if (sortDirectionToggle) {
+            this.updateSortDirectionIcon();
+            sortDirectionToggle.addEventListener('click', () => {
+                this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+                this.updateSortDirectionIcon();
+                this.displayReservations();
+            });
+        }
     }
 
     // Launch modal when buffet is selected
@@ -2434,6 +2461,9 @@ class ReservationManager {
         const reservation = this.reservations.find(r => r.id === id);
         if (!reservation) return;
         
+        // Set flag to prevent re-sorting
+        this.isUpdatingDeposit = true;
+        
         // Toggle the status
         reservation.depositPaid = !reservation.depositPaid;
         
@@ -2478,6 +2508,23 @@ class ReservationManager {
             `Depósito marcado como ${reservation.depositPaid ? 'Pagado' : 'No Pagado'}`,
             notificationType
         );
+        
+        // Reset flag after a short delay to allow Firebase sync to complete
+        setTimeout(() => {
+            this.isUpdatingDeposit = false;
+        }, 1000);
+    }
+
+    // Update sort direction icon
+    updateSortDirectionIcon() {
+        const icon = document.getElementById('sortDirectionIcon');
+        if (icon) {
+            if (this.sortDirection === 'asc') {
+                icon.className = 'fas fa-sort-amount-down';
+            } else {
+                icon.className = 'fas fa-sort-amount-up';
+            }
+        }
     }
 
     // Display reservations
@@ -2494,7 +2541,47 @@ class ReservationManager {
             return;
         }
 
-        container.innerHTML = this.reservations.map(reservation => `
+        // Sort reservations based on selected option
+        const sortedReservations = [...this.reservations].sort((a, b) => {
+            let result = 0;
+            
+            if (this.sortOption === 'eventDate') {
+                // Sort by event date
+                result = new Date(a.eventDate) - new Date(b.eventDate);
+            } else if (this.sortOption === 'createdAt') {
+                // Sort by creation date
+                result = new Date(a.createdAt) - new Date(b.createdAt);
+            } else if (this.sortOption === 'depositPaid') {
+                // Sort by deposit paid status: unpaid first, then paid (within each group, sort by event date)
+                const aHasDeposit = a.pricing?.depositAmount > 0;
+                const bHasDeposit = b.pricing?.depositAmount > 0;
+                
+                // If neither has a deposit, sort by event date
+                if (!aHasDeposit && !bHasDeposit) {
+                    result = new Date(a.eventDate) - new Date(b.eventDate);
+                } else if (!aHasDeposit) {
+                    // One without deposit comes first (asc) or last (desc)
+                    result = this.sortDirection === 'asc' ? -1 : 1;
+                } else if (!bHasDeposit) {
+                    // One without deposit comes first (asc) or last (desc)
+                    result = this.sortDirection === 'asc' ? 1 : -1;
+                } else {
+                    // Both have deposits - compare paid status
+                    if (a.depositPaid !== b.depositPaid) {
+                        // unpaid (false) comes before paid (true) in ascending, reverse in descending
+                        result = a.depositPaid ? 1 : -1;
+                    } else {
+                        // Same deposit status, sort by event date
+                        result = new Date(a.eventDate) - new Date(b.eventDate);
+                    }
+                }
+            }
+            
+            // Apply sort direction (multiply by -1 for descending)
+            return this.sortDirection === 'desc' ? -result : result;
+        });
+
+        container.innerHTML = sortedReservations.map(reservation => `
             <div class="reservation-card">
                 <div class="reservation-header">
                     <div class="reservation-client">${reservation.clientName}</div>

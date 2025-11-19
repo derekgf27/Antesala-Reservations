@@ -452,8 +452,13 @@
                 <div class="section-header">
                     <h1>Todas las Reservaciones</h1>
                     <div class="header-actions">
-                        <button class="btn btn-outline" onclick="exportReservations()">
-                            <i class="fas fa-download"></i> Exportar
+                        <select id="reservationSort" class="sort-select" aria-label="Ordenar reservaciones">
+                            <option value="eventDate">Ordenar por Fecha del Evento</option>
+                            <option value="createdAt">Ordenar por Recientemente Creadas</option>
+                            <option value="depositPaid">Ordenar por Depósito Pagado</option>
+                        </select>
+                        <button id="sortDirectionToggle" class="btn btn-outline sort-direction-btn" aria-label="Toggle sort direction" title="Cambiar dirección de ordenamiento">
+                            <i class="fas fa-sort-amount-down" id="sortDirectionIcon"></i>
                         </button>
                     </div>
                 </div>

@@ -259,6 +259,56 @@ body {
 .header-actions {
     display: flex;
     gap: 15px;
+    align-items: center;
+}
+
+.sort-select {
+    padding: 8px 12px;
+    border: 2px solid #3F4B5B;
+    border-radius: 8px;
+    background: #3F4B5B;
+    color: white;
+    font-size: 0.95rem;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+    min-width: 220px;
+}
+
+.sort-select:focus {
+    outline: none;
+    border-color: #3F4B5B;
+    background: #3F4B5B;
+    color: white;
+}
+
+[data-theme="dark"] .sort-select {
+    background: #3F4B5B;
+    color: white;
+    border-color: #3F4B5B;
+}
+
+[data-theme="dark"] .sort-select:focus {
+    background: #3F4B5B;
+    color: white;
+    border-color: #3F4B5B;
+}
+
+.sort-select option {
+    background: #3F4B5B;
+    color: white;
+}
+
+.sort-direction-btn {
+    min-width: 45px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sort-direction-btn i {
+    font-size: 1rem;
 }
 
 /* Dashboard Styles */
