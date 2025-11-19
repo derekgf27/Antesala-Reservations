@@ -2374,8 +2374,9 @@ class ReservationManager {
                 'pechuga-cilantro': 'Pechuga salsa Cilantro',
                 'pechuga-tres-quesos': 'Pechuga tres quesos',
                 'pechuga-ajillo': 'Pechuga Ajillo',
-                'pavo-cranberry': 'Filete Pavo Frito salsa cranberry',
-                'medallones-guayaba': 'Medallones salsa Guayaba',
+                'pavo-cranberry': 'Pavo al Horno gravy a escojer',
+                'medallones-guayaba': 'Medallones Cerdo salsa Guayaba',
+                'medallones-setas': 'Medallones Cerdo salsa Setas',
                 'pernil-asado': 'Pernil Asado',
                 'pescado-ajillo': 'Filete de Pescado Ajillo',
                 'churrasco-setas': 'Churrasco salsa setas'
