@@ -52,7 +52,7 @@
                 </li>
             </ul>
             <div class="dark-mode-toggle-container">
-                <button class="dark-mode-toggle" id="darkModeToggle" aria-label="Toggle dark mode">
+                <button class="dark-mode-toggle" id="darkModeToggle" aria-label="Alternar modo oscuro">
                     <i class="fas fa-moon"></i>
                     <span>Modo Oscuro</span>
                 </button>
@@ -63,7 +63,7 @@
         </nav>
 
         <!-- Mobile Menu Toggle Button -->
-        <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
+        <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Alternar menú">
             <i class="fas fa-bars"></i>
         </button>
 
@@ -90,7 +90,7 @@
                         </div>
                         <div class="stat-content">
                             <h3 id="totalReservations">0</h3>
-                            <p>Total Reservations</p>
+                            <p>Total de Reservaciones</p>
                         </div>
                     </div>
                     <div class="stat-card">
@@ -99,7 +99,7 @@
                         </div>
                         <div class="stat-content">
                             <h3 id="totalRevenue">$0</h3>
-                            <p>Total Revenue</p>
+                            <p>Ingresos Totales</p>
                         </div>
                     </div>
                     <div class="stat-card">
@@ -108,7 +108,7 @@
                         </div>
                         <div class="stat-content">
                             <h3 id="totalGuests">0</h3>
-                            <p>Total Guests</p>
+                            <p>Total de Invitados</p>
                         </div>
                     </div>
                     <div class="stat-card">
@@ -117,20 +117,20 @@
                         </div>
                         <div class="stat-content">
                             <h3 id="todayReservations">0</h3>
-                            <p>Today's Events</p>
+                            <p>Eventos de Hoy</p>
                         </div>
                     </div>
                 </div>
 
                 <div class="dashboard-grid">
                     <div class="dashboard-card">
-                        <h3>Recent Reservations</h3>
+                        <h3>Reservaciones Recientes</h3>
                         <div id="recentReservations" class="recent-list">
                             <!-- Recent reservations will be populated here -->
                         </div>
                     </div>
                     <div class="dashboard-card">
-                        <h3>Upcoming Events</h3>
+                        <h3>Próximos Eventos</h3>
                         <div id="upcomingEvents" class="upcoming-list">
                             <!-- Upcoming events will be populated here -->
                         </div>
@@ -480,11 +480,11 @@
                 <div class="calendar-container">
                     <div class="calendar-navigation">
                         <button class="btn btn-outline" onclick="previousMonth()" id="prevMonthBtn">
-                            <i class="fas fa-chevron-left"></i> Previous
+                            <i class="fas fa-chevron-left"></i> Anterior
                         </button>
-                        <h2 id="calendarMonthYear">Current Month</h2>
+                        <h2 id="calendarMonthYear">Mes Actual</h2>
                         <button class="btn btn-outline" onclick="nextMonth()" id="nextMonthBtn">
-                            Next <i class="fas fa-chevron-right"></i>
+                            Siguiente <i class="fas fa-chevron-right"></i>
                         </button>
                     </div>
                     <div id="calendarView" class="calendar-grid">
@@ -500,19 +500,19 @@
                 </div>
                 <div class="analytics-grid">
                     <div class="analytics-card">
-                        <h3>Revenue by Month</h3>
+                        <h3>Ingresos por Mes</h3>
                         <div id="revenueChart" class="chart-placeholder">
-                            <p>Revenue chart will be displayed here</p>
+                            <p>El gráfico de ingresos se mostrará aquí</p>
                         </div>
                     </div>
                     <div class="analytics-card">
-                        <h3>Popular Event Spaces</h3>
+                        <h3>Espacios Populares</h3>
                         <div id="roomStats" class="stats-list">
                             <!-- Room statistics will be populated here -->
                         </div>
                     </div>
                     <div class="analytics-card">
-                        <h3>Average Event Size</h3>
+                        <h3>Tamaño Promedio de Eventos</h3>
                         <div id="guestStats" class="stats-display">
                             <!-- Guest statistics will be populated here -->
                         </div>
@@ -527,7 +527,7 @@
         <div class="modal">
             <div class="modal-header">
                 <h3>Buffet Options</h3>
-                <button type="button" class="modal-close" id="buffetCloseBtn" aria-label="Close">×</button>
+                <button type="button" class="modal-close" id="buffetCloseBtn" aria-label="Cerrar">×</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -638,8 +638,8 @@
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-outline" id="buffetClearBtn">Limpiar Todo</button>
-                <button type="button" class="btn btn-outline" id="buffetCancelBtn">Cancel</button>
-                <button type="button" class="btn btn-primary" id="buffetSaveBtn">Save</button>
+                <button type="button" class="btn btn-outline" id="buffetCancelBtn">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="buffetSaveBtn">Guardar</button>
             </div>
         </div>
     </div>
@@ -649,7 +649,7 @@
         <div class="modal">
             <div class="modal-header">
                 <h3>Breakfast Options</h3>
-                <button type="button" class="modal-close" id="breakfastCloseBtn" aria-label="Close">×</button>
+                <button type="button" class="modal-close" id="breakfastCloseBtn" aria-label="Cerrar">×</button>
             </div>
             <div class="modal-body">
                 <div class="form-group panecillos-group">
@@ -690,8 +690,8 @@
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-outline" id="breakfastClearBtn">Limpiar Todo</button>
-                <button type="button" class="btn btn-outline" id="breakfastCancelBtn">Cancel</button>
-                <button type="button" class="btn btn-primary" id="breakfastSaveBtn">Save</button>
+                <button type="button" class="btn btn-outline" id="breakfastCancelBtn">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="breakfastSaveBtn">Guardar</button>
             </div>
         </div>
     </div>
@@ -701,7 +701,7 @@
         <div class="modal">
             <div class="modal-header">
                 <h3>Opciones de Postres</h3>
-                <button type="button" class="modal-close" id="dessertCloseBtn" aria-label="Close">×</button>
+                <button type="button" class="modal-close" id="dessertCloseBtn" aria-label="Cerrar">×</button>
             </div>
             <div class="modal-body">
                 <div class="form-group panecillos-group">
@@ -770,8 +770,8 @@
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-outline" id="dessertClearBtn">Limpiar Todo</button>
-                <button type="button" class="btn btn-outline" id="dessertCancelBtn">Cancel</button>
-                <button type="button" class="btn btn-primary" id="dessertSaveBtn">Save</button>
+                <button type="button" class="btn btn-outline" id="dessertCancelBtn">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="dessertSaveBtn">Guardar</button>
             </div>
         </div>
     </div>
@@ -1030,11 +1030,27 @@
                                 </div>
                             </div>
                             <div>
-                                <label for="bev-descorche">Descorche</label>
+                                <label for="bev-descorche-10">Descorche ($10)</label>
                                 <div class="quantity-selector">
-                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-descorche">−</button>
-                                    <input type="number" id="bev-descorche" min="0" value="0" readonly>
-                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-descorche">+</button>
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-descorche-10">−</button>
+                                    <input type="number" id="bev-descorche-10" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-descorche-10">+</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="bev-descorche-20">Descorche ($20)</label>
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-descorche-20">−</button>
+                                    <input type="number" id="bev-descorche-20" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-descorche-20">+</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="bev-descorche-30">Descorche ($30)</label>
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-descorche-30">−</button>
+                                    <input type="number" id="bev-descorche-30" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-descorche-30">+</button>
                                 </div>
                             </div>
                         </div>
@@ -1175,6 +1191,64 @@
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-primary" id="validationErrorOkBtn">Entendido</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="modal-overlay hidden">
+        <div class="modal payment-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-money-bill-wave"></i> Registrar Pago</h3>
+                <button type="button" class="modal-close" id="paymentCloseBtn" aria-label="Cerrar">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="paymentModalContent">
+                    <div class="form-group">
+                        <label for="paymentAmount">Monto del Pago ($)</label>
+                        <div class="payment-amount-container">
+                            <input type="number" id="paymentAmount" name="paymentAmount" min="0.01" step="0.01" placeholder="0.00" required>
+                            <button type="button" class="btn btn-outline btn-pay-full" id="payFullBalanceBtn">
+                                <i class="fas fa-check-circle"></i> Pagar Balance Completo
+                            </button>
+                        </div>
+                        <small class="form-help">Ingrese el monto que el cliente está pagando o use el botón para pagar el balance completo</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="paymentDate">Fecha del Pago</label>
+                        <input type="date" id="paymentDate" name="paymentDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="paymentNotes">Notas (Opcional)</label>
+                        <textarea id="paymentNotes" name="paymentNotes" rows="3" placeholder="Notas adicionales sobre este pago..."></textarea>
+                    </div>
+                    <div class="payment-summary">
+                        <div class="payment-summary-row">
+                            <span>Costo Total:</span>
+                            <span id="paymentTotalCost">$0.00</span>
+                        </div>
+                        <div class="payment-summary-row">
+                            <span>Depósito:</span>
+                            <span id="paymentDepositAmount">$0.00</span>
+                        </div>
+                        <div class="payment-summary-row">
+                            <span>Total Pagado:</span>
+                            <span id="paymentTotalPaid">$0.00</span>
+                        </div>
+                        <div class="payment-summary-row">
+                            <span>Balance Restante:</span>
+                            <span id="paymentRemainingBalance">$0.00</span>
+                        </div>
+                    </div>
+                    <div id="paymentHistory" class="payment-history">
+                        <h4>Historial de Pagos</h4>
+                        <div id="paymentHistoryList"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" id="paymentCancelBtn">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="paymentSaveBtn">Registrar Pago</button>
             </div>
         </div>
     </div>

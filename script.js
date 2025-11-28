@@ -11,6 +11,7 @@ class ReservationManager {
         this.sortOption = 'eventDate'; // Default sort by event date
         this.sortDirection = 'asc'; // 'asc' for ascending, 'desc' for descending
         this.isUpdatingDeposit = false; // Flag to prevent re-sorting when toggling deposit
+        this.currentPaymentReservationId = null; // Track which reservation is being paid
         this.initializeStorage();
         this.initializeEventListeners();
         this.initializeNavigation();
@@ -434,6 +435,26 @@ class ReservationManager {
         validationErrorCloseBtn?.addEventListener('click', () => this.closeValidationErrorModal());
         validationErrorOkBtn?.addEventListener('click', () => this.closeValidationErrorModal());
         
+        // Payment modal events
+        const paymentModal = document.getElementById('paymentModal');
+        const paymentCloseBtn = document.getElementById('paymentCloseBtn');
+        const paymentCancelBtn = document.getElementById('paymentCancelBtn');
+        const paymentSaveBtn = document.getElementById('paymentSaveBtn');
+        const paymentAmount = document.getElementById('paymentAmount');
+        const payFullBalanceBtn = document.getElementById('payFullBalanceBtn');
+        paymentCloseBtn?.addEventListener('click', () => this.closePaymentModal());
+        paymentCancelBtn?.addEventListener('click', () => this.closePaymentModal());
+        paymentSaveBtn?.addEventListener('click', () => this.savePayment());
+        paymentAmount?.addEventListener('input', () => this.updatePaymentSummary());
+        payFullBalanceBtn?.addEventListener('click', () => this.fillFullBalance());
+        if (paymentModal) {
+            paymentModal.addEventListener('click', (e) => {
+                if (e.target === paymentModal) {
+                    this.closePaymentModal();
+                }
+            });
+        }
+        
         // Close modal when clicking outside
         const validationErrorModal = document.getElementById('validationErrorModal');
         if (validationErrorModal) {
@@ -586,7 +607,9 @@ class ReservationManager {
             'bev-white-wine-35-1': 'white-wine-35-1',
             'bev-white-wine-35-2': 'white-wine-35-2',
             'bev-white-wine-40': 'white-wine-40',
-            'bev-descorche': 'descorche',
+            'bev-descorche-10': 'descorche-10',
+            'bev-descorche-20': 'descorche-20',
+            'bev-descorche-30': 'descorche-30',
         };
         
         // Clear all input fields and remove selected class
@@ -858,7 +881,9 @@ class ReservationManager {
             { id: 'white-wine-35-1', name: 'Botella de Vino Blanco ($35)', price: 35, alcohol: true },
             { id: 'white-wine-35-2', name: 'Botella de Vino Blanco ($35)', price: 35, alcohol: true },
             { id: 'white-wine-40', name: 'Botella de Vino Blanco ($40)', price: 40, alcohol: true },
-            { id: 'descorche', name: 'Descorche', price: 0, alcohol: false },
+            { id: 'descorche-10', name: 'Descorche ($10)', price: 10, alcohol: false },
+            { id: 'descorche-20', name: 'Descorche ($20)', price: 20, alcohol: false },
+            { id: 'descorche-30', name: 'Descorche ($30)', price: 30, alcohol: false },
         ];
     }
 
@@ -897,7 +922,9 @@ class ReservationManager {
             'bev-white-wine-35-1': 'white-wine-35-1',
             'bev-white-wine-35-2': 'white-wine-35-2',
             'bev-white-wine-40': 'white-wine-40',
-            'bev-descorche': 'descorche',
+            'bev-descorche-10': 'descorche-10',
+            'bev-descorche-20': 'descorche-20',
+            'bev-descorche-30': 'descorche-30',
         };
         Object.entries(map).forEach(([inputId, key]) => {
             const el = document.getElementById(inputId);
@@ -966,7 +993,9 @@ class ReservationManager {
             { inputId: 'bev-white-wine-35-1', key: 'white-wine-35-1' },
             { inputId: 'bev-white-wine-35-2', key: 'white-wine-35-2' },
             { inputId: 'bev-white-wine-40', key: 'white-wine-40' },
-            { inputId: 'bev-descorche', key: 'descorche' },
+            { inputId: 'bev-descorche-10', key: 'descorche-10' },
+            { inputId: 'bev-descorche-20', key: 'descorche-20' },
+            { inputId: 'bev-descorche-30', key: 'descorche-30' },
         ];
         const selections = {};
         inputs.forEach(({ inputId, key }) => {
@@ -1851,6 +1880,7 @@ class ReservationManager {
             depositPercentage: pricing.depositPercentage === 'custom' ? 'custom' : parseFloat(formData.get('depositPercentage') || 20),
             depositCustomAmount: pricing.depositCustomAmount || null,
             depositPaid: false, // Default to unpaid, can be toggled later
+            additionalPayments: [], // Array to track payments beyond deposit
             pricing: pricing,
             createdAt: new Date().toISOString()
         };
@@ -2201,7 +2231,7 @@ class ReservationManager {
                     <div class="detail-grid">
                         <div class="detail-item">
                             <span class="detail-label">Tipo de Evento:</span>
-                            <span class="detail-value">${reservation.eventType || 'N/A'}</span>
+                            <span class="detail-value">${reservation.eventType || 'No especificado'}</span>
                         </div>
                         ${reservation.companyName ? `
                         <div class="detail-item">
@@ -2219,7 +2249,7 @@ class ReservationManager {
                         </div>
                         <div class="detail-item">
                             <span class="detail-label">Duración:</span>
-                            <span class="detail-value">${reservation.eventDuration ? reservation.eventDuration + ' horas' : 'N/A'}</span>
+                            <span class="detail-value">${reservation.eventDuration ? reservation.eventDuration + ' horas' : 'No especificado'}</span>
                         </div>
                     </div>
                 </div>
@@ -2363,9 +2393,36 @@ class ReservationManager {
                         </div>
                         ` : ''}
                         <div class="pricing-row balance-row">
-                            <span>Balance:</span>
-                            <span>$${((reservation.depositPaid ? reservation.pricing.totalCost - reservation.pricing.depositAmount : reservation.pricing.totalCost)).toFixed(2)}</span>
+                            <span>Total Pagado:</span>
+                            <span>$${this.calculateTotalPaid(reservation).toFixed(2)}</span>
                         </div>
+                        <div class="pricing-row balance-row">
+                            <span>Balance Restante:</span>
+                            <span>$${this.calculateRemainingBalance(reservation).toFixed(2)}</span>
+                        </div>
+                        ${this.calculateRemainingBalance(reservation) > 0 ? `
+                        <div class="pricing-row payment-action-row">
+                            <button class="btn btn-success btn-small" onclick="reservationManager.openPaymentModal('${reservation.id}')">
+                                <i class="fas fa-money-bill-wave"></i> Registrar Pago
+                            </button>
+                        </div>
+                        ` : ''}
+                        ${(reservation.additionalPayments && reservation.additionalPayments.length > 0) ? `
+                        <div class="pricing-row payment-history-row">
+                            <strong>Historial de Pagos Adicionales:</strong>
+                            <ul class="payment-history-list">
+                                ${reservation.additionalPayments.map((payment, index) => {
+                                    const date = new Date(payment.date || payment.timestamp || Date.now());
+                                    const formattedDate = date.toLocaleDateString('es-ES', { 
+                                        year: 'numeric', 
+                                        month: 'short', 
+                                        day: 'numeric' 
+                                    });
+                                    return `<li>$${payment.amount.toFixed(2)} - ${formattedDate}${payment.notes ? ` (${payment.notes})` : ''}</li>`;
+                                }).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
                     </div>
                 </div>
             </div>
@@ -2380,8 +2437,8 @@ class ReservationManager {
             'audioVisual': 'Manteles',
             'sillas': 'Sillas',
             'mesas': 'Mesas',
-            'decorations': 'Basic Decorations',
-            'waitstaff': 'Additional Waitstaff',
+            'decorations': 'Decoraciones Básicas',
+            'waitstaff': 'Personal Adicional',
             'valet': 'Valet Parking'
         };
         return serviceNames[key] || key;
@@ -2427,7 +2484,7 @@ class ReservationManager {
 
     getBeverageBulletList(beveragesMap) {
         if (!beveragesMap || Object.keys(beveragesMap).length === 0) {
-            return '<span class="detail-value">None</span>';
+            return '<span class="detail-value">Ninguno</span>';
         }
         const items = this.getBeverageItems();
         const beverageList = Object.entries(beveragesMap)
@@ -2438,7 +2495,7 @@ class ReservationManager {
             });
         return beverageList.length > 0 
             ? `<ul class="detail-bullet-list">${beverageList.join('')}</ul>`
-            : '<span class="detail-value">None</span>';
+            : '<span class="detail-value">Ninguno</span>';
     }
 
     openReservationDetailsModal() {
@@ -2481,16 +2538,16 @@ class ReservationManager {
             // Update the balance text in the same card
             const card = depositToggle.closest('.reservation-card');
             if (card) {
-                // Find the balance element by looking for the strong tag with "Balance:" text
-                const balanceSpans = card.querySelectorAll('.reservation-detail strong');
-                balanceSpans.forEach(strong => {
-                    if (strong.textContent.trim() === 'Balance:') {
-                        const balanceSpan = strong.nextElementSibling;
-                        if (balanceSpan && balanceSpan.tagName === 'SPAN') {
-                            const newBalance = reservation.depositPaid 
-                                ? reservation.pricing.totalCost - reservation.pricing.depositAmount 
-                                : reservation.pricing.totalCost;
-                            balanceSpan.textContent = `$${newBalance.toFixed(2)}`;
+                // Find and update "Total Pagado" and "Balance Restante" elements
+                const detailSpans = card.querySelectorAll('.reservation-detail strong');
+                detailSpans.forEach(strong => {
+                    const text = strong.textContent.trim();
+                    const span = strong.nextElementSibling;
+                    if (span && span.tagName === 'SPAN') {
+                        if (text === 'Total Pagado:') {
+                            span.textContent = `$${this.calculateTotalPaid(reservation).toFixed(2)}`;
+                        } else if (text === 'Balance Restante:') {
+                            span.textContent = `$${this.calculateRemainingBalance(reservation).toFixed(2)}`;
                         }
                     }
                 });
@@ -2514,6 +2571,272 @@ class ReservationManager {
         setTimeout(() => {
             this.isUpdatingDeposit = false;
         }, 1000);
+    }
+
+    // Calculate total paid amount (deposit + additional payments)
+    calculateTotalPaid(reservation) {
+        if (!reservation) return 0;
+        const depositPaid = reservation.depositPaid ? (reservation.pricing?.depositAmount || 0) : 0;
+        const additionalPayments = reservation.additionalPayments || [];
+        const additionalTotal = additionalPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+        return depositPaid + additionalTotal;
+    }
+
+    // Calculate remaining balance
+    calculateRemainingBalance(reservation) {
+        if (!reservation) return 0;
+        const totalCost = reservation.pricing?.totalCost || 0;
+        const totalPaid = this.calculateTotalPaid(reservation);
+        return Math.max(0, totalCost - totalPaid);
+    }
+
+    // Open payment modal
+    openPaymentModal(reservationId) {
+        const reservation = this.reservations.find(r => r.id === reservationId);
+        if (!reservation) return;
+
+        this.currentPaymentReservationId = reservationId;
+        const modal = document.getElementById('paymentModal');
+        if (!modal) return;
+
+        // Set default payment date to today
+        const paymentDate = document.getElementById('paymentDate');
+        if (paymentDate) {
+            paymentDate.value = new Date().toISOString().split('T')[0];
+        }
+
+        // Clear payment amount and notes
+        const paymentAmount = document.getElementById('paymentAmount');
+        const paymentNotes = document.getElementById('paymentNotes');
+        const payFullBalanceBtn = document.getElementById('payFullBalanceBtn');
+        if (paymentAmount) paymentAmount.value = '';
+        if (paymentNotes) paymentNotes.value = '';
+
+        // Enable/disable pay full balance button based on remaining balance
+        const remainingBalance = this.calculateRemainingBalance(reservation);
+        if (payFullBalanceBtn) {
+            if (remainingBalance > 0) {
+                payFullBalanceBtn.disabled = false;
+                payFullBalanceBtn.style.opacity = '1';
+                payFullBalanceBtn.style.cursor = 'pointer';
+            } else {
+                payFullBalanceBtn.disabled = true;
+                payFullBalanceBtn.style.opacity = '0.5';
+                payFullBalanceBtn.style.cursor = 'not-allowed';
+            }
+        }
+
+        // Update payment summary
+        this.updatePaymentSummary();
+
+        // Display payment history
+        this.displayPaymentHistory(reservation);
+
+        modal.classList.remove('hidden');
+        void modal.offsetWidth;
+        modal.classList.add('visible');
+    }
+
+    // Close payment modal
+    closePaymentModal() {
+        const modal = document.getElementById('paymentModal');
+        if (!modal) return;
+        modal.classList.remove('visible');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            this.currentPaymentReservationId = null;
+        }, 220);
+    }
+
+    // Fill payment amount with full remaining balance
+    fillFullBalance() {
+        if (!this.currentPaymentReservationId) return;
+        const reservation = this.reservations.find(r => r.id === this.currentPaymentReservationId);
+        if (!reservation) return;
+
+        const remainingBalance = this.calculateRemainingBalance(reservation);
+        const paymentAmountInput = document.getElementById('paymentAmount');
+        if (paymentAmountInput && remainingBalance > 0) {
+            paymentAmountInput.value = remainingBalance.toFixed(2);
+            this.updatePaymentSummary();
+            // Show a brief visual feedback
+            paymentAmountInput.focus();
+            paymentAmountInput.select();
+        }
+    }
+
+    // Update payment summary display
+    updatePaymentSummary() {
+        if (!this.currentPaymentReservationId) return;
+        const reservation = this.reservations.find(r => r.id === this.currentPaymentReservationId);
+        if (!reservation) return;
+
+        const totalCost = reservation.pricing?.totalCost || 0;
+        const depositAmount = reservation.pricing?.depositAmount || 0;
+        const totalPaid = this.calculateTotalPaid(reservation);
+        const paymentAmountInput = document.getElementById('paymentAmount');
+        const newPaymentAmount = parseFloat(paymentAmountInput?.value || 0);
+        const remainingBalance = this.calculateRemainingBalance(reservation);
+        const newRemainingBalance = Math.max(0, remainingBalance - newPaymentAmount);
+
+        // Update display
+        const paymentTotalCost = document.getElementById('paymentTotalCost');
+        const paymentDepositAmount = document.getElementById('paymentDepositAmount');
+        const paymentTotalPaid = document.getElementById('paymentTotalPaid');
+        const paymentRemainingBalance = document.getElementById('paymentRemainingBalance');
+
+        if (paymentTotalCost) paymentTotalCost.textContent = `$${totalCost.toFixed(2)}`;
+        if (paymentDepositAmount) paymentDepositAmount.textContent = `$${depositAmount.toFixed(2)}`;
+        if (paymentTotalPaid) paymentTotalPaid.textContent = `$${totalPaid.toFixed(2)}`;
+        if (paymentRemainingBalance) {
+            paymentRemainingBalance.textContent = `$${newRemainingBalance.toFixed(2)}`;
+            if (newRemainingBalance === 0) {
+                paymentRemainingBalance.style.color = 'var(--success-color, #10b981)';
+                paymentRemainingBalance.style.fontWeight = 'bold';
+            } else {
+                paymentRemainingBalance.style.color = '';
+                paymentRemainingBalance.style.fontWeight = '';
+            }
+        }
+
+        // Update pay full balance button state
+        const payFullBalanceBtn = document.getElementById('payFullBalanceBtn');
+        if (payFullBalanceBtn) {
+            if (remainingBalance > 0) {
+                payFullBalanceBtn.disabled = false;
+                payFullBalanceBtn.style.opacity = '1';
+                payFullBalanceBtn.style.cursor = 'pointer';
+            } else {
+                payFullBalanceBtn.disabled = true;
+                payFullBalanceBtn.style.opacity = '0.5';
+                payFullBalanceBtn.style.cursor = 'not-allowed';
+            }
+        }
+    }
+
+    // Display payment history
+    displayPaymentHistory(reservation) {
+        const paymentHistoryList = document.getElementById('paymentHistoryList');
+        if (!paymentHistoryList) return;
+
+        const additionalPayments = reservation.additionalPayments || [];
+        
+        if (additionalPayments.length === 0) {
+            paymentHistoryList.innerHTML = '<p class="no-payments">No hay pagos adicionales registrados.</p>';
+            return;
+        }
+
+        const historyHTML = additionalPayments.map((payment, index) => {
+            const date = new Date(payment.date || payment.timestamp || Date.now());
+            const formattedDate = date.toLocaleDateString('es-ES', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+            });
+            return `
+                <div class="payment-history-item">
+                    <div class="payment-history-amount">$${payment.amount.toFixed(2)}</div>
+                    <div class="payment-history-date">${formattedDate}</div>
+                    ${payment.notes ? `<div class="payment-history-notes">${payment.notes}</div>` : ''}
+                    <button class="btn btn-small btn-danger" onclick="reservationManager.deletePayment('${reservation.id}', ${index})" title="Eliminar pago">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+        }).join('');
+
+        paymentHistoryList.innerHTML = historyHTML;
+    }
+
+    // Save payment
+    savePayment() {
+        if (!this.currentPaymentReservationId) return;
+        const reservation = this.reservations.find(r => r.id === this.currentPaymentReservationId);
+        if (!reservation) return;
+
+        const paymentAmount = document.getElementById('paymentAmount');
+        const paymentDate = document.getElementById('paymentDate');
+        const paymentNotes = document.getElementById('paymentNotes');
+
+        const amount = parseFloat(paymentAmount?.value || 0);
+        const date = paymentDate?.value || new Date().toISOString().split('T')[0];
+        const notes = paymentNotes?.value?.trim() || '';
+
+        if (!amount || amount <= 0) {
+            this.showNotification('Por favor ingrese un monto válido', 'error');
+            return;
+        }
+
+        const remainingBalance = this.calculateRemainingBalance(reservation);
+        if (amount > remainingBalance) {
+            this.showNotification(`El monto excede el balance restante de $${remainingBalance.toFixed(2)}`, 'error');
+            return;
+        }
+
+        // Initialize additionalPayments array if it doesn't exist
+        if (!reservation.additionalPayments) {
+            reservation.additionalPayments = [];
+        }
+
+        // Add payment
+        reservation.additionalPayments.push({
+            amount: amount,
+            date: date,
+            timestamp: new Date().toISOString(),
+            notes: notes
+        });
+
+        // Save to storage
+        this.saveReservations();
+
+        // Update displays
+        this.displayReservations();
+        this.updatePaymentSummary();
+        this.displayPaymentHistory(reservation);
+
+        // Show success notification
+        const newRemainingBalance = this.calculateRemainingBalance(reservation);
+        if (newRemainingBalance === 0) {
+            this.showNotification('¡Pago completo! El balance ha sido pagado en su totalidad.', 'success');
+        } else {
+            this.showNotification(`Pago de $${amount.toFixed(2)} registrado exitosamente. Balance restante: $${newRemainingBalance.toFixed(2)}`, 'success');
+        }
+
+        // Clear form
+        if (paymentAmount) paymentAmount.value = '';
+        if (paymentNotes) paymentNotes.value = '';
+        if (paymentDate) paymentDate.value = new Date().toISOString().split('T')[0];
+
+        // Update payment summary and history to reflect the new payment
+        this.updatePaymentSummary();
+        this.displayPaymentHistory(reservation);
+
+        // Refresh reservation details modal if open
+        const reservationDetailsModal = document.getElementById('reservationDetailsModal');
+        if (reservationDetailsModal && !reservationDetailsModal.classList.contains('hidden')) {
+            this.showReservationDetails(this.currentPaymentReservationId);
+        }
+    }
+
+    // Delete payment
+    deletePayment(reservationId, paymentIndex) {
+        const reservation = this.reservations.find(r => r.id === reservationId);
+        if (!reservation || !reservation.additionalPayments) return;
+
+        if (confirm('¿Está seguro de que desea eliminar este pago?')) {
+            reservation.additionalPayments.splice(paymentIndex, 1);
+            this.saveReservations();
+            this.displayReservations();
+            this.updatePaymentSummary();
+            this.displayPaymentHistory(reservation);
+            this.showNotification('Pago eliminado exitosamente', 'success');
+
+            // Refresh reservation details modal if open
+            const reservationDetailsModal = document.getElementById('reservationDetailsModal');
+            if (reservationDetailsModal && !reservationDetailsModal.classList.contains('hidden')) {
+                this.showReservationDetails(reservationId);
+            }
+        }
     }
 
     // Update sort direction icon
@@ -2605,7 +2928,7 @@ class ReservationManager {
                     </div>
                     <div class="reservation-detail">
                         <strong>Duración:</strong>
-                        <span>${reservation.eventDuration ? reservation.eventDuration + ' horas' : 'N/A'}</span>
+                        <span>${reservation.eventDuration ? reservation.eventDuration + ' horas' : 'No especificado'}</span>
                     </div>
                     <div class="reservation-detail">
                         <strong>Salón:</strong>
@@ -2664,13 +2987,22 @@ class ReservationManager {
                         </span>
                     </div>
                     <div class="reservation-detail">
-                        <strong>Balance:</strong>
-                        <span>$${((reservation.depositPaid ? reservation.pricing.totalCost - reservation.pricing.depositAmount : reservation.pricing.totalCost)).toFixed(2)}</span>
+                        <strong>Total Pagado:</strong>
+                        <span>$${this.calculateTotalPaid(reservation).toFixed(2)}</span>
+                    </div>
+                    <div class="reservation-detail">
+                        <strong>Balance Restante:</strong>
+                        <span>$${this.calculateRemainingBalance(reservation).toFixed(2)}</span>
                     </div>
                     ` : ''}
                 </div>
                 ${this.getAdditionalServicesDisplay(reservation.additionalServices)}
                 <div class="reservation-actions">
+                    ${this.calculateRemainingBalance(reservation) > 0 ? `
+                    <button class="btn btn-small btn-success" onclick="reservationManager.openPaymentModal('${reservation.id}')">
+                        <i class="fas fa-money-bill-wave"></i> Registrar Pago
+                    </button>
+                    ` : ''}
                     <button class="btn btn-small btn-primary" onclick="exportReservationInvoice('${reservation.id}')">
                         <i class="fas fa-file-invoice"></i> Exportar Factura
                     </button>
@@ -3063,13 +3395,24 @@ class ReservationManager {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: ${backgroundColor};
-            color: white;
+            background: ${backgroundColor} !important;
+            color: white !important;
             padding: 15px 20px;
             border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            z-index: 1000;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5), 0 0 0 3px rgba(255,255,255,0.2);
+            z-index: 3000 !important;
             animation: slideIn 0.3s ease-out;
+            font-weight: 600;
+            font-size: 0.95rem;
+            max-width: 400px;
+            word-wrap: break-word;
+            opacity: 1 !important;
+            pointer-events: auto;
+            backdrop-filter: none !important;
+            filter: none !important;
+            transform: translateZ(0);
+            will-change: transform;
+            isolation: isolate;
         `;
 
         document.body.appendChild(notification);
@@ -3130,7 +3473,12 @@ class ReservationManager {
             const snapshot = await window.firestore.collection('reservations').get();
             const reservations = [];
             snapshot.forEach((doc) => {
-                reservations.push(doc.data());
+                const reservation = doc.data();
+                // Migrate old reservations to include additionalPayments field
+                if (!reservation.hasOwnProperty('additionalPayments')) {
+                    reservation.additionalPayments = [];
+                }
+                reservations.push(reservation);
             });
             // Sort by date
             reservations.sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate));
@@ -3152,7 +3500,14 @@ class ReservationManager {
     // Load from localStorage
     loadReservationsFromLocalStorage() {
         const saved = localStorage.getItem('antesalaReservations');
-        return saved ? JSON.parse(saved) : [];
+        const reservations = saved ? JSON.parse(saved) : [];
+        // Migrate old reservations to include additionalPayments field
+        return reservations.map(reservation => {
+            if (!reservation.hasOwnProperty('additionalPayments')) {
+                reservation.additionalPayments = [];
+            }
+            return reservation;
+        });
     }
 
     // Legacy method for backward compatibility
@@ -3422,10 +3777,8 @@ class ReservationManager {
         // Calculate subtotal (before taxes) - use actual additional services total
         const subtotal = reservation.pricing.roomCost + reservation.pricing.foodCost + reservation.pricing.breakfastCost + reservation.pricing.drinkCost + (reservation.pricing.entremesesCost || 0) + additionalServicesTotal;
         
-        // Calculate balance: if deposit is paid, subtract it; if not paid, balance equals total
-        const balance = reservation.depositPaid 
-            ? reservation.pricing.totalCost - reservation.pricing.depositAmount 
-            : reservation.pricing.totalCost;
+        // Calculate balance using the new payment tracking system
+        const balance = this.calculateRemainingBalance(reservation);
 
         // Build items array for PDF table
         const itemsData = [];
@@ -3762,6 +4115,15 @@ class ReservationManager {
             depositText += ' - PAID';
         }
         doc.text(depositText, 190, yPos, { align: 'right' });
+        yPos += 6;
+
+        // Total Pagado line
+        const totalPaid = this.calculateTotalPaid(reservation);
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(16, 185, 129);
+        doc.text('Total Pagado', 20, yPos);
+        doc.text(`$${totalPaid.toFixed(2)}`, 190, yPos, { align: 'right' });
         yPos += 6;
 
         doc.setTextColor(72, 187, 120);

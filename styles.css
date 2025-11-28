@@ -1292,6 +1292,18 @@ body {
     box-shadow: 0 6px 20px rgba(72, 187, 120, 0.4);
 }
 
+.btn-success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
 .btn-outline {
     background: #F27B21;
     color: white;
@@ -1333,6 +1345,7 @@ body {
     display: flex;
     flex-direction: column;
     min-height: 400px;
+    overflow: hidden;
 }
 
 .reservation-card:hover {
@@ -1387,22 +1400,36 @@ body {
 
 .reservation-actions {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     justify-content: flex-end;
     margin-top: auto;
     padding-top: 20px;
+    flex-wrap: wrap;
 }
 
 .reservation-actions .btn {
-    width: 100px;
-    height: 38px;
+    width: auto;
+    min-width: 90px;
+    max-width: 100%;
+    height: 32px;
+    padding: 6px 12px;
     justify-content: center;
     white-space: nowrap;
     box-sizing: border-box;
+    font-size: 0.85rem;
+    flex-shrink: 1;
 }
 
 .reservation-actions .btn-primary {
-    width: 140px;
+    min-width: 100px;
+}
+
+.reservation-actions .btn-success {
+    min-width: 110px;
+}
+
+.reservation-actions .btn-danger {
+    min-width: 90px;
 }
 
 .reservation-actions .btn:hover {
@@ -1410,9 +1437,14 @@ body {
 }
 
 .btn-small {
-    padding: 8px 16px;
-    font-size: 0.85rem;
+    padding: 8px 14px;
+    font-size: 0.875rem;
     border-radius: 8px;
+    min-height: 34px;
+}
+
+.btn-small.btn-success {
+    padding: 8px 16px;
 }
 
 .btn-danger {
@@ -1987,6 +2019,23 @@ body {
         grid-template-columns: 1fr;
     }
     
+    .reservation-actions {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+    }
+    
+    .reservation-actions .btn {
+        min-width: 80px;
+        font-size: 0.8rem;
+        padding: 6px 10px;
+        height: 30px;
+    }
+    
+    .reservation-actions .btn-success {
+        min-width: 100px;
+    }
+    
     .reservation-details {
         grid-template-columns: 1fr;
     }
@@ -2024,6 +2073,15 @@ body {
         padding: 15px;
     }
     
+    .payment-amount-container {
+        flex-direction: column;
+    }
+    
+    .btn-pay-full {
+        width: 100%;
+        margin-top: 8px;
+    }
+    
     .card-content {
         padding: 20px;
     }
@@ -2040,6 +2098,173 @@ body {
     .stat-content h3 {
         font-size: 1.5rem;
     }
+}
+
+/* Payment Modal Styles */
+.payment-modal {
+    max-width: 600px;
+}
+
+.payment-amount-container {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.payment-amount-container input {
+    flex: 1;
+    min-width: 0;
+}
+
+.btn-pay-full {
+    white-space: nowrap;
+    padding: 10px 16px;
+    font-size: 0.9rem;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+    flex-shrink: 0;
+}
+
+.btn-pay-full:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-pay-full:active {
+    transform: translateY(0);
+}
+
+.payment-summary {
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 20px 0;
+    border: 1px solid var(--border-color);
+}
+
+.payment-summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.payment-summary-row:last-child {
+    border-bottom: none;
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 2px solid var(--border-color);
+}
+
+.payment-history {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 2px solid var(--border-color);
+}
+
+.payment-history h4 {
+    margin-bottom: 12px;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+}
+
+.payment-history-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.payment-history-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    margin-bottom: 8px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    gap: 12px;
+}
+
+.payment-history-amount {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    min-width: 100px;
+}
+
+.payment-history-date {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    flex: 1;
+}
+
+.payment-history-notes {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-style: italic;
+    flex: 1;
+}
+
+.no-payments {
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+}
+
+.form-help {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    display: block;
+}
+
+.payment-action-row {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: center;
+}
+
+.payment-action-row .btn {
+    width: auto;
+    min-width: 160px;
+    padding: 10px 18px;
+    font-size: 0.9rem;
+}
+
+.payment-history-row {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.payment-history-row strong {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.payment-history-row ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.payment-history-row ul li {
+    padding: 6px 0;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.payment-history-row ul li:last-child {
+    border-bottom: none;
 }
 
 /* Loading states */
