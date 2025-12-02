@@ -266,6 +266,15 @@ class ReservationManager {
         foodType.addEventListener('change', () => {
             this.handleFoodTypeChange();
         });
+        
+        // Add event listener for buffet price input
+        const buffetPriceInput = document.getElementById('buffetPricePerPerson');
+        if (buffetPriceInput) {
+            buffetPriceInput.addEventListener('input', () => {
+                this.calculatePrice();
+                this.updateFoodServiceSummary();
+            });
+        }
 
         // Breakfast type behavior
         const breakfastType = document.getElementById('breakfastType');
@@ -564,6 +573,8 @@ class ReservationManager {
     }
 
     clearBuffetSelections() {
+        const buffetPriceInput = document.getElementById('buffetPricePerPerson');
+        if (buffetPriceInput) buffetPriceInput.value = '';
         ['buffetRice','buffetRice2','buffetProtein1','buffetProtein2','buffetSide','buffetSalad','buffetSalad2']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         const panecillosEl = document.getElementById('buffetPanecillos');
@@ -732,6 +743,10 @@ class ReservationManager {
         const foodType = foodTypeEl?.value || '';
         
         if (this.isBuffet(foodType)) {
+            const buffetPriceInput = document.getElementById('buffetPricePerPerson');
+            const buffetPricePerPerson = parseFloat(buffetPriceInput?.value || 0);
+            const guestCount = parseInt(document.getElementById('guestCountManual').value) || parseInt(document.getElementById('guestCount').value) || 0;
+            
             const rice = document.getElementById('buffetRice');
             const rice2 = document.getElementById('buffetRice2');
             const p1 = document.getElementById('buffetProtein1');
@@ -744,6 +759,9 @@ class ReservationManager {
             const pasteles = document.getElementById('buffetPasteles');
 
             const items = [];
+            if (buffetPricePerPerson > 0) {
+                items.push(`<li><strong>Precio: $${buffetPricePerPerson.toFixed(2)} por persona</strong></li>`);
+            }
             if (rice?.value) items.push(`<li>Arroz: ${rice.selectedOptions[0].text}</li>`);
             if (rice2?.value) items.push(`<li>${rice2.selectedOptions[0].text}</li>`);
             if (p1?.value) items.push(`<li>Proteína 1: ${p1.selectedOptions[0].text}</li>`);
@@ -1351,7 +1369,7 @@ class ReservationManager {
 
     // helpers
     isBuffet(value) {
-        return typeof value === 'string' && value.startsWith('buffet');
+        return typeof value === 'string' && value === 'buffet';
     }
 
     isBreakfast(value) {
@@ -1501,8 +1519,16 @@ class ReservationManager {
         const roomCost = 0;
 
         // Food cost
-        const foodPrice = foodType.selectedOptions[0]?.dataset.price || 0;
-        const foodCost = parseFloat(foodPrice) * guestCount;
+        let foodCost = 0;
+        if (this.isBuffet(foodType.value)) {
+            // Get custom buffet price from modal
+            const buffetPriceInput = document.getElementById('buffetPricePerPerson');
+            const buffetPricePerPerson = parseFloat(buffetPriceInput?.value || 0);
+            foodCost = buffetPricePerPerson * guestCount;
+        } else {
+            const foodPrice = foodType.selectedOptions[0]?.dataset.price || 0;
+            foodCost = parseFloat(foodPrice) * guestCount;
+        }
 
         // Breakfast cost (separate from food cost)
         const breakfastType = document.getElementById('breakfastType');
@@ -1726,6 +1752,16 @@ class ReservationManager {
         // Extra validation when buffet is chosen (modal fields are outside the form)
         let buffetSelections = null;
         if (this.isBuffet(formData.get('foodType'))) {
+            const buffetPriceInput = document.getElementById('buffetPricePerPerson');
+            const buffetPricePerPerson = parseFloat(buffetPriceInput?.value || 0);
+            
+            // Validate buffet price
+            if (!buffetPricePerPerson || buffetPricePerPerson <= 0) {
+                if (!missingFields.includes('buffetPricePerPerson')) {
+                    missingFields.push('buffetPricePerPerson');
+                }
+            }
+            
             const riceEl = document.getElementById('buffetRice');
             const rice2El = document.getElementById('buffetRice2');
             const p1El = document.getElementById('buffetProtein1');
@@ -1738,6 +1774,7 @@ class ReservationManager {
             const pastelesEl = document.getElementById('buffetPasteles');
 
             buffetSelections = {
+                pricePerPerson: buffetPricePerPerson,
                 rice: riceEl?.value || '',
                 rice2: rice2El?.value || '',
                 protein1: p1El?.value || '',
@@ -3171,6 +3208,10 @@ class ReservationManager {
         // Populate buffet modal fields (do not open the modal)
         if (this.isBuffet(reservation.foodType)) {
             const buffet = reservation.buffet || {};
+            const buffetPriceInput = document.getElementById('buffetPricePerPerson');
+            if (buffetPriceInput) {
+                buffetPriceInput.value = buffet.pricePerPerson || '';
+            }
             const riceEl = document.getElementById('buffetRice');
             const rice2El = document.getElementById('buffetRice2');
             const p1El = document.getElementById('buffetProtein1');
@@ -3329,6 +3370,7 @@ class ReservationManager {
             'eventDuration': 'Duración del Evento',
             'guestCount': 'Número de Invitados',
             'guestCountManual': 'Número de Invitados',
+            'buffetPricePerPerson': 'Precio por Persona (Buffet)',
             'buffetRice': 'Arroz (Buffet)',
             'buffetProtein1': 'Proteína 1 (Buffet)',
             'buffetProtein2': 'Proteína 2 (Buffet)',
