@@ -2500,6 +2500,7 @@ class ReservationManager {
                 'medallones-guayaba': 'Medallones Cerdo salsa Guayaba',
                 'medallones-setas': 'Medallones Cerdo salsa Setas',
                 'pernil-asado': 'Pernil Asado',
+                'pernil-al-horno': 'Pernil al Horno',
                 'pescado-ajillo': 'Filete de Pescado Ajillo',
                 'churrasco-setas': 'Churrasco salsa setas'
             },
@@ -2507,7 +2508,8 @@ class ReservationManager {
                 'papas-leonesa': 'Papas Leonesa',
                 'papas-salteadas': 'Papas salteadas',
                 'ensalada-papa': 'Ensalada Papa',
-                'ensalada-coditos': 'Ensalada de coditos'
+                'ensalada-coditos': 'Ensalada de coditos',
+                'guineos-escabeche': 'Guineos en Escabeche'
             },
             salad: {
                 'caesar': 'Ensalada César',
