@@ -1991,6 +1991,11 @@ body {
     }
 }
 
+.buffet-custom-price-input {
+    display: none;
+    margin-top: 10px;
+}
+
 @media (max-width: 768px) {
     .main-content {
         padding: 15px;

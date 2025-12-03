@@ -518,8 +518,13 @@ class ReservationManager {
     // Launch modal when buffet is selected
     handleFoodTypeChange() {
         const foodType = document.getElementById('foodType');
+        
         if (foodType && this.isBuffet(foodType.value)) {
-            this.openBuffetModal();
+            // Only open modal if it's not already visible (prevents reopening when editing)
+            const modal = document.getElementById('buffetModal');
+            if (modal && modal.classList.contains('hidden')) {
+                this.openBuffetModal();
+            }
         } else {
             this.clearBuffetSelections();
         }
@@ -575,6 +580,7 @@ class ReservationManager {
     clearBuffetSelections() {
         const buffetPriceInput = document.getElementById('buffetPricePerPerson');
         if (buffetPriceInput) buffetPriceInput.value = '';
+        
         ['buffetRice','buffetRice2','buffetProtein1','buffetProtein2','buffetSide','buffetSalad','buffetSalad2']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         const panecillosEl = document.getElementById('buffetPanecillos');
@@ -745,6 +751,7 @@ class ReservationManager {
         if (this.isBuffet(foodType)) {
             const buffetPriceInput = document.getElementById('buffetPricePerPerson');
             const buffetPricePerPerson = parseFloat(buffetPriceInput?.value || 0);
+            
             const guestCount = parseInt(document.getElementById('guestCountManual').value) || parseInt(document.getElementById('guestCount').value) || 0;
             
             const rice = document.getElementById('buffetRice');
@@ -1521,7 +1528,7 @@ class ReservationManager {
         // Food cost
         let foodCost = 0;
         if (this.isBuffet(foodType.value)) {
-            // Get custom buffet price from modal
+            // Get buffet price from input field
             const buffetPriceInput = document.getElementById('buffetPricePerPerson');
             const buffetPricePerPerson = parseFloat(buffetPriceInput?.value || 0);
             foodCost = buffetPricePerPerson * guestCount;
@@ -1725,6 +1732,16 @@ class ReservationManager {
                 return;
             }
             
+            // Skip event type field (it's optional)
+            if (field.id === 'eventType' || field.name === 'eventType') {
+                return;
+            }
+            
+            // Skip event duration field (it's optional)
+            if (field.id === 'eventDuration' || field.name === 'eventDuration') {
+                return;
+            }
+            
             const value = field.value ? field.value.trim() : '';
             const fieldId = field.id || field.name;
             
@@ -1734,7 +1751,7 @@ class ReservationManager {
             }
         });
 
-        // Extra validation when event type is "other"
+        // Extra validation when event type is "other" (only if event type is provided)
         const eventType = formData.get('eventType');
         if (eventType === 'other') {
             const otherEventType = document.getElementById('otherEventType');
@@ -1744,6 +1761,7 @@ class ReservationManager {
                 }
             }
         }
+        // Note: eventType itself is optional, but if "other" is selected, otherEventType becomes required
 
         // Extra validation for guest count
         const guestCountManual = document.getElementById('guestCountManual');
@@ -1754,14 +1772,35 @@ class ReservationManager {
             }
         }
 
-        // Extra validation when buffet is chosen (modal fields are outside the form)
+        // Extra validation when buffet is chosen
         let buffetSelections = null;
         if (this.isBuffet(formData.get('foodType'))) {
             const buffetPriceInput = document.getElementById('buffetPricePerPerson');
-            const buffetPricePerPerson = parseFloat(buffetPriceInput?.value || 0);
+            const buffetCustomPriceInput = document.getElementById('buffetCustomPrice');
+            let buffetPricePerPerson = 0;
             
-            // Validate buffet price
-            if (!buffetPricePerPerson || buffetPricePerPerson <= 0) {
+            if (buffetPriceInput?.value === 'custom') {
+                // Use custom price if selected
+                buffetPricePerPerson = parseFloat(buffetCustomPriceInput?.value || 0);
+                // Validate custom price
+                if (!buffetPricePerPerson || buffetPricePerPerson <= 0) {
+                    if (!missingFields.includes('buffetCustomPrice')) {
+                        missingFields.push('buffetCustomPrice');
+                    }
+                }
+            } else {
+                // Use preset price from dropdown
+                buffetPricePerPerson = parseFloat(buffetPriceInput?.value || 0);
+                // Validate preset price selection
+                if (!buffetPriceInput?.value || buffetPricePerPerson <= 0) {
+                    if (!missingFields.includes('buffetPricePerPerson')) {
+                        missingFields.push('buffetPricePerPerson');
+                    }
+                }
+            }
+            
+            // Make sure buffet price is required when buffet is selected
+            if (buffetPriceInput && !buffetPriceInput.value) {
                 if (!missingFields.includes('buffetPricePerPerson')) {
                     missingFields.push('buffetPricePerPerson');
                 }
@@ -1876,6 +1915,7 @@ class ReservationManager {
             breakfastType: breakfastType || null,
             dessertType: dessertType || null,
             buffet: this.isBuffet(formData.get('foodType')) ? {
+                pricePerPerson: buffetSelections?.pricePerPerson || 0,
                 rice: buffetSelections?.rice || null,
                 rice2: buffetSelections?.rice2 || null,
                 protein1: buffetSelections?.protein1 || null,
@@ -3186,49 +3226,6 @@ class ReservationManager {
         document.getElementById('companyName').value = reservation.companyName || '';
         document.getElementById('roomType').value = reservation.roomType;
         
-        // Load buffet data BEFORE setting foodType to prevent modal from opening with empty data
-        if (this.isBuffet(reservation.foodType)) {
-            const buffet = reservation.buffet || {};
-            const buffetPriceInput = document.getElementById('buffetPricePerPerson');
-            if (buffetPriceInput && buffet.pricePerPerson) {
-                buffetPriceInput.value = buffet.pricePerPerson;
-            }
-            // Pre-populate all buffet selections before setting foodType
-            const riceEl = document.getElementById('buffetRice');
-            const rice2El = document.getElementById('buffetRice2');
-            const p1El = document.getElementById('buffetProtein1');
-            const p2El = document.getElementById('buffetProtein2');
-            const sideEl = document.getElementById('buffetSide');
-            const saladEl = document.getElementById('buffetSalad');
-            const salad2El = document.getElementById('buffetSalad2');
-            const panecillosEl = document.getElementById('buffetPanecillos');
-            const aguaRefrescoEl = document.getElementById('buffetAguaRefresco');
-            const pastelesEl = document.getElementById('buffetPasteles');
-            if (riceEl) riceEl.value = buffet.rice || '';
-            if (rice2El) rice2El.value = buffet.rice2 || '';
-            if (p1El) p1El.value = buffet.protein1 || '';
-            if (p2El) p2El.value = buffet.protein2 || '';
-            if (sideEl) sideEl.value = buffet.side || '';
-            if (saladEl) saladEl.value = buffet.salad || '';
-            if (salad2El) salad2El.value = buffet.salad2 || '';
-            if (panecillosEl) panecillosEl.checked = buffet.panecillos || false;
-            if (aguaRefrescoEl) aguaRefrescoEl.checked = buffet.aguaRefresco || false;
-            if (pastelesEl) pastelesEl.checked = buffet.pasteles || false;
-        }
-        
-        // Now set foodType (this may trigger handleFoodTypeChange which opens modal, but data is already loaded)
-        document.getElementById('foodType').value = reservation.foodType;
-        
-        const breakfastTypeEl = document.getElementById('breakfastType');
-        if (breakfastTypeEl) breakfastTypeEl.value = reservation.breakfastType || '';
-        const dessertTypeEl = document.getElementById('dessertType');
-        if (dessertTypeEl) dessertTypeEl.value = reservation.dessertType || '';
-        // no drinkType select anymore
-        this.beverageSelections = reservation.beverages || {};
-        this.updateBeverageSummary();
-        this.entremesesSelections = reservation.entremeses || {};
-        this.updateEntremesesSummary();
-        
         // Sync guest count across all inputs (slider, manual input, and display)
         const guestCount = reservation.guestCount;
         const guestCountSlider = document.getElementById('guestCount');
@@ -3245,12 +3242,58 @@ class ReservationManager {
         // Update display
         guestCountDisplay.textContent = guestCount;
 
-        // Clear breakfast selections if buffet is selected (buffet data already loaded above)
+        // Set foodType - this will trigger handleFoodTypeChange
+        document.getElementById('foodType').value = reservation.foodType;
+        
+        // Populate buffet modal fields
         if (this.isBuffet(reservation.foodType)) {
+            const buffet = reservation.buffet || {};
+            const buffetPriceInput = document.getElementById('buffetPricePerPerson');
+            
+            // Load the price
+            if (buffetPriceInput && buffet.pricePerPerson) {
+                buffetPriceInput.value = buffet.pricePerPerson.toString();
+            }
+            
+            const riceEl = document.getElementById('buffetRice');
+            const rice2El = document.getElementById('buffetRice2');
+            const p1El = document.getElementById('buffetProtein1');
+            const p2El = document.getElementById('buffetProtein2');
+            const sideEl = document.getElementById('buffetSide');
+            const saladEl = document.getElementById('buffetSalad');
+            const salad2El = document.getElementById('buffetSalad2');
+            if (riceEl) riceEl.value = buffet.rice || '';
+            if (rice2El) rice2El.value = buffet.rice2 || '';
+            if (p1El) p1El.value = buffet.protein1 || '';
+            if (p2El) p2El.value = buffet.protein2 || '';
+            if (sideEl) sideEl.value = buffet.side || '';
+            if (saladEl) saladEl.value = buffet.salad || '';
+            if (salad2El) salad2El.value = buffet.salad2 || '';
+            const panecillosEl = document.getElementById('buffetPanecillos');
+            if (panecillosEl) panecillosEl.checked = buffet.panecillos || false;
+            const aguaRefrescoEl = document.getElementById('buffetAguaRefresco');
+            if (aguaRefrescoEl) aguaRefrescoEl.checked = buffet.aguaRefresco || false;
+            const pastelesEl = document.getElementById('buffetPasteles');
+            if (pastelesEl) pastelesEl.checked = buffet.pasteles || false;
             this.clearBreakfastSelections();
         } else {
             this.clearBuffetSelections();
         }
+        
+        // foodType was already set above
+        const breakfastTypeEl = document.getElementById('breakfastType');
+        if (breakfastTypeEl) breakfastTypeEl.value = reservation.breakfastType || '';
+        const dessertTypeEl = document.getElementById('dessertType');
+        if (dessertTypeEl) dessertTypeEl.value = reservation.dessertType || '';
+        // no drinkType select anymore
+        this.beverageSelections = reservation.beverages || {};
+        this.updateBeverageSummary();
+        this.entremesesSelections = reservation.entremeses || {};
+        this.updateEntremesesSummary();
+        
+        // Update food service summary and recalculate price after loading all data
+        this.updateFoodServiceSummary();
+        this.calculatePrice();
 
         // Populate breakfast modal fields (do not open the modal)
         if (reservation.breakfastType && this.isBreakfast(reservation.breakfastType)) {
