@@ -3185,7 +3185,40 @@ class ReservationManager {
         document.getElementById('eventDuration').value = reservation.eventDuration;
         document.getElementById('companyName').value = reservation.companyName || '';
         document.getElementById('roomType').value = reservation.roomType;
+        
+        // Load buffet data BEFORE setting foodType to prevent modal from opening with empty data
+        if (this.isBuffet(reservation.foodType)) {
+            const buffet = reservation.buffet || {};
+            const buffetPriceInput = document.getElementById('buffetPricePerPerson');
+            if (buffetPriceInput && buffet.pricePerPerson) {
+                buffetPriceInput.value = buffet.pricePerPerson;
+            }
+            // Pre-populate all buffet selections before setting foodType
+            const riceEl = document.getElementById('buffetRice');
+            const rice2El = document.getElementById('buffetRice2');
+            const p1El = document.getElementById('buffetProtein1');
+            const p2El = document.getElementById('buffetProtein2');
+            const sideEl = document.getElementById('buffetSide');
+            const saladEl = document.getElementById('buffetSalad');
+            const salad2El = document.getElementById('buffetSalad2');
+            const panecillosEl = document.getElementById('buffetPanecillos');
+            const aguaRefrescoEl = document.getElementById('buffetAguaRefresco');
+            const pastelesEl = document.getElementById('buffetPasteles');
+            if (riceEl) riceEl.value = buffet.rice || '';
+            if (rice2El) rice2El.value = buffet.rice2 || '';
+            if (p1El) p1El.value = buffet.protein1 || '';
+            if (p2El) p2El.value = buffet.protein2 || '';
+            if (sideEl) sideEl.value = buffet.side || '';
+            if (saladEl) saladEl.value = buffet.salad || '';
+            if (salad2El) salad2El.value = buffet.salad2 || '';
+            if (panecillosEl) panecillosEl.checked = buffet.panecillos || false;
+            if (aguaRefrescoEl) aguaRefrescoEl.checked = buffet.aguaRefresco || false;
+            if (pastelesEl) pastelesEl.checked = buffet.pasteles || false;
+        }
+        
+        // Now set foodType (this may trigger handleFoodTypeChange which opens modal, but data is already loaded)
         document.getElementById('foodType').value = reservation.foodType;
+        
         const breakfastTypeEl = document.getElementById('breakfastType');
         if (breakfastTypeEl) breakfastTypeEl.value = reservation.breakfastType || '';
         const dessertTypeEl = document.getElementById('dessertType');
@@ -3212,33 +3245,8 @@ class ReservationManager {
         // Update display
         guestCountDisplay.textContent = guestCount;
 
-        // Populate buffet modal fields (do not open the modal)
+        // Clear breakfast selections if buffet is selected (buffet data already loaded above)
         if (this.isBuffet(reservation.foodType)) {
-            const buffet = reservation.buffet || {};
-            const buffetPriceInput = document.getElementById('buffetPricePerPerson');
-            if (buffetPriceInput) {
-                buffetPriceInput.value = buffet.pricePerPerson || '';
-            }
-            const riceEl = document.getElementById('buffetRice');
-            const rice2El = document.getElementById('buffetRice2');
-            const p1El = document.getElementById('buffetProtein1');
-            const p2El = document.getElementById('buffetProtein2');
-            const sideEl = document.getElementById('buffetSide');
-            const saladEl = document.getElementById('buffetSalad');
-            const salad2El = document.getElementById('buffetSalad2');
-            if (riceEl) riceEl.value = buffet.rice || '';
-            if (rice2El) rice2El.value = buffet.rice2 || '';
-            if (p1El) p1El.value = buffet.protein1 || '';
-            if (p2El) p2El.value = buffet.protein2 || '';
-            if (sideEl) sideEl.value = buffet.side || '';
-            if (saladEl) saladEl.value = buffet.salad || '';
-            if (salad2El) salad2El.value = buffet.salad2 || '';
-            const panecillosEl = document.getElementById('buffetPanecillos');
-            if (panecillosEl) panecillosEl.checked = buffet.panecillos || false;
-            const aguaRefrescoEl = document.getElementById('buffetAguaRefresco');
-            if (aguaRefrescoEl) aguaRefrescoEl.checked = buffet.aguaRefresco || false;
-            const pastelesEl = document.getElementById('buffetPasteles');
-            if (pastelesEl) pastelesEl.checked = buffet.pasteles || false;
             this.clearBreakfastSelections();
         } else {
             this.clearBuffetSelections();
