@@ -778,6 +778,7 @@ body {
     transform: translateY(16px) scale(0.98);
     opacity: 0;
     transition: transform 220ms ease, opacity 220ms ease, background-color 0.3s ease;
+    position: relative;
 }
 
 .modal-header {
@@ -793,6 +794,9 @@ body {
     padding: 20px;
     overflow-y: auto;
     max-height: calc(90vh - 120px); /* header + actions approx */
+    flex: 1;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Visible state triggers entrance animation */
@@ -1990,6 +1994,31 @@ body {
 @media (max-width: 768px) {
     .main-content {
         padding: 15px;
+    }
+    
+    .modal-overlay {
+        padding: 10px;
+        align-items: flex-start;
+        padding-top: 20px;
+    }
+    
+    .modal {
+        max-height: calc(100vh - 40px);
+        margin: auto;
+    }
+    
+    .modal-body {
+        max-height: calc(100vh - 180px);
+        padding: 15px;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .modal-actions {
+        flex-shrink: 0;
+        position: sticky;
+        bottom: 0;
+        background: var(--bg-tertiary);
+        z-index: 10;
     }
     
     .section-header {

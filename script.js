@@ -1705,6 +1705,11 @@ class ReservationManager {
                 return;
             }
             
+            // Skip phone field (it's optional)
+            if (field.id === 'clientPhone' || field.name === 'clientPhone') {
+                return;
+            }
+            
             // Skip company name field (it's optional)
             if (field.id === 'companyName' || field.name === 'companyName') {
                 return;
