@@ -8,8 +8,8 @@ class ReservationManager {
         this.currentCalendarMonth = new Date().getMonth();
         this.currentCalendarYear = new Date().getFullYear();
         this.firebaseUnsubscribe = null;
-        this.sortOption = 'eventDate'; // Default sort by event date
-        this.sortDirection = 'asc'; // 'asc' for ascending, 'desc' for descending
+        this.sortOption = 'createdAt'; // Default sort by recently created
+        this.sortDirection = 'desc'; // 'desc' for descending (most recent first)
         this.isUpdatingDeposit = false; // Flag to prevent re-sorting when toggling deposit
         this.currentPaymentReservationId = null; // Track which reservation is being paid
         this.isInitializing = true; // Flag to prevent saves during initialization
