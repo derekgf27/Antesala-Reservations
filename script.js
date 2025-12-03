@@ -14,6 +14,8 @@ class ReservationManager {
         this.currentPaymentReservationId = null; // Track which reservation is being paid
         this.isInitializing = true; // Flag to prevent saves during initialization
         this.pendingChanges = false; // Track if there are unsaved changes
+        this.isEditingReservation = false; // Flag to prevent saves during edit operations
+        this.editingReservationId = null; // Track which reservation is being edited
         this.initializeStorage();
         this.initializeEventListeners();
         this.initializeNavigation();
@@ -74,12 +76,25 @@ class ReservationManager {
                 reservations.push(reservation);
             });
             
-            // Safety check: Don't overwrite with empty array if we have local data
+            // Enhanced safety checks for sync
+            // Safety check 1: Don't overwrite with empty array if we have local data
             if (reservations.length === 0 && this.reservations.length > 0 && !this.isInitializing) {
-                console.warn('Firestore sync returned empty array but local data exists - skipping sync');
+                console.warn('⚠️ Firestore sync returned empty array but local data exists - skipping sync');
+                console.warn('Local reservations count:', this.reservations.length);
                 return;
             }
             
+            // Safety check 2: If sync would reduce reservations significantly, log warning
+            if (reservations.length < this.reservations.length && this.reservations.length > 0 && !this.isInitializing) {
+                const diff = this.reservations.length - reservations.length;
+                if (diff > 1) {
+                    console.warn(`⚠️ WARNING: Sync would reduce reservations from ${this.reservations.length} to ${reservations.length} (${diff} fewer)`);
+                    console.warn('Local reservation IDs:', this.reservations.map(r => r.id));
+                    console.warn('Synced reservation IDs:', reservations.map(r => r.id));
+                }
+            }
+            
+            const previousCount = this.reservations.length;
             this.reservations = reservations;
             
             // Only re-display if we're not updating a deposit (to prevent card movement)
@@ -87,7 +102,7 @@ class ReservationManager {
                 this.displayReservations();
             }
             this.updateDashboard();
-            console.log('Reservations synced from Firestore:', reservations.length);
+            console.log(`Reservations synced from Firestore: ${reservations.length} (was ${previousCount})`);
         }, (error) => {
             console.error('Firestore sync error:', error);
         });
@@ -1038,6 +1053,7 @@ class ReservationManager {
             { inputId: 'bev-donq-naranja-handle', key: 'donq-naranja-handle' },
             { inputId: 'bev-donq-oro-handle', key: 'donq-oro-handle' },
             { inputId: 'bev-tito-handle', key: 'tito-handle' },
+            { inputId: 'bev-bravada', key: 'bravada' },
             { inputId: 'bev-sangria', key: 'sangria' },
             { inputId: 'bev-red-wine-25', key: 'red-wine-25' },
             { inputId: 'bev-red-wine-30', key: 'red-wine-30' },
@@ -1998,7 +2014,40 @@ class ReservationManager {
             createdAt: new Date().toISOString()
         };
 
-        // Add to reservations
+        // Check if we're editing an existing reservation
+        if (this.isEditingReservation && this.editingReservationId) {
+            // Update existing reservation instead of creating new one
+            const existingIndex = this.reservations.findIndex(r => r.id === this.editingReservationId);
+            if (existingIndex !== -1) {
+                // Preserve the original ID and creation date
+                reservation.id = this.editingReservationId;
+                reservation.createdAt = this.reservations[existingIndex].createdAt;
+                // Preserve payment history
+                reservation.additionalPayments = this.reservations[existingIndex].additionalPayments || [];
+                reservation.depositPaid = this.reservations[existingIndex].depositPaid || false;
+                
+                // Update the reservation in place
+                this.reservations[existingIndex] = reservation;
+                console.log(`✅ Updated existing reservation ${this.editingReservationId}`);
+                
+                // Reset editing flags
+                this.isEditingReservation = false;
+                this.editingReservationId = null;
+                
+                await this.saveReservations();
+                this.displayReservations();
+                this.clearForm();
+                
+                // Show success message
+                this.showNotification('¡Reservación actualizada exitosamente!', 'success');
+                return;
+            } else {
+                console.error(`⚠️ ERROR: Could not find reservation ${this.editingReservationId} to update!`);
+                // Fall through to create new reservation
+            }
+        }
+        
+        // Add new reservation (not editing)
         this.reservations.push(reservation);
         await this.saveReservations();
         this.displayReservations();
@@ -2010,6 +2059,10 @@ class ReservationManager {
 
     // Clear form
     clearForm() {
+        // Reset editing flags when clearing form
+        this.isEditingReservation = false;
+        this.editingReservationId = null;
+        
         document.getElementById('reservationForm').reset();
         this.updateGuestCountDisplay();
         this.syncGuestCountInputs();
@@ -3411,9 +3464,15 @@ class ReservationManager {
         this.updateBreakfastServiceSummary();
         this.updateDessertServiceSummary();
 
-        // Remove the reservation from the list (will be re-added when saved)
-        this.reservations = this.reservations.filter(r => r.id !== id);
-        this.saveReservations();
+        // CRITICAL FIX: Do NOT remove reservation from array during edit
+        // This was causing reservations to be deleted if Firebase sync happened
+        // Instead, keep it in the array and update it when saved
+        this.isEditingReservation = true;
+        this.editingReservationId = id;
+        console.log(`⚠️ Editing reservation ${id} - keeping in array to prevent deletion`);
+        
+        // Don't save here - wait for form submission
+        // The saveReservation() function will handle updating the existing reservation
         this.displayReservations();
 
         // Scroll to form
@@ -3611,10 +3670,12 @@ class ReservationManager {
                 this.saveReservationsToLocalStorage();
             }
         } finally {
-            // Reset pending changes flag after a short delay
+            // Reset pending changes flag after a longer delay to prevent sync overwrites
+            // Increased from 1000ms to 3000ms to give more time for save to complete
             setTimeout(() => {
                 this.pendingChanges = false;
-            }, 1000);
+                console.log('Pending changes flag reset - sync will resume');
+            }, 3000);
         }
     }
 
@@ -3651,18 +3712,29 @@ class ReservationManager {
                     }
                 });
                 
-                // Safety check: If trying to delete more than 50% of reservations, require confirmation
-                if (toDelete.length > 0 && toDelete.length > existingIds.size * 0.5) {
-                    console.warn(`Bulk deletion detected: Attempting to delete ${toDelete.length} out of ${existingIds.size} reservations`);
-                    // Don't proceed with bulk deletion - this is likely an error
-                    throw new Error('Bulk deletion prevented: Too many reservations would be deleted');
+                // Enhanced safety checks for deletions
+                if (toDelete.length > 0) {
+                    // Safety check 1: If trying to delete more than 50% of reservations, prevent it
+                    if (toDelete.length > existingIds.size * 0.5) {
+                        console.error(`Bulk deletion BLOCKED: Attempting to delete ${toDelete.length} out of ${existingIds.size} reservations`);
+                        throw new Error('Bulk deletion prevented: Too many reservations would be deleted');
+                    }
+                    
+                    // Safety check 2: If trying to delete more than 1 reservation at once, log warning
+                    if (toDelete.length > 1) {
+                        console.warn(`⚠️ WARNING: Attempting to delete ${toDelete.length} reservations:`, toDelete);
+                        console.warn('Current reservations count:', this.reservations.length);
+                        console.warn('Existing Firestore count:', existingIds.size);
+                        // Still allow it, but log extensively for debugging
+                    }
+                    
+                    // Safety check 3: Log each deletion with details
+                    toDelete.forEach((id) => {
+                        console.warn(`⚠️ DELETING reservation from Firestore: ${id}`);
+                        console.warn('This reservation was not found in local reservations array');
+                        batch.delete(reservationsRef.doc(id));
+                    });
                 }
-                
-                // Delete individual reservations
-                toDelete.forEach((id) => {
-                    batch.delete(reservationsRef.doc(id));
-                    console.log('Deleting reservation from Firestore:', id);
-                });
             }
 
             await batch.commit();
