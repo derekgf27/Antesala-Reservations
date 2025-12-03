@@ -12,6 +12,8 @@ class ReservationManager {
         this.sortDirection = 'asc'; // 'asc' for ascending, 'desc' for descending
         this.isUpdatingDeposit = false; // Flag to prevent re-sorting when toggling deposit
         this.currentPaymentReservationId = null; // Track which reservation is being paid
+        this.isInitializing = true; // Flag to prevent saves during initialization
+        this.pendingChanges = false; // Track if there are unsaved changes
         this.initializeStorage();
         this.initializeEventListeners();
         this.initializeNavigation();
@@ -26,6 +28,8 @@ class ReservationManager {
 
     // Initialize storage (Firebase or localStorage)
     async initializeStorage() {
+        this.isInitializing = true; // Prevent saves during initialization
+        
         // Wait a bit for Firebase to initialize
         await new Promise(resolve => setTimeout(resolve, 100));
         
@@ -37,8 +41,14 @@ class ReservationManager {
             console.log('Using localStorage for data storage');
             this.reservations = this.loadReservationsFromLocalStorage();
         }
+        
         this.displayReservations();
         this.updateDashboard();
+        
+        // Mark initialization as complete after a short delay to ensure everything is loaded
+        setTimeout(() => {
+            this.isInitializing = false;
+        }, 500);
     }
 
     // Setup real-time Firestore listener
@@ -48,10 +58,28 @@ class ReservationManager {
         const reservationsRef = window.firestore.collection('reservations');
         
         this.firebaseUnsubscribe = reservationsRef.onSnapshot((snapshot) => {
+            // Don't overwrite local changes if there are pending changes
+            if (this.pendingChanges) {
+                console.log('Skipping Firestore sync - pending local changes');
+                return;
+            }
+            
             const reservations = [];
             snapshot.forEach((doc) => {
-                reservations.push(doc.data());
+                const reservation = doc.data();
+                // Migrate old reservations to include additionalPayments field
+                if (!reservation.hasOwnProperty('additionalPayments')) {
+                    reservation.additionalPayments = [];
+                }
+                reservations.push(reservation);
             });
+            
+            // Safety check: Don't overwrite with empty array if we have local data
+            if (reservations.length === 0 && this.reservations.length > 0 && !this.isInitializing) {
+                console.warn('Firestore sync returned empty array but local data exists - skipping sync');
+                return;
+            }
+            
             this.reservations = reservations;
             
             // Only re-display if we're not updating a deposit (to prevent card movement)
@@ -613,6 +641,7 @@ class ReservationManager {
             'bev-donq-naranja-handle': 'donq-naranja-handle',
             'bev-donq-oro-handle': 'donq-oro-handle',
             'bev-tito-handle': 'tito-handle',
+            'bev-bravada': 'bravada',
             'bev-sangria': 'sangria',
             'bev-red-wine-25': 'red-wine-25',
             'bev-red-wine-30': 'red-wine-30',
@@ -894,6 +923,7 @@ class ReservationManager {
             { id: 'donq-naranja-handle', name: 'Gancho Don Q Naranja', price: 75, alcohol: true },
             { id: 'donq-oro-handle', name: 'Gancho Don Q Oro', price: 75, alcohol: true },
             { id: 'tito-handle', name: 'Gancho Tito Vodka', price: 150, alcohol: true },
+            { id: 'bravada', name: 'Bravada', price: 150, alcohol: true },
             { id: 'sangria', name: 'Jarra de Sangria', price: 25, alcohol: true },
             // Wines
             { id: 'red-wine-25', name: 'Botella de Vino Tinto ($25)', price: 25, alcohol: true },
@@ -936,6 +966,7 @@ class ReservationManager {
             'bev-donq-naranja-handle': 'donq-naranja-handle',
             'bev-donq-oro-handle': 'donq-oro-handle',
             'bev-tito-handle': 'tito-handle',
+            'bev-bravada': 'bravada',
             'bev-sangria': 'sangria',
             'bev-red-wine-25': 'red-wine-25',
             'bev-red-wine-30': 'red-wine-30',
@@ -3391,11 +3422,37 @@ class ReservationManager {
 
     // Delete reservation
     deleteReservation(id) {
-        if (confirm('¿Está seguro de que desea eliminar esta reservación?')) {
-            this.reservations = this.reservations.filter(r => r.id !== id);
-            this.saveReservations();
-            this.displayReservations();
-            this.showNotification('¡Reservación eliminada exitosamente!', 'success');
+        const reservation = this.reservations.find(r => r.id === id);
+        if (!reservation) {
+            this.showNotification('Reservación no encontrada', 'error');
+            return;
+        }
+        
+        // Enhanced confirmation with reservation details
+        const clientName = reservation.clientName || 'Sin nombre';
+        const eventDate = reservation.eventDate || 'Sin fecha';
+        const confirmMessage = `¿Está seguro de que desea eliminar esta reservación?\n\n` +
+                              `Cliente: ${clientName}\n` +
+                              `Fecha: ${eventDate}\n\n` +
+                              `Esta acción no se puede deshacer.`;
+        
+        if (confirm(confirmMessage)) {
+            // Double confirmation for important reservations
+            if (confirm('⚠️ ÚLTIMA CONFIRMACIÓN\n\n¿Realmente desea eliminar esta reservación?')) {
+                const beforeCount = this.reservations.length;
+                this.reservations = this.reservations.filter(r => r.id !== id);
+                
+                // Safety check: Verify deletion was successful
+                if (this.reservations.length === beforeCount - 1) {
+                    this.saveReservations();
+                    this.displayReservations();
+                    this.showNotification('¡Reservación eliminada exitosamente!', 'success');
+                    console.log('Reservation deleted:', id, 'Total reservations:', this.reservations.length);
+                } else {
+                    this.showNotification('Error al eliminar la reservación', 'error');
+                    console.error('Deletion failed - count mismatch');
+                }
+            }
         }
     }
 
@@ -3529,10 +3586,35 @@ class ReservationManager {
     // Local storage methods
     // Save reservations to storage (Firestore or localStorage)
     async saveReservations() {
-        if (window.FIREBASE_LOADED && window.firestore) {
-            await this.saveReservationsToFirestore();
-        } else {
-            this.saveReservationsToLocalStorage();
+        // Safety check: Don't save during initialization
+        if (this.isInitializing) {
+            console.warn('Save blocked: Still initializing');
+            return;
+        }
+        
+        // Safety check: Don't save empty array (prevents accidental deletion)
+        if (this.reservations.length === 0) {
+            console.warn('Save blocked: Reservations array is empty - this would delete all data');
+            if (confirm('⚠️ ADVERTENCIA: No hay reservaciones para guardar. Esto eliminaría todos los datos.\n\n¿Está seguro de que desea continuar?')) {
+                // User confirmed, proceed with save
+            } else {
+                return; // User cancelled, don't save
+            }
+        }
+        
+        this.pendingChanges = true;
+        
+        try {
+            if (window.FIREBASE_LOADED && window.firestore) {
+                await this.saveReservationsToFirestore();
+            } else {
+                this.saveReservationsToLocalStorage();
+            }
+        } finally {
+            // Reset pending changes flag after a short delay
+            setTimeout(() => {
+                this.pendingChanges = false;
+            }, 1000);
         }
     }
 
@@ -3544,17 +3626,44 @@ class ReservationManager {
             const batch = window.firestore.batch();
             const reservationsRef = window.firestore.collection('reservations');
 
-            // Delete all existing documents first
+            // Get current reservations in Firestore to track what exists
             const snapshot = await reservationsRef.get();
+            const existingIds = new Set();
             snapshot.forEach((doc) => {
-                batch.delete(doc.ref);
+                existingIds.add(doc.id);
             });
 
-            // Add all current reservations
+            // Update or create each reservation
+            const currentIds = new Set();
             this.reservations.forEach((reservation) => {
                 const docRef = reservationsRef.doc(reservation.id);
-                batch.set(docRef, reservation);
+                batch.set(docRef, reservation, { merge: true });
+                currentIds.add(reservation.id);
             });
+
+            // Only delete reservations that no longer exist in current data
+            // This prevents accidental deletion if reservations array is empty during initialization
+            if (this.reservations.length > 0) {
+                const toDelete = [];
+                existingIds.forEach((id) => {
+                    if (!currentIds.has(id)) {
+                        toDelete.push(id);
+                    }
+                });
+                
+                // Safety check: If trying to delete more than 50% of reservations, require confirmation
+                if (toDelete.length > 0 && toDelete.length > existingIds.size * 0.5) {
+                    console.warn(`Bulk deletion detected: Attempting to delete ${toDelete.length} out of ${existingIds.size} reservations`);
+                    // Don't proceed with bulk deletion - this is likely an error
+                    throw new Error('Bulk deletion prevented: Too many reservations would be deleted');
+                }
+                
+                // Delete individual reservations
+                toDelete.forEach((id) => {
+                    batch.delete(reservationsRef.doc(id));
+                    console.log('Deleting reservation from Firestore:', id);
+                });
+            }
 
             await batch.commit();
             console.log('Reservations saved to Firestore:', this.reservations.length);
