@@ -2566,29 +2566,64 @@ class ReservationManager {
                             <span>Balance Restante:</span>
                             <span>$${this.calculateRemainingBalance(reservation).toFixed(2)}</span>
                         </div>
-                        ${this.calculateRemainingBalance(reservation) > 0 ? `
                         <div class="pricing-row payment-action-row">
                             <button class="btn btn-success btn-small" onclick="reservationManager.openPaymentModal('${reservation.id}')">
                                 <i class="fas fa-money-bill-wave"></i> Registrar Pago
                             </button>
                         </div>
-                        ` : ''}
-                        ${(reservation.additionalPayments && reservation.additionalPayments.length > 0) ? `
+                        ${(() => {
+                            const additionalPayments = reservation.additionalPayments || [];
+                            const depositAmount = reservation.pricing?.depositAmount || 0;
+                            const depositPaid = reservation.depositPaid && depositAmount > 0;
+                            
+                            // Build payment history array
+                            const paymentHistory = [];
+                            
+                            // Add deposit if paid
+                            if (depositPaid) {
+                                const depositDate = reservation.depositPaymentDate || reservation.eventDate || reservation.createdAt || new Date().toISOString().split('T')[0];
+                                paymentHistory.push({
+                                    amount: depositAmount,
+                                    date: depositDate,
+                                    notes: 'Deposit',
+                                    isDeposit: true
+                                });
+                            }
+                            
+                            // Add additional payments
+                            additionalPayments.forEach(payment => {
+                                paymentHistory.push(payment);
+                            });
+                            
+                            if (paymentHistory.length === 0) return '';
+                            
+                            return `
                         <div class="pricing-row payment-history-row">
-                            <strong>Historial de Pagos Adicionales:</strong>
+                            <strong>Historial de Pagos:</strong>
                             <ul class="payment-history-list">
-                                ${reservation.additionalPayments.map((payment, index) => {
-                                    const date = new Date(payment.date || payment.timestamp || Date.now());
-                                    const formattedDate = date.toLocaleDateString('es-ES', { 
-                                        year: 'numeric', 
-                                        month: 'short', 
-                                        day: 'numeric' 
-                                    });
-                                    return `<li>$${payment.amount.toFixed(2)} - ${formattedDate}${payment.notes ? ` (${payment.notes})` : ''}</li>`;
+                                ${paymentHistory.map((payment) => {
+                                    // Parse date string (YYYY-MM-DD) to avoid timezone issues
+                                    let formattedDate;
+                                    if (payment.date && typeof payment.date === 'string' && payment.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                        // Date is in YYYY-MM-DD format, parse it directly to avoid timezone shift
+                                        const [year, month, day] = payment.date.split('-');
+                                        // Format as month/day/year
+                                        formattedDate = `${month}/${day}/${year}`;
+                                    } else {
+                                        // Fallback to timestamp or current date
+                                        const date = new Date(payment.timestamp || Date.now());
+                                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                                        const day = String(date.getDate()).padStart(2, '0');
+                                        const year = date.getFullYear();
+                                        formattedDate = `${month}/${day}/${year}`;
+                                    }
+                                    const notes = payment.notes || (payment.isDeposit ? 'Deposit' : '');
+                                    return `<li>$${payment.amount.toFixed(2)} - ${formattedDate}${notes ? ` (${notes})` : ''}</li>`;
                                 }).join('')}
                             </ul>
                         </div>
-                        ` : ''}
+                        `;
+                        })()}
                     </div>
                 </div>
             </div>
@@ -2625,6 +2660,7 @@ class ReservationManager {
                 'pechuga-tres-quesos': 'Pechuga tres quesos',
                 'pechuga-ajillo': 'Pechuga Ajillo',
                 'pechuga-setas': 'Pechuga salsa Setas',
+                'pechuga-chorizo-queso': 'Pechuga en Salsa de Chorizo y Queso',
                 'pavo-cranberry': 'Pavo al Horno gravy a escojer',
                 'medallones-guayaba': 'Medallones Cerdo salsa Guayaba',
                 'medallones-setas': 'Medallones Cerdo salsa Setas',
@@ -2691,7 +2727,13 @@ class ReservationManager {
         this.isUpdatingDeposit = true;
         
         // Toggle the status
+        const wasPaid = reservation.depositPaid;
         reservation.depositPaid = !reservation.depositPaid;
+        
+        // If marking as paid, store the payment date (use today's date)
+        if (reservation.depositPaid && !wasPaid) {
+            reservation.depositPaymentDate = new Date().toISOString().split('T')[0];
+        }
         
         // Save to localStorage
         this.saveReservations();
@@ -2722,7 +2764,14 @@ class ReservationManager {
             }
         }
         
-        // If modal is open, refresh it
+        // If payment modal is open, refresh payment history
+        const paymentModal = document.getElementById('paymentModal');
+        if (paymentModal && !paymentModal.classList.contains('hidden') && this.currentPaymentReservationId === id) {
+            this.displayPaymentHistory(reservation);
+            this.updatePaymentSummary();
+        }
+        
+        // If reservation details modal is open, refresh it
         const modal = document.getElementById('reservationDetailsModal');
         if (modal && !modal.classList.contains('hidden')) {
             this.showReservationDetails(id);
@@ -2888,27 +2937,68 @@ class ReservationManager {
         if (!paymentHistoryList) return;
 
         const additionalPayments = reservation.additionalPayments || [];
+        const depositAmount = reservation.pricing?.depositAmount || 0;
+        const depositPaid = reservation.depositPaid && depositAmount > 0;
         
-        if (additionalPayments.length === 0) {
-            paymentHistoryList.innerHTML = '<p class="no-payments">No hay pagos adicionales registrados.</p>';
+        // Build payment history array
+        const paymentHistory = [];
+        
+        // Add deposit if paid
+        if (depositPaid) {
+            // Use event date or creation date for deposit payment date
+            const depositDate = reservation.depositPaymentDate || reservation.eventDate || reservation.createdAt || new Date().toISOString().split('T')[0];
+            paymentHistory.push({
+                amount: depositAmount,
+                date: depositDate,
+                notes: 'Deposit',
+                isDeposit: true
+            });
+        }
+        
+        // Add additional payments
+        additionalPayments.forEach(payment => {
+            paymentHistory.push({
+                ...payment,
+                isDeposit: false
+            });
+        });
+        
+        if (paymentHistory.length === 0) {
+            paymentHistoryList.innerHTML = '<p class="no-payments">No hay pagos registrados.</p>';
             return;
         }
 
-        const historyHTML = additionalPayments.map((payment, index) => {
-            const date = new Date(payment.date || payment.timestamp || Date.now());
-            const formattedDate = date.toLocaleDateString('es-ES', { 
-                year: 'numeric', 
-                month: 'short', 
-                day: 'numeric' 
-            });
+        const historyHTML = paymentHistory.map((payment, index) => {
+            // Parse date string (YYYY-MM-DD) to avoid timezone issues
+            let formattedDate;
+            if (payment.date && typeof payment.date === 'string' && payment.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                // Date is in YYYY-MM-DD format, parse it directly to avoid timezone shift
+                const [year, month, day] = payment.date.split('-');
+                // Format as month/day/year
+                formattedDate = `${month}/${day}/${year}`;
+            } else {
+                // Fallback to timestamp or current date
+                const date = new Date(payment.timestamp || Date.now());
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const year = date.getFullYear();
+                formattedDate = `${month}/${day}/${year}`;
+            }
+            
+            // Calculate the actual index for additional payments (for delete button)
+            const actualIndex = payment.isDeposit ? -1 : (depositPaid ? index - 1 : index);
+            const deleteButton = payment.isDeposit ? '' : `
+                <button class="btn btn-small btn-danger" onclick="reservationManager.deletePayment('${reservation.id}', ${actualIndex})" title="Eliminar pago">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+            
             return `
                 <div class="payment-history-item">
                     <div class="payment-history-amount">$${payment.amount.toFixed(2)}</div>
                     <div class="payment-history-date">${formattedDate}</div>
-                    ${payment.notes ? `<div class="payment-history-notes">${payment.notes}</div>` : ''}
-                    <button class="btn btn-small btn-danger" onclick="reservationManager.deletePayment('${reservation.id}', ${index})" title="Eliminar pago">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                    <div class="payment-history-notes">${payment.notes || (payment.isDeposit ? 'Deposit' : '')}</div>
+                    ${deleteButton}
                 </div>
             `;
         }).join('');
@@ -2936,19 +3026,24 @@ class ReservationManager {
         }
 
         const remainingBalance = this.calculateRemainingBalance(reservation);
-        if (amount > remainingBalance) {
+        // Allow small tolerance for floating point precision issues (0.01 cents)
+        // If amount is very close to remaining balance (within 0.01), cap it to remaining balance
+        if (amount > remainingBalance + 0.01) {
             this.showNotification(`El monto excede el balance restante de $${remainingBalance.toFixed(2)}`, 'error');
             return;
         }
+        
+        // Cap the payment amount to the remaining balance to avoid precision issues
+        const actualAmount = Math.min(amount, remainingBalance);
 
         // Initialize additionalPayments array if it doesn't exist
         if (!reservation.additionalPayments) {
             reservation.additionalPayments = [];
         }
 
-        // Add payment
+        // Add payment (use actualAmount to avoid precision issues)
         reservation.additionalPayments.push({
-            amount: amount,
+            amount: actualAmount,
             date: date,
             timestamp: new Date().toISOString(),
             notes: notes
@@ -2967,7 +3062,7 @@ class ReservationManager {
         if (newRemainingBalance === 0) {
             this.showNotification('¡Pago completo! El balance ha sido pagado en su totalidad.', 'success');
         } else {
-            this.showNotification(`Pago de $${amount.toFixed(2)} registrado exitosamente. Balance restante: $${newRemainingBalance.toFixed(2)}`, 'success');
+            this.showNotification(`Pago de $${actualAmount.toFixed(2)} registrado exitosamente. Balance restante: $${newRemainingBalance.toFixed(2)}`, 'success');
         }
 
         // Clear form
@@ -3166,11 +3261,9 @@ class ReservationManager {
                 </div>
                 ${this.getAdditionalServicesDisplay(reservation.additionalServices)}
                 <div class="reservation-actions">
-                    ${this.calculateRemainingBalance(reservation) > 0 ? `
                     <button class="btn btn-small btn-success" onclick="reservationManager.openPaymentModal('${reservation.id}')">
                         <i class="fas fa-money-bill-wave"></i> Registrar Pago
                     </button>
-                    ` : ''}
                     <button class="btn btn-small btn-primary" onclick="exportReservationInvoice('${reservation.id}')">
                         <i class="fas fa-file-invoice"></i> Exportar Factura
                     </button>
