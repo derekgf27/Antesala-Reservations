@@ -1593,16 +1593,28 @@ class ReservationManager {
         // Beverage cost from selections
         const beverages = this.getBeverageItems();
         let drinkCost = 0;
+        let alcoholicDrinkCost = 0;
+        let nonAlcoholicDrinkCost = 0;
         let alcoholicQty = 0;
         Object.entries(this.beverageSelections).forEach(([id, qty]) => {
             // Handle Mimosa separately - it's per person
             if (id === 'mimosa' && qty === true) {
-                drinkCost += 3.95 * guestCount;
+                const mimosaCost = 3.95 * guestCount;
+                drinkCost += mimosaCost;
+                // Mimosa contains alcohol, so add to alcoholic cost
+                alcoholicDrinkCost += mimosaCost;
+                alcoholicQty += guestCount;
             } else {
                 const item = beverages.find(b => b.id === id);
                 if (item && qty > 0) {
-                    drinkCost += item.price * qty;
-                    if (item.alcohol) alcoholicQty += qty;
+                    const itemCost = item.price * qty;
+                    drinkCost += itemCost;
+                    if (item.alcohol) {
+                        alcoholicDrinkCost += itemCost;
+                        alcoholicQty += qty;
+                    } else {
+                        nonAlcoholicDrinkCost += itemCost;
+                    }
                 }
             }
         });
@@ -1624,12 +1636,15 @@ class ReservationManager {
             }
         });
 
-        // Taxes (apply only to food, breakfast, entremeses, and alcoholic beverages)
+        // Taxes
+        // Food taxes apply to: food, breakfast, entremeses, and non-alcoholic beverages
         const isAlcoholic = alcoholicQty > 0;
-        const totalFoodCost = foodCost + breakfastCost + entremesesCost; // Combine food, breakfast, and entremeses for tax calculation
+        const totalFoodCost = foodCost + breakfastCost + entremesesCost + nonAlcoholicDrinkCost; // Include non-alcoholic drinks in food tax calculation
         const foodStateReducedTax = totalFoodCost * 0.06; // 6%
         const foodCityTax = totalFoodCost * 0.01; // 1%
-        const alcoholStateTax = isAlcoholic ? drinkCost * 0.105 : 0; // 10.5%
+        // Alcohol taxes apply only to alcoholic beverages
+        const alcoholStateTax = isAlcoholic ? alcoholicDrinkCost * 0.105 : 0; // 10.5% state tax on alcohol
+        const alcoholCityTax = isAlcoholic ? alcoholicDrinkCost * 0.01 : 0; // 1% city tax on alcohol
 
         // Additional services cost
         const servicePrices = {
@@ -1662,9 +1677,12 @@ class ReservationManager {
         const alcoholRow = document.getElementById('alcoholTaxRow');
         if (alcoholRow) alcoholRow.style.display = alcoholStateTax > 0 ? 'flex' : 'none';
         document.getElementById('alcoholStateTax').textContent = `$${alcoholStateTax.toFixed(2)}`;
+        const alcoholCityTaxRow = document.getElementById('alcoholCityTaxRow');
+        if (alcoholCityTaxRow) alcoholCityTaxRow.style.display = alcoholCityTax > 0 ? 'flex' : 'none';
+        document.getElementById('alcoholCityTax').textContent = `$${alcoholCityTax.toFixed(2)}`;
         document.getElementById('additionalCost').textContent = `$${additionalCost.toFixed(2)}`;
 
-        const totalTaxes = foodStateReducedTax + foodCityTax + alcoholStateTax;
+        const totalTaxes = foodStateReducedTax + foodCityTax + alcoholStateTax + alcoholCityTax;
         document.getElementById('taxSubtotal').textContent = `$${totalTaxes.toFixed(2)}`;
         
         // Calculate subtotal (before taxes and tip)
@@ -1714,6 +1732,7 @@ class ReservationManager {
                 foodStateReducedTax,
                 foodCityTax,
                 alcoholStateTax,
+                alcoholCityTax,
                 totalTaxes
             },
             tip: {
@@ -2079,6 +2098,7 @@ class ReservationManager {
         document.getElementById('foodStateReducedTax').textContent = '$0.00';
         document.getElementById('foodCityTax').textContent = '$0.00';
         document.getElementById('alcoholStateTax').textContent = '$0.00';
+        document.getElementById('alcoholCityTax').textContent = '$0.00';
         document.getElementById('additionalCost').textContent = '$0.00';
         document.getElementById('taxSubtotal').textContent = '$0.00';
         document.getElementById('tipAmount').textContent = '$0.00 (0%)';
@@ -2094,9 +2114,11 @@ class ReservationManager {
             depositCustomAmount.value = '';
         }
         
-        // Hide alcohol tax row if visible
+        // Hide alcohol tax rows if visible
         const alcoholRow = document.getElementById('alcoholTaxRow');
         if (alcoholRow) alcoholRow.style.display = 'none';
+        const alcoholCityTaxRow = document.getElementById('alcoholCityTaxRow');
+        if (alcoholCityTaxRow) alcoholCityTaxRow.style.display = 'none';
         
         // Reset tip percentage dropdown
         const tipPercentage = document.getElementById('tipPercentage');
