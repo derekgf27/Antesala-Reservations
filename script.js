@@ -2618,7 +2618,8 @@ class ReservationManager {
                                         formattedDate = `${month}/${day}/${year}`;
                                     }
                                     const notes = payment.notes || (payment.isDeposit ? 'Deposit' : '');
-                                    return `<li>$${payment.amount.toFixed(2)} - ${formattedDate}${notes ? ` (${notes})` : ''}</li>`;
+                                    const depositClass = payment.isDeposit ? ' class="deposit-payment-item"' : '';
+                                    return `<li${depositClass}>$${payment.amount.toFixed(2)} - ${formattedDate}${notes ? ` (${notes})` : ''}</li>`;
                                 }).join('')}
                             </ul>
                         </div>
@@ -2994,10 +2995,10 @@ class ReservationManager {
             `;
             
             return `
-                <div class="payment-history-item">
+                <div class="payment-history-item ${payment.isDeposit ? 'payment-deposit-item' : ''}">
                     <div class="payment-history-amount">$${payment.amount.toFixed(2)}</div>
                     <div class="payment-history-date">${formattedDate}</div>
-                    <div class="payment-history-notes">${payment.notes || (payment.isDeposit ? 'Deposit' : '')}</div>
+                    <div class="payment-history-notes ${payment.isDeposit ? 'deposit-label' : ''}">${payment.notes || (payment.isDeposit ? 'Deposit' : '')}</div>
                     ${deleteButton}
                 </div>
             `;

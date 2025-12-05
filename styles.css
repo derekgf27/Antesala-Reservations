@@ -2226,9 +2226,9 @@ body {
     justify-content: space-between;
     padding: 12px;
     margin-bottom: 8px;
-    background: var(--bg-tertiary);
+    background: rgba(72, 187, 120, 0.1);
     border-radius: 6px;
-    border: 1px solid var(--border-color);
+    border: 1px solid rgba(72, 187, 120, 0.3);
     gap: 12px;
 }
 
@@ -2250,6 +2250,24 @@ body {
     font-size: 0.85rem;
     font-style: italic;
     flex: 1;
+}
+
+.payment-history-notes.deposit-label {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    font-style: normal;
+}
+
+.payment-deposit-item {
+    background: rgba(72, 187, 120, 0.15);
+    border-color: rgba(72, 187, 120, 0.5);
+}
+
+.payment-deposit-item .payment-history-amount {
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: #38a169;
 }
 
 .no-payments {
@@ -2303,6 +2321,12 @@ body {
     padding: 6px 0;
     color: var(--text-secondary);
     border-bottom: 1px solid var(--border-color);
+}
+
+.payment-history-row ul li.deposit-payment-item {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--text-primary);
 }
 
 .payment-history-row ul li:last-child {
