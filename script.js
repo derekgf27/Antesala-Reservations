@@ -2467,7 +2467,7 @@ class ReservationManager {
                     </div>
                 </div>
                 
-                ${(reservation.foodType && reservation.foodType !== 'no-food') || (reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) || (reservation.breakfastType && this.isBreakfast(reservation.breakfastType)) || (reservation.dessertType && this.isDessert(reservation.dessertType)) ? `
+                ${(reservation.foodType && reservation.foodType !== 'no-food') || (reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) || (reservation.breakfastType && this.isBreakfast(reservation.breakfastType)) || (reservation.dessertType && this.isDessert(reservation.dessertType)) || (reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) ? `
                 <div class="detail-section">
                     <h4><i class="fas fa-utensils"></i> Comida y Bebidas</h4>
                     <div class="food-beverage-content">
@@ -2509,17 +2509,23 @@ class ReservationManager {
                             <span class="detail-label">Postres:</span>
                             <span class="detail-value">Postres</span>
                             <ul class="detail-bullet-list">
-                                ${reservation.dessert.flanQueso ? `<li>Flan de Queso</li>` : ''}
-                                ${reservation.dessert.flanVainilla ? `<li>Flan de Vainilla</li>` : ''}
-                                ${reservation.dessert.flanCoco ? `<li>Flan de Coco</li>` : ''}
-                                ${reservation.dessert.cheesecake ? `<li>Cheesecake</li>` : ''}
+                                ${reservation.dessert.arrozConDulce ? `<li>Arroz con Dulce</li>` : ''}
                                 ${reservation.dessert.bizcochoChocolate ? `<li>Bizcocho de Chocolate</li>` : ''}
                                 ${reservation.dessert.bizcochoZanahoria ? `<li>Bizcocho de Zanahoria</li>` : ''}
-                                ${reservation.dessert.tresLeches ? `<li>Tres Leches</li>` : ''}
-                                ${reservation.dessert.tembleque ? `<li>Tembleque</li>` : ''}
+                                ${reservation.dessert.cheesecake ? `<li>Cheesecake</li>` : ''}
+                                ${reservation.dessert.flanCoco ? `<li>Flan de Coco</li>` : ''}
+                                ${reservation.dessert.flanQueso ? `<li>Flan de Queso</li>` : ''}
+                                ${reservation.dessert.flanVainilla ? `<li>Flan de Vainilla</li>` : ''}
                                 ${reservation.dessert.postresSurtidos ? `<li>Postres Surtidos</li>` : ''}
-                                ${reservation.dessert.arrozConDulce ? `<li>Arroz con Dulce</li>` : ''}
+                                ${reservation.dessert.tembleque ? `<li>Tembleque</li>` : ''}
+                                ${reservation.dessert.tresLeches ? `<li>Tres Leches</li>` : ''}
                             </ul>
+                        </div>
+                        ` : ''}
+                        ${reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => (typeof qty === 'number' && qty > 0) || qty === true) ? `
+                        <div class="food-service-section">
+                            <span class="detail-label">Entremeses:</span>
+                            ${this.getEntremesesBulletList(reservation.entremeses)}
                         </div>
                         ` : ''}
                         ${reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => (typeof qty === 'number' && qty > 0) || qty === true) ? `
@@ -2734,6 +2740,31 @@ class ReservationManager {
             });
         return beverageList.length > 0 
             ? `<ul class="detail-bullet-list">${beverageList.join('')}</ul>`
+            : '<span class="detail-value">Ninguno</span>';
+    }
+
+    getEntremesesBulletList(entremesesMap) {
+        if (!entremesesMap || Object.keys(entremesesMap).length === 0) {
+            return '<span class="detail-value">Ninguno</span>';
+        }
+        const items = this.getEntremesesItems();
+        const entremesesList = Object.entries(entremesesMap)
+            .filter(([, qty]) => (typeof qty === 'number' && qty > 0) || qty === true)
+            .map(([id, qty]) => {
+                // Handle Asopao and Ceviche separately - they're per person
+                if (id === 'asopao' && qty === true) {
+                    return '<li>Asopao (por persona)</li>';
+                } else if (id === 'ceviche' && qty === true) {
+                    return '<li>Ceviche (por persona)</li>';
+                } else if (typeof qty === 'number' && qty > 0) {
+                    const item = items.find(i => i.id === id);
+                    return `<li>${qty} x ${item ? item.name : id}</li>`;
+                }
+                return '';
+            })
+            .filter(item => item !== '');
+        return entremesesList.length > 0 
+            ? `<ul class="detail-bullet-list">${entremesesList.join('')}</ul>`
             : '<span class="detail-value">Ninguno</span>';
     }
 
@@ -3258,17 +3289,23 @@ class ReservationManager {
                     <div class="reservation-detail">
                         <strong>Postres:</strong>
                         <span>${[
-                            reservation.dessert.flanQueso ? 'Flan de Queso' : '',
-                            reservation.dessert.flanVainilla ? 'Flan de Vainilla' : '',
-                            reservation.dessert.flanCoco ? 'Flan de Coco' : '',
-                            reservation.dessert.cheesecake ? 'Cheesecake' : '',
+                            reservation.dessert.arrozConDulce ? 'Arroz con Dulce' : '',
                             reservation.dessert.bizcochoChocolate ? 'Bizcocho de Chocolate' : '',
                             reservation.dessert.bizcochoZanahoria ? 'Bizcocho de Zanahoria' : '',
-                            reservation.dessert.tresLeches ? 'Tres Leches' : '',
-                            reservation.dessert.tembleque ? 'Tembleque' : '',
+                            reservation.dessert.cheesecake ? 'Cheesecake' : '',
+                            reservation.dessert.flanCoco ? 'Flan de Coco' : '',
+                            reservation.dessert.flanQueso ? 'Flan de Queso' : '',
+                            reservation.dessert.flanVainilla ? 'Flan de Vainilla' : '',
                             reservation.dessert.postresSurtidos ? 'Postres Surtidos' : '',
-                            reservation.dessert.arrozConDulce ? 'Arroz con Dulce' : ''
+                            reservation.dessert.tembleque ? 'Tembleque' : '',
+                            reservation.dessert.tresLeches ? 'Tres Leches' : ''
                         ].filter(Boolean).join(', ')}</span>
+                    </div>
+                    ` : ''}
+                    ${reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => (typeof qty === 'number' && qty > 0) || qty === true) ? `
+                    <div class="reservation-detail">
+                        <strong>Entremeses:</strong>
+                        <span>${this.getEntremesesSummaryString(reservation.entremeses)}</span>
                     </div>
                     ` : ''}
                     <div class="reservation-detail">
@@ -3372,6 +3409,27 @@ class ReservationManager {
                 return `${qty} x ${item ? item.name : id}`;
             });
         return parts.length ? parts.join(', ') : 'Sin Servicio de Bebidas';
+    }
+
+    getEntremesesSummaryString(entremesesMap) {
+        if (!entremesesMap || Object.keys(entremesesMap).length === 0) return 'Sin Entremeses';
+        const items = this.getEntremesesItems();
+        const parts = Object.entries(entremesesMap)
+            .filter(([, qty]) => (typeof qty === 'number' && qty > 0) || qty === true)
+            .map(([id, qty]) => {
+                // Handle Asopao and Ceviche separately - they're per person
+                if (id === 'asopao' && qty === true) {
+                    return 'Asopao (por persona)';
+                } else if (id === 'ceviche' && qty === true) {
+                    return 'Ceviche (por persona)';
+                } else if (typeof qty === 'number' && qty > 0) {
+                    const item = items.find(i => i.id === id);
+                    return `${qty} x ${item ? item.name : id}`;
+                }
+                return '';
+            })
+            .filter(part => part !== '');
+        return parts.length ? parts.join(', ') : 'Sin Entremeses';
     }
 
     // Get table configuration display
@@ -4263,15 +4321,16 @@ class ReservationManager {
         // Desserts
         if (reservation.dessertType && this.isDessert(reservation.dessertType) && reservation.dessert) {
             const dessertItems = [];
-            if (reservation.dessert.flanQueso) dessertItems.push('Flan de Queso');
-            if (reservation.dessert.flanVainilla) dessertItems.push('Flan de Vainilla');
-            if (reservation.dessert.flanCoco) dessertItems.push('Flan de Coco');
-            if (reservation.dessert.cheesecake) dessertItems.push('Cheesecake');
+            if (reservation.dessert.arrozConDulce) dessertItems.push('Arroz con Dulce');
             if (reservation.dessert.bizcochoChocolate) dessertItems.push('Bizcocho de Chocolate');
             if (reservation.dessert.bizcochoZanahoria) dessertItems.push('Bizcocho de Zanahoria');
-            if (reservation.dessert.tresLeches) dessertItems.push('Tres Leches');
-            if (reservation.dessert.tembleque) dessertItems.push('Tembleque');
+            if (reservation.dessert.cheesecake) dessertItems.push('Cheesecake');
+            if (reservation.dessert.flanCoco) dessertItems.push('Flan de Coco');
+            if (reservation.dessert.flanQueso) dessertItems.push('Flan de Queso');
+            if (reservation.dessert.flanVainilla) dessertItems.push('Flan de Vainilla');
             if (reservation.dessert.postresSurtidos) dessertItems.push('Postres Surtidos');
+            if (reservation.dessert.tembleque) dessertItems.push('Tembleque');
+            if (reservation.dessert.tresLeches) dessertItems.push('Tres Leches');
             
             // For desserts, create description with title and bullet points
             if (dessertItems.length > 0) {
