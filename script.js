@@ -776,6 +776,8 @@ class ReservationManager {
         if (temblequeEl) temblequeEl.checked = false;
         const postresSurtidosEl = document.getElementById('dessertPostresSurtidos');
         if (postresSurtidosEl) postresSurtidosEl.checked = false;
+        const arrozConDulceEl = document.getElementById('dessertArrozConDulce');
+        if (arrozConDulceEl) arrozConDulceEl.checked = false;
     }
 
     // Clear all dessert selections in the modal
@@ -889,6 +891,7 @@ class ReservationManager {
             const tresLeches = document.getElementById('dessertTresLeches');
             const tembleque = document.getElementById('dessertTembleque');
             const postresSurtidos = document.getElementById('dessertPostresSurtidos');
+            const arrozConDulce = document.getElementById('dessertArrozConDulce');
 
             const items = [];
             if (flanQueso?.checked) items.push(`<li>Flan de Queso</li>`);
@@ -900,6 +903,7 @@ class ReservationManager {
             if (tresLeches?.checked) items.push(`<li>Tres Leches</li>`);
             if (tembleque?.checked) items.push(`<li>Tembleque</li>`);
             if (postresSurtidos?.checked) items.push(`<li>Postres Surtidos</li>`);
+            if (arrozConDulce?.checked) items.push(`<li>Arroz con Dulce</li>`);
 
             container.classList.remove('hidden');
             editDessertBtn?.classList.remove('hidden');
@@ -1945,6 +1949,7 @@ class ReservationManager {
             const tresLechesEl = document.getElementById('dessertTresLeches');
             const temblequeEl = document.getElementById('dessertTembleque');
             const postresSurtidosEl = document.getElementById('dessertPostresSurtidos');
+            const arrozConDulceEl = document.getElementById('dessertArrozConDulce');
 
             dessertSelections = {
                 flanQueso: flanQuesoEl?.checked || false,
@@ -1955,7 +1960,8 @@ class ReservationManager {
                 bizcochoZanahoria: bizcochoZanahoriaEl?.checked || false,
                 tresLeches: tresLechesEl?.checked || false,
                 tembleque: temblequeEl?.checked || false,
-                postresSurtidos: postresSurtidosEl?.checked || false
+                postresSurtidos: postresSurtidosEl?.checked || false,
+                arrozConDulce: arrozConDulceEl?.checked || false
             };
         }
 
@@ -2009,7 +2015,8 @@ class ReservationManager {
                 bizcochoZanahoria: dessertSelections?.bizcochoZanahoria || false,
                 tresLeches: dessertSelections?.tresLeches || false,
                 tembleque: dessertSelections?.tembleque || false,
-                postresSurtidos: dessertSelections?.postresSurtidos || false
+                postresSurtidos: dessertSelections?.postresSurtidos || false,
+                arrozConDulce: dessertSelections?.arrozConDulce || false
             } : null,
             // drinkType removed; beverages are captured in the beverages map
             beverages: this.beverageSelections,
@@ -2507,6 +2514,7 @@ class ReservationManager {
                                 ${reservation.dessert.tresLeches ? `<li>Tres Leches</li>` : ''}
                                 ${reservation.dessert.tembleque ? `<li>Tembleque</li>` : ''}
                                 ${reservation.dessert.postresSurtidos ? `<li>Postres Surtidos</li>` : ''}
+                                ${reservation.dessert.arrozConDulce ? `<li>Arroz con Dulce</li>` : ''}
                             </ul>
                         </div>
                         ` : ''}
@@ -3254,7 +3262,8 @@ class ReservationManager {
                             reservation.dessert.bizcochoZanahoria ? 'Bizcocho de Zanahoria' : '',
                             reservation.dessert.tresLeches ? 'Tres Leches' : '',
                             reservation.dessert.tembleque ? 'Tembleque' : '',
-                            reservation.dessert.postresSurtidos ? 'Postres Surtidos' : ''
+                            reservation.dessert.postresSurtidos ? 'Postres Surtidos' : '',
+                            reservation.dessert.arrozConDulce ? 'Arroz con Dulce' : ''
                         ].filter(Boolean).join(', ')}</span>
                     </div>
                     ` : ''}
@@ -3533,6 +3542,8 @@ class ReservationManager {
             if (temblequeEl) temblequeEl.checked = dessert.tembleque || false;
             const postresSurtidosEl = document.getElementById('dessertPostresSurtidos');
             if (postresSurtidosEl) postresSurtidosEl.checked = dessert.postresSurtidos || false;
+            const arrozConDulceEl = document.getElementById('dessertArrozConDulce');
+            if (arrozConDulceEl) arrozConDulceEl.checked = dessert.arrozConDulce || false;
         } else {
             this.clearDessertSelections();
         }
