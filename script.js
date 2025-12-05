@@ -648,6 +648,7 @@ class ReservationManager {
             'bev-black-label-1l': 'black-label-1l',
             'bev-tito-1l': 'tito-1l',
             'bev-dewars-12-handle': 'dewars-12-handle',
+            'bev-pama': 'pama',
             'bev-dewars-handle': 'dewars-handle',
             'bev-donq-cristal-handle': 'donq-cristal-handle',
             'bev-donq-limon-handle': 'donq-limon-handle',
@@ -921,8 +922,8 @@ class ReservationManager {
     getBeverageItems() {
         return [
             // Non-alcoholic
-            { id: 'soft-drinks', name: 'Caja de Refrescos (24)', price: 35, alcohol: false },
-            { id: 'water', name: 'Caja de Agua (24)', price: 20, alcohol: false },
+            { id: 'soft-drinks', name: 'Refrescos Caja (24)', price: 35, alcohol: false },
+            { id: 'water', name: 'Agua Caja (24)', price: 20, alcohol: false },
             // Beers
             { id: 'michelob', name: 'Michelob', price: 72, alcohol: true },
             { id: 'medalla', name: 'Medalla', price: 72, alcohol: true },
@@ -931,30 +932,31 @@ class ReservationManager {
             { id: 'corona', name: 'Corona', price: 72, alcohol: true },
             { id: 'modelo', name: 'Modelo', price: 72, alcohol: true },
             // Liquors
-            { id: 'black-label-1l', name: '1 Litro Black Label', price: 65, alcohol: true },
-            { id: 'tito-1l', name: '1 Litro Tito Vodka', price: 45, alcohol: true },
-            { id: 'dewars-12-handle', name: 'Gancho Dewars 12', price: 200, alcohol: true },
-            { id: 'dewars-handle', name: 'Gancho Dewars Reg.', price: 150, alcohol: true },
-            { id: 'donq-cristal-handle', name: 'Gancho Don Q Cristal', price: 75, alcohol: true },
-            { id: 'donq-limon-handle', name: 'Gancho Don Q Limón', price: 75, alcohol: true },
-            { id: 'donq-passion-handle', name: 'Gancho Don Q Passion', price: 75, alcohol: true },
-            { id: 'donq-coco-handle', name: 'Gancho Don Q Coco', price: 75, alcohol: true },
-            { id: 'donq-naranja-handle', name: 'Gancho Don Q Naranja', price: 75, alcohol: true },
-            { id: 'donq-oro-handle', name: 'Gancho Don Q Oro', price: 75, alcohol: true },
-            { id: 'tito-handle', name: 'Gancho Tito Vodka', price: 150, alcohol: true },
+            { id: 'black-label-1l', name: 'Black Label 1 Litro', price: 65, alcohol: true },
+            { id: 'tito-1l', name: 'Tito Vodka 1 Litro', price: 45, alcohol: true },
+            { id: 'dewars-12-handle', name: 'Dewars 12 Gancho', price: 180, alcohol: true },
+            { id: 'pama', name: 'Pama Litro', price: 90, alcohol: true },
+            { id: 'dewars-handle', name: 'Dewars Reg. Gancho', price: 150, alcohol: true },
+            { id: 'donq-cristal-handle', name: 'Don Q Cristal Gancho', price: 75, alcohol: true },
+            { id: 'donq-limon-handle', name: 'Don Q Limón Gancho', price: 75, alcohol: true },
+            { id: 'donq-passion-handle', name: 'Don Q Passion Gancho', price: 75, alcohol: true },
+            { id: 'donq-coco-handle', name: 'Don Q Coco Gancho', price: 75, alcohol: true },
+            { id: 'donq-naranja-handle', name: 'Don Q Naranja Gancho', price: 75, alcohol: true },
+            { id: 'donq-oro-handle', name: 'Don Q Oro Gancho', price: 75, alcohol: true },
+            { id: 'tito-handle', name: 'Tito Vodka Gancho', price: 150, alcohol: true },
             { id: 'bravada', name: 'Bravada', price: 150, alcohol: true },
-            { id: 'sangria', name: 'Jarra de Sangria', price: 25, alcohol: true },
+            { id: 'sangria', name: 'Sangria Jarra', price: 25, alcohol: true },
             // Wines
-            { id: 'red-wine-25', name: 'Botella de Vino Tinto ($25)', price: 25, alcohol: true },
-            { id: 'red-wine-30', name: 'Botella de Vino Tinto ($30)', price: 30, alcohol: true },
-            { id: 'red-wine-35-1', name: 'Botella de Vino Tinto ($35)', price: 35, alcohol: true },
-            { id: 'red-wine-35-2', name: 'Botella de Vino Tinto ($35)', price: 35, alcohol: true },
-            { id: 'red-wine-40', name: 'Botella de Vino Tinto ($40)', price: 40, alcohol: true },
-            { id: 'white-wine-25', name: 'Botella de Vino Blanco ($25)', price: 25, alcohol: true },
-            { id: 'white-wine-30', name: 'Botella de Vino Blanco ($30)', price: 30, alcohol: true },
-            { id: 'white-wine-35-1', name: 'Botella de Vino Blanco ($35)', price: 35, alcohol: true },
-            { id: 'white-wine-35-2', name: 'Botella de Vino Blanco ($35)', price: 35, alcohol: true },
-            { id: 'white-wine-40', name: 'Botella de Vino Blanco ($40)', price: 40, alcohol: true },
+            { id: 'red-wine-25', name: 'Vino Tinto Botella ($25)', price: 25, alcohol: true },
+            { id: 'red-wine-30', name: 'Vino Tinto Botella ($30)', price: 30, alcohol: true },
+            { id: 'red-wine-35-1', name: 'Vino Tinto Botella ($35)', price: 35, alcohol: true },
+            { id: 'red-wine-35-2', name: 'Vino Tinto Botella ($35)', price: 35, alcohol: true },
+            { id: 'red-wine-40', name: 'Vino Tinto Botella ($40)', price: 40, alcohol: true },
+            { id: 'white-wine-25', name: 'Vino Blanco Botella ($25)', price: 25, alcohol: true },
+            { id: 'white-wine-30', name: 'Vino Blanco Botella ($30)', price: 30, alcohol: true },
+            { id: 'white-wine-35-1', name: 'Vino Blanco Botella ($35)', price: 35, alcohol: true },
+            { id: 'white-wine-35-2', name: 'Vino Blanco Botella ($35)', price: 35, alcohol: true },
+            { id: 'white-wine-40', name: 'Vino Blanco Botella ($40)', price: 40, alcohol: true },
             { id: 'descorche-10', name: 'Descorche ($10)', price: 10, alcohol: false },
             { id: 'descorche-20', name: 'Descorche ($20)', price: 20, alcohol: false },
             { id: 'descorche-30', name: 'Descorche ($30)', price: 30, alcohol: false },
@@ -977,6 +979,7 @@ class ReservationManager {
             'bev-black-label-1l': 'black-label-1l',
             'bev-tito-1l': 'tito-1l',
             'bev-dewars-12-handle': 'dewars-12-handle',
+            'bev-pama': 'pama',
             'bev-dewars-handle': 'dewars-handle',
             'bev-donq-cristal-handle': 'donq-cristal-handle',
             'bev-donq-limon-handle': 'donq-limon-handle',
@@ -1049,6 +1052,7 @@ class ReservationManager {
             { inputId: 'bev-black-label-1l', key: 'black-label-1l' },
             { inputId: 'bev-tito-1l', key: 'tito-1l' },
             { inputId: 'bev-dewars-12-handle', key: 'dewars-12-handle' },
+            { inputId: 'bev-pama', key: 'pama' },
             { inputId: 'bev-dewars-handle', key: 'dewars-handle' },
             { inputId: 'bev-donq-cristal-handle', key: 'donq-cristal-handle' },
             { inputId: 'bev-donq-limon-handle', key: 'donq-limon-handle' },
@@ -2426,7 +2430,7 @@ class ReservationManager {
                     <div class="detail-grid">
                         <div class="detail-item">
                             <span class="detail-label">Tipo de Evento:</span>
-                            <span class="detail-value">${reservation.eventType || 'No especificado'}</span>
+                            <span class="detail-value">${this.getEventTypeDisplayName(reservation.eventType)}</span>
                         </div>
                         ${reservation.companyName ? `
                         <div class="detail-item">
@@ -3331,6 +3335,22 @@ class ReservationManager {
             'no-food': 'Sin Servicio de Comida'
         };
         return foodNames[foodType] || foodType;
+    }
+
+    getEventTypeDisplayName(eventType) {
+        if (!eventType) return 'No especificado';
+        const eventTypeNames = {
+            'wedding': 'Boda',
+            'birthdays': 'Cumpleaños',
+            'pharmaceutical': 'Farmacéutico',
+            'baptism': 'Bautismo',
+            'graduation': 'Graduación',
+            'fiesta-navidad': 'Fiesta de Navidad',
+            'other': 'Otro'
+        };
+        // If it's a predefined type, return the Spanish name
+        // If it's a custom value (from "other"), return it as-is
+        return eventTypeNames[eventType] || eventType;
     }
 
     getDrinkDisplayName(drinkType) {
@@ -4401,13 +4421,13 @@ class ReservationManager {
         if (reservation.companyName) {
             doc.setFontSize(14);
             doc.setFont(undefined, 'bold');
-            doc.text(`Company: ${reservation.companyName}`, 20, yPos);
+            doc.text(`Compañía: ${reservation.companyName}`, 20, yPos);
             yPos += 5;
         }
         doc.setFontSize(14);
         doc.setFont(undefined, 'bold');
-        doc.text('ISSUED TO:', 20, yPos);
-        doc.text('INVOICE NO:', 140, yPos);
+        doc.text('EMITIDO A:', 20, yPos);
+        doc.text('FACTURA NO:', 140, yPos);
         yPos += 6;
         doc.setFont(undefined, 'normal');
         doc.setFontSize(13);
@@ -4420,7 +4440,7 @@ class ReservationManager {
         doc.setFontSize(13);
         doc.text(`Tel: ${reservation.clientPhone}`, 20, yPos);
         yPos += 5;
-        doc.text(`Actividad: ${reservation.eventType || 'Evento'}`, 20, yPos);
+        doc.text(`Actividad: ${this.getEventTypeDisplayName(reservation.eventType)}`, 20, yPos);
         yPos += 5;
         doc.text(`Día: ${formattedDate}`, 20, yPos);
         yPos += 5;
@@ -4439,8 +4459,8 @@ class ReservationManager {
         doc.setTextColor(255, 255, 255);
         doc.setFillColor(45, 55, 72);
         doc.rect(20, yPos - 4, 170, 8, 'F');
-        doc.text('DESCRIPTION', 25, yPos);
-        doc.text('QTY', 140, yPos);
+        doc.text('DESCRIPCIÓN', 25, yPos);
+        doc.text('CANT.', 140, yPos);
         doc.text('TOTAL', 190, yPos, { align: 'right' });
         yPos += 8;
         doc.setTextColor(0, 0, 0);
@@ -4494,7 +4514,7 @@ class ReservationManager {
         doc.text(`$${subtotal.toFixed(2)}`, 190, yPos, { align: 'right' });
         yPos += 5;
 
-        doc.text('TAXES AND FEE', 20, yPos);
+        doc.text('IMPUESTOS Y TARIFAS', 20, yPos);
         doc.text(`$${reservation.pricing.taxes.totalTaxes.toFixed(2)}`, 190, yPos, { align: 'right' });
         yPos += 5;
 
@@ -4516,11 +4536,11 @@ class ReservationManager {
         doc.setTextColor(242, 123, 33);
         const depositAmount = reservation.pricing.depositAmount || 0;
         const isCustomDeposit = reservation.depositPercentage === 'custom' || reservation.pricing?.depositPercentage === 'custom';
-        const depositLabel = isCustomDeposit ? 'Deposito a Pagar (Custom)' : `Deposito a Pagar (${reservation.depositPercentage || reservation.pricing?.depositPercentage || 20}%)`;
+        const depositLabel = isCustomDeposit ? 'Depósito a Pagar (Personalizado)' : `Depósito a Pagar (${reservation.depositPercentage || reservation.pricing?.depositPercentage || 20}%)`;
         doc.text(depositLabel, 20, yPos);
         let depositText = `$${depositAmount.toFixed(2)}`;
         if (reservation.depositPaid) {
-            depositText += ' - PAID';
+            depositText += ' - PAGADO';
         }
         doc.text(depositText, 190, yPos, { align: 'right' });
         yPos += 6;
