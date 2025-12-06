@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Reservations collection
+    match /reservations/{reservationId} {
+      // Allow read access to all reservations
+      allow read: if true;
+      
+      // Allow write access with basic validation
+      // Ensures required fields exist and are correct types
+      allow create: if request.resource.data.keys().hasAll(['id', 'eventDate'])
+                    && request.resource.data.id is string
+                    && request.resource.data.id.size() > 0
+                    && request.resource.data.eventDate is string;
+      
+      allow update: if request.resource.data.keys().hasAll(['id', 'eventDate'])
+                    && request.resource.data.id is string
+                    && request.resource.data.id.size() > 0
+                    && request.resource.data.eventDate is string
+                    && request.resource.data.id == resource.data.id; // Prevent ID changes
+      
+      allow delete: if true;
+    }
+    
+    // Deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

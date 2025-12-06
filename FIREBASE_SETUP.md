@@ -52,23 +52,35 @@ const FIREBASE_ENABLED = true;
 
 ## Step 5: Set Up Firestore Security Rules (Important!)
 
-1. In Firebase Console, go to "Firestore Database" > "Rules"
-2. For testing, you can use these rules (allows read/write for everyone):
+**⚠️ URGENT:** Your Firestore database is currently in Test Mode and will expire in 30 days. You must deploy security rules before then!
 
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
-    }
-  }
-}
-```
+### Option 1: Deploy via Firebase Console (Recommended - Easiest)
 
-3. Click "Publish"
+1. Open the `firestore.rules` file in this project
+2. Copy all the contents
+3. Go to [Firebase Console](https://console.firebase.google.com/)
+4. Select your project: **antesalareservations**
+5. Click on "Firestore Database" in the left sidebar
+6. Click on the "Rules" tab
+7. Replace the existing rules with the contents from `firestore.rules`
+8. Click "Publish"
 
-**⚠️ Note:** The rules above allow anyone to read/write. For production, you should add proper authentication and security rules.
+### Option 2: Deploy via Firebase CLI
+
+1. Install Firebase CLI: `npm install -g firebase-tools`
+2. Login: `firebase login`
+3. Initialize (if not already): `firebase init firestore`
+4. Deploy: `firebase deploy --only firestore:rules`
+
+### What These Rules Do
+
+The security rules in `firestore.rules`:
+- ✅ Allow read access to all reservations (for syncing across devices)
+- ✅ Allow create/update with validation (ensures data structure is correct)
+- ✅ Prevent ID changes during updates (data integrity)
+- ✅ Allow deletion of reservations
+- ✅ Block access to any other collections
+- ⚠️ **Note:** These rules allow public access. For enhanced security, consider adding authentication later.
 
 ## Step 6: Test the Setup
 
