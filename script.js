@@ -658,6 +658,8 @@ class ReservationManager {
             'bev-donq-oro-handle': 'donq-oro-handle',
             'bev-tito-handle': 'tito-handle',
             'bev-bravada': 'bravada',
+            'bev-bravada-375': 'bravada-375',
+            'bev-dewars-12-375': 'dewars-12-375',
             'bev-sangria': 'sangria',
             'bev-red-wine-25': 'red-wine-25',
             'bev-red-wine-30': 'red-wine-30',
@@ -945,6 +947,8 @@ class ReservationManager {
             { id: 'donq-oro-handle', name: 'Don Q Oro Gancho', price: 75, alcohol: true },
             { id: 'tito-handle', name: 'Tito Vodka Gancho', price: 150, alcohol: true },
             { id: 'bravada', name: 'Bravada', price: 150, alcohol: true },
+            { id: 'bravada-375', name: 'Bravada Botella de 3.75', price: 60, alcohol: true },
+            { id: 'dewars-12-375', name: 'Dewars 12 Botella de 3.75', price: 60, alcohol: true },
             { id: 'sangria', name: 'Sangria Jarra', price: 25, alcohol: true },
             // Wines
             { id: 'red-wine-25', name: 'Vino Tinto Botella ($25)', price: 25, alcohol: true },
@@ -989,6 +993,8 @@ class ReservationManager {
             'bev-donq-oro-handle': 'donq-oro-handle',
             'bev-tito-handle': 'tito-handle',
             'bev-bravada': 'bravada',
+            'bev-bravada-375': 'bravada-375',
+            'bev-dewars-12-375': 'dewars-12-375',
             'bev-sangria': 'sangria',
             'bev-red-wine-25': 'red-wine-25',
             'bev-red-wine-30': 'red-wine-30',
@@ -1062,6 +1068,8 @@ class ReservationManager {
             { inputId: 'bev-donq-oro-handle', key: 'donq-oro-handle' },
             { inputId: 'bev-tito-handle', key: 'tito-handle' },
             { inputId: 'bev-bravada', key: 'bravada' },
+            { inputId: 'bev-bravada-375', key: 'bravada-375' },
+            { inputId: 'bev-dewars-12-375', key: 'dewars-12-375' },
             { inputId: 'bev-sangria', key: 'sangria' },
             { inputId: 'bev-red-wine-25', key: 'red-wine-25' },
             { inputId: 'bev-red-wine-30', key: 'red-wine-30' },
@@ -2733,9 +2741,13 @@ class ReservationManager {
         }
         const items = this.getBeverageItems();
         const beverageList = Object.entries(beveragesMap)
-            .filter(([, qty]) => qty > 0)
+            .filter(([, qty]) => (typeof qty === 'number' && qty > 0) || qty === true)
             .map(([id, qty]) => {
                 const item = items.find(i => i.id === id);
+                // Handle Mimosa separately - it's per person, so just show the name
+                if (id === 'mimosa' && qty === true) {
+                    return `<li>${item ? item.name : 'Mimosa'} (por persona)</li>`;
+                }
                 return `<li>${qty} x ${item ? item.name : id}</li>`;
             });
         return beverageList.length > 0 
