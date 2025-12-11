@@ -1173,6 +1173,11 @@ class ReservationManager {
         if (asopaoCheckbox) {
             asopaoCheckbox.checked = this.entremesesSelections['asopao'] === true;
         }
+        // Handle Caldo de Gallego checkbox
+        const caldoGallegoCheckbox = document.getElementById('entr-caldo-gallego');
+        if (caldoGallegoCheckbox) {
+            caldoGallegoCheckbox.checked = this.entremesesSelections['caldo-gallego'] === true;
+        }
         // Handle Ceviche checkbox
         const cevicheCheckbox = document.getElementById('entr-ceviche');
         if (cevicheCheckbox) {
@@ -1214,6 +1219,11 @@ class ReservationManager {
         if (asopaoCheckbox && asopaoCheckbox.checked) {
             selections['asopao'] = true;
         }
+        // Handle Caldo de Gallego checkbox
+        const caldoGallegoCheckbox = document.getElementById('entr-caldo-gallego');
+        if (caldoGallegoCheckbox && caldoGallegoCheckbox.checked) {
+            selections['caldo-gallego'] = true;
+        }
         // Handle Ceviche checkbox
         const cevicheCheckbox = document.getElementById('entr-ceviche');
         if (cevicheCheckbox && cevicheCheckbox.checked) {
@@ -1232,7 +1242,7 @@ class ReservationManager {
         
         // Add regular entremeses items (with quantities)
         Object.entries(this.entremesesSelections).forEach(([id, qty]) => {
-            if (id === 'asopao' || id === 'ceviche') return; // Handle per-person items separately
+            if (id === 'asopao' || id === 'caldo-gallego' || id === 'ceviche') return; // Handle per-person items separately
             if (qty > 0) {
                 const item = entremeses.find(e => e.id === id);
                 const label = item ? item.name : id;
@@ -1243,6 +1253,10 @@ class ReservationManager {
         // Add Asopao if checked
         if (this.entremesesSelections['asopao'] === true) {
             items.push(`<li>Asopao ($3.00 por persona)</li>`);
+        }
+        // Add Caldo de Gallego if checked
+        if (this.entremesesSelections['caldo-gallego'] === true) {
+            items.push(`<li>Caldo de Gallego ($5.95 por persona)</li>`);
         }
         // Add Ceviche if checked
         if (this.entremesesSelections['ceviche'] === true) {
@@ -1287,6 +1301,11 @@ class ReservationManager {
         const asopaoCheckbox = document.getElementById('entr-asopao');
         if (asopaoCheckbox) {
             asopaoCheckbox.checked = false;
+        }
+        // Clear Caldo de Gallego checkbox
+        const caldoGallegoCheckbox = document.getElementById('entr-caldo-gallego');
+        if (caldoGallegoCheckbox) {
+            caldoGallegoCheckbox.checked = false;
         }
         // Clear Ceviche checkbox
         const cevicheCheckbox = document.getElementById('entr-ceviche');
@@ -1639,9 +1658,11 @@ class ReservationManager {
         const entremeses = this.getEntremesesItems();
         let entremesesCost = 0;
         Object.entries(this.entremesesSelections).forEach(([id, qty]) => {
-            // Handle Asopao and Ceviche separately - they're per person
+            // Handle Asopao, Caldo de Gallego, and Ceviche separately - they're per person
             if (id === 'asopao' && qty === true) {
                 entremesesCost += 3.00 * guestCount;
+            } else if (id === 'caldo-gallego' && qty === true) {
+                entremesesCost += 5.95 * guestCount;
             } else if (id === 'ceviche' && qty === true) {
                 entremesesCost += 3.95 * guestCount;
             } else {
@@ -2763,9 +2784,11 @@ class ReservationManager {
         const entremesesList = Object.entries(entremesesMap)
             .filter(([, qty]) => (typeof qty === 'number' && qty > 0) || qty === true)
             .map(([id, qty]) => {
-                // Handle Asopao and Ceviche separately - they're per person
+                // Handle Asopao, Caldo de Gallego, and Ceviche separately - they're per person
                 if (id === 'asopao' && qty === true) {
                     return '<li>Asopao (por persona)</li>';
+                } else if (id === 'caldo-gallego' && qty === true) {
+                    return '<li>Caldo de Gallego (por persona)</li>';
                 } else if (id === 'ceviche' && qty === true) {
                     return '<li>Ceviche (por persona)</li>';
                 } else if (typeof qty === 'number' && qty > 0) {
@@ -3429,9 +3452,11 @@ class ReservationManager {
         const parts = Object.entries(entremesesMap)
             .filter(([, qty]) => (typeof qty === 'number' && qty > 0) || qty === true)
             .map(([id, qty]) => {
-                // Handle Asopao and Ceviche separately - they're per person
+                // Handle Asopao, Caldo de Gallego, and Ceviche separately - they're per person
                 if (id === 'asopao' && qty === true) {
                     return 'Asopao (por persona)';
+                } else if (id === 'caldo-gallego' && qty === true) {
+                    return 'Caldo de Gallego (por persona)';
                 } else if (id === 'ceviche' && qty === true) {
                     return 'Ceviche (por persona)';
                 } else if (typeof qty === 'number' && qty > 0) {
@@ -4187,12 +4212,21 @@ class ReservationManager {
         if (reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) {
             const entremesesItems = this.getEntremesesItems();
             Object.entries(reservation.entremeses).forEach(([id, qty]) => {
-                // Handle Asopao and Ceviche - they're per person
+                // Handle Asopao, Caldo de Gallego, and Ceviche - they're per person
                 if (id === 'asopao' && qty === true) {
                     const total = 3.00 * reservation.guestCount;
                     itemsHTML += `
                         <tr>
                             <td><strong>Asopao</strong></td>
+                            <td>${reservation.guestCount}</td>
+                            <td>$${total.toFixed(2)}</td>
+                        </tr>
+                    `;
+                } else if (id === 'caldo-gallego' && qty === true) {
+                    const total = 5.95 * reservation.guestCount;
+                    itemsHTML += `
+                        <tr>
+                            <td><strong>Caldo de Gallego</strong></td>
                             <td>${reservation.guestCount}</td>
                             <td>$${total.toFixed(2)}</td>
                         </tr>
@@ -4390,6 +4424,13 @@ class ReservationManager {
                     const total = 3.00 * reservation.guestCount;
                     itemsData.push({
                         description: 'Asopao',
+                        qty: reservation.guestCount.toString(),
+                        total: `$${total.toFixed(2)}`
+                    });
+                } else if (id === 'caldo-gallego' && qty === true) {
+                    const total = 5.95 * reservation.guestCount;
+                    itemsData.push({
+                        description: 'Caldo de Gallego',
                         qty: reservation.guestCount.toString(),
                         total: `$${total.toFixed(2)}`
                     });
