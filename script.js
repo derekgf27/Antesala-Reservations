@@ -1119,7 +1119,7 @@ class ReservationManager {
         
         // Add Mimosa if checked
         if (this.beverageSelections['mimosa'] === true) {
-            items.push(`<li>Mimosa ($3.95 por persona)</li>`);
+            items.push(`<li>Mimosa ($3.00 por persona)</li>`);
         }
         
         if (items.length === 0) {
@@ -1634,7 +1634,7 @@ class ReservationManager {
         Object.entries(this.beverageSelections).forEach(([id, qty]) => {
             // Handle Mimosa separately - it's per person
             if (id === 'mimosa' && qty === true) {
-                const mimosaCost = 3.95 * guestCount;
+                const mimosaCost = 3.00 * guestCount;
                 drinkCost += mimosaCost;
                 // Mimosa contains alcohol, so add to alcoholic cost
                 alcoholicDrinkCost += mimosaCost;
@@ -4185,7 +4185,7 @@ class ReservationManager {
                         let total;
                         // Handle Mimosa separately - it's per person
                         if (id === 'mimosa' && qty === true) {
-                            total = 3.95 * reservation.guestCount;
+                            total = 3.00 * reservation.guestCount;
                             itemsHTML += `
                                 <tr>
                                     <td><strong>${item.name}</strong></td>
@@ -4306,8 +4306,12 @@ class ReservationManager {
             }
         });
 
-        // Calculate subtotal (before taxes) - use actual additional services total
-        const subtotal = reservation.pricing.roomCost + reservation.pricing.foodCost + reservation.pricing.breakfastCost + reservation.pricing.drinkCost + (reservation.pricing.entremesesCost || 0) + additionalServicesTotal;
+        // Calculate subtotal (before taxes) - use stored subtotalBeforeTaxes to ensure consistency
+        // Fallback to manual calculation if subtotalBeforeTaxes is not available (for older reservations)
+        // Use stored additionalCost if available, otherwise use recalculated additionalServicesTotal
+        const subtotal = reservation.pricing.subtotalBeforeTaxes !== undefined 
+            ? reservation.pricing.subtotalBeforeTaxes 
+            : reservation.pricing.roomCost + reservation.pricing.foodCost + reservation.pricing.breakfastCost + reservation.pricing.drinkCost + (reservation.pricing.entremesesCost || 0) + (reservation.pricing.additionalCost !== undefined ? reservation.pricing.additionalCost : additionalServicesTotal);
         
         // Calculate balance using the new payment tracking system
         const balance = this.calculateRemainingBalance(reservation);
@@ -4396,7 +4400,7 @@ class ReservationManager {
             Object.entries(reservation.beverages).forEach(([id, qty]) => {
                 // Handle Mimosa separately - it's per person
                 if (id === 'mimosa' && qty === true) {
-                    const total = 3.95 * reservation.guestCount;
+                    const total = 3.00 * reservation.guestCount;
                     itemsData.push({
                         description: 'Mimosa',
                         qty: reservation.guestCount.toString(),
@@ -4641,6 +4645,7 @@ class ReservationManager {
         doc.line(20, yPos, 190, yPos);
         yPos += 6;
         doc.text('TOTAL', 20, yPos);
+        // Total should equal: subtotal + taxes + tip (already calculated and stored in reservation.pricing.totalCost)
         doc.text(`$${reservation.pricing.totalCost.toFixed(2)}`, 190, yPos, { align: 'right' });
         yPos += 6;
 
