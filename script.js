@@ -688,10 +688,14 @@ class ReservationManager {
             }
         });
         
-        // Clear Mimosa checkbox
+        // Clear Mimosa checkboxes
         const mimosaCheckbox = document.getElementById('bev-mimosa');
         if (mimosaCheckbox) {
             mimosaCheckbox.checked = false;
+        }
+        const mimosa395Checkbox = document.getElementById('bev-mimosa-395');
+        if (mimosa395Checkbox) {
+            mimosa395Checkbox.checked = false;
         }
         
         // Clear the selections object
@@ -964,6 +968,9 @@ class ReservationManager {
             { id: 'descorche-10', name: 'Descorche ($10)', price: 10, alcohol: false },
             { id: 'descorche-20', name: 'Descorche ($20)', price: 20, alcohol: false },
             { id: 'descorche-30', name: 'Descorche ($30)', price: 30, alcohol: false },
+            // Mimosa options (per person, handled specially)
+            { id: 'mimosa', name: 'Mimosa', price: 3.00, alcohol: true },
+            { id: 'mimosa-395', name: 'Mimosa', price: 3.95, alcohol: true },
         ];
     }
 
@@ -1022,10 +1029,14 @@ class ReservationManager {
                 }
             }
         });
-        // Handle Mimosa checkbox
+        // Handle Mimosa checkboxes
         const mimosaCheckbox = document.getElementById('bev-mimosa');
         if (mimosaCheckbox) {
             mimosaCheckbox.checked = this.beverageSelections['mimosa'] === true;
+        }
+        const mimosa395Checkbox = document.getElementById('bev-mimosa-395');
+        if (mimosa395Checkbox) {
+            mimosa395Checkbox.checked = this.beverageSelections['mimosa-395'] === true;
         }
         // Attach change handlers for selection animation
         this.attachBeverageInputHandlers();
@@ -1091,10 +1102,14 @@ class ReservationManager {
             const qty = parseInt(el?.value) || 0;
             if (qty > 0) selections[key] = qty;
         });
-        // Handle Mimosa checkbox
+        // Handle Mimosa checkboxes
         const mimosaCheckbox = document.getElementById('bev-mimosa');
         if (mimosaCheckbox && mimosaCheckbox.checked) {
             selections['mimosa'] = true;
+        }
+        const mimosa395Checkbox = document.getElementById('bev-mimosa-395');
+        if (mimosa395Checkbox && mimosa395Checkbox.checked) {
+            selections['mimosa-395'] = true;
         }
         this.beverageSelections = selections;
     }
@@ -1109,7 +1124,7 @@ class ReservationManager {
         
         // Add regular beverage items (with quantities)
         Object.entries(this.beverageSelections).forEach(([id, qty]) => {
-            if (id === 'mimosa') return; // Handle Mimosa separately
+            if (id === 'mimosa' || id === 'mimosa-395') return; // Handle Mimosa separately
             if (qty > 0) {
                 const item = beverages.find(b => b.id === id);
                 const label = item ? item.name : id;
@@ -1117,9 +1132,12 @@ class ReservationManager {
             }
         });
         
-        // Add Mimosa if checked
+        // Add Mimosa options if checked
         if (this.beverageSelections['mimosa'] === true) {
             items.push(`<li>Mimosa ($3.00 por persona)</li>`);
+        }
+        if (this.beverageSelections['mimosa-395'] === true) {
+            items.push(`<li>Mimosa ($3.95 por persona)</li>`);
         }
         
         if (items.length === 0) {
@@ -1632,9 +1650,15 @@ class ReservationManager {
         let nonAlcoholicDrinkCost = 0;
         let alcoholicQty = 0;
         Object.entries(this.beverageSelections).forEach(([id, qty]) => {
-            // Handle Mimosa separately - it's per person
+            // Handle Mimosa options separately - they're per person
             if (id === 'mimosa' && qty === true) {
                 const mimosaCost = 3.00 * guestCount;
+                drinkCost += mimosaCost;
+                // Mimosa contains alcohol, so add to alcoholic cost
+                alcoholicDrinkCost += mimosaCost;
+                alcoholicQty += guestCount;
+            } else if (id === 'mimosa-395' && qty === true) {
+                const mimosaCost = 3.95 * guestCount;
                 drinkCost += mimosaCost;
                 // Mimosa contains alcohol, so add to alcoholic cost
                 alcoholicDrinkCost += mimosaCost;
@@ -2765,9 +2789,11 @@ class ReservationManager {
             .filter(([, qty]) => (typeof qty === 'number' && qty > 0) || qty === true)
             .map(([id, qty]) => {
                 const item = items.find(i => i.id === id);
-                // Handle Mimosa separately - it's per person, so just show the name
+                // Handle Mimosa options separately - they're per person
                 if (id === 'mimosa' && qty === true) {
-                    return `<li>${item ? item.name : 'Mimosa'} (por persona)</li>`;
+                    return `<li>Mimosa ($3.00 por persona)</li>`;
+                } else if (id === 'mimosa-395' && qty === true) {
+                    return `<li>Mimosa ($3.95 por persona)</li>`;
                 }
                 return `<li>${qty} x ${item ? item.name : id}</li>`;
             });
@@ -3437,9 +3463,11 @@ class ReservationManager {
             .filter(([, qty]) => (typeof qty === 'number' && qty > 0) || qty === true)
             .map(([id, qty]) => {
                 const item = items.find(i => i.id === id);
-                // Handle Mimosa separately - it's per person, so just show the name
+                // Handle Mimosa options separately - they're per person
                 if (id === 'mimosa' && qty === true) {
-                    return item ? item.name : 'Mimosa';
+                    return 'Mimosa ($3.00)';
+                } else if (id === 'mimosa-395' && qty === true) {
+                    return 'Mimosa ($3.95)';
                 }
                 return `${qty} x ${item ? item.name : id}`;
             });
@@ -4180,21 +4208,29 @@ class ReservationManager {
             const items = this.getBeverageItems();
             Object.entries(reservation.beverages).forEach(([id, qty]) => {
                 if ((typeof qty === 'number' && qty > 0) || qty === true) {
-                    const item = items.find(i => i.id === id);
-                    if (item) {
-                        let total;
-                        // Handle Mimosa separately - it's per person
-                        if (id === 'mimosa' && qty === true) {
-                            total = 3.00 * reservation.guestCount;
-                            itemsHTML += `
-                                <tr>
-                                    <td><strong>${item.name}</strong></td>
-                                    <td>${reservation.guestCount}</td>
-                                    <td>$${total.toFixed(2)}</td>
-                                </tr>
-                            `;
-                        } else if (typeof qty === 'number' && qty > 0) {
-                            total = item.price * qty;
+                    // Handle Mimosa options separately - they're per person
+                    if (id === 'mimosa' && qty === true) {
+                        const total = 3.00 * reservation.guestCount;
+                        itemsHTML += `
+                            <tr>
+                                <td><strong>Mimosa ($3.00)</strong></td>
+                                <td>${reservation.guestCount}</td>
+                                <td>$${total.toFixed(2)}</td>
+                            </tr>
+                        `;
+                    } else if (id === 'mimosa-395' && qty === true) {
+                        const total = 3.95 * reservation.guestCount;
+                        itemsHTML += `
+                            <tr>
+                                <td><strong>Mimosa ($3.95)</strong></td>
+                                <td>${reservation.guestCount}</td>
+                                <td>$${total.toFixed(2)}</td>
+                            </tr>
+                        `;
+                    } else {
+                        const item = items.find(i => i.id === id);
+                        if (item && typeof qty === 'number' && qty > 0) {
+                            const total = item.price * qty;
                             itemsHTML += `
                                 <tr>
                                     <td><strong>${item.name}</strong></td>
@@ -4398,11 +4434,18 @@ class ReservationManager {
         if (reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) {
             const items = this.getBeverageItems();
             Object.entries(reservation.beverages).forEach(([id, qty]) => {
-                // Handle Mimosa separately - it's per person
+                // Handle Mimosa options separately - they're per person
                 if (id === 'mimosa' && qty === true) {
                     const total = 3.00 * reservation.guestCount;
                     itemsData.push({
-                        description: 'Mimosa',
+                        description: 'Mimosa ($3.00)',
+                        qty: reservation.guestCount.toString(),
+                        total: `$${total.toFixed(2)}`
+                    });
+                } else if (id === 'mimosa-395' && qty === true) {
+                    const total = 3.95 * reservation.guestCount;
+                    itemsData.push({
+                        description: 'Mimosa ($3.95)',
                         qty: reservation.guestCount.toString(),
                         total: `$${total.toFixed(2)}`
                     });
