@@ -2710,22 +2710,6 @@ class ReservationManager {
                 </div>
                 ` : ''}
                 
-                ${Object.values(reservation.additionalServices).some(v => v) ? `
-                <div class="detail-section">
-                    <h4><i class="fas fa-plus-circle"></i> Servicios Adicionales</h4>
-                    <div class="detail-grid">
-                        ${Object.entries(reservation.additionalServices)
-                            .filter(([key, value]) => value)
-                            .map(([key, value]) => `
-                                <div class="detail-item">
-                                    <span class="detail-label">Servicio:</span>
-                                    <span class="detail-value">${this.getServiceName(key)}</span>
-                                </div>
-                            `).join('')}
-                    </div>
-                </div>
-                ` : ''}
-                
                 <div class="detail-section pricing-section">
                     <h4><i class="fas fa-calculator"></i> Resumen de Precios</h4>
                     <div class="pricing-breakdown-modal">
@@ -2740,10 +2724,6 @@ class ReservationManager {
                         <div class="pricing-row">
                             <span>Servicio de Bebidas:</span>
                             <span>$${reservation.pricing.drinkCost.toFixed(2)}</span>
-                        </div>
-                        <div class="pricing-row">
-                            <span>Servicios Adicionales:</span>
-                            <span>$${reservation.pricing.additionalCost.toFixed(2)}</span>
                         </div>
                         <div class="pricing-row">
                             <span>Impuestos:</span>
@@ -2764,9 +2744,15 @@ class ReservationManager {
                             <span>Depósito ${reservation.depositPercentage === 'custom' || reservation.pricing.depositPercentage === 'custom' ? '(Custom)' : `(${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%)`}:</span>
                             <span>
                                 $${reservation.pricing.depositAmount.toFixed(2)}
-                                <span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" onclick="reservationManager.toggleDepositStatus('${reservation.id}')" data-reservation-id="${reservation.id}">
-                                    ${reservation.depositPaid ? '✓ Pagado' : 'No Pagado'}
-                                </span>
+                                ${(() => {
+                                    const remainingBalance = this.calculateRemainingBalance(reservation);
+                                    const isFullyPaid = remainingBalance <= 0.01; // Allow small tolerance
+                                    // Disable deposit toggle when balance is fully paid
+                                    if (isFullyPaid) {
+                                        return `<span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;" title="Reservación completamente pagada - El depósito no se puede modificar">${reservation.depositPaid ? '✓ Pagado' : 'No Pagado'}</span>`;
+                                    }
+                                    return `<span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" onclick="reservationManager.toggleDepositStatus('${reservation.id}')" data-reservation-id="${reservation.id}">${reservation.depositPaid ? '✓ Pagado' : 'No Pagado'}</span>`;
+                                })()}
                             </span>
                         </div>
                         ` : ''}
@@ -2968,6 +2954,34 @@ class ReservationManager {
     toggleDepositStatus(id) {
         const reservation = this.reservations.find(r => r.id === id);
         if (!reservation) return;
+        
+        // Check if reservation is fully paid - if so, prevent any deposit toggle
+        const remainingBalance = this.calculateRemainingBalance(reservation);
+        if (remainingBalance <= 0.01) { // Allow small tolerance for floating point
+            this.showNotification(
+                'No se puede modificar el depósito. La reservación está completamente pagada.',
+                'error'
+            );
+            return;
+        }
+        
+        // Calculate current total paid (excluding deposit)
+        const additionalPayments = reservation.additionalPayments || [];
+        const additionalTotal = additionalPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+        const totalCost = reservation.pricing?.totalCost || 0;
+        const depositAmount = reservation.pricing?.depositAmount || 0;
+        
+        // If trying to mark deposit as paid, check if it would cause overpayment
+        if (!reservation.depositPaid) {
+            const totalPaidWithDeposit = additionalTotal + depositAmount;
+            if (totalPaidWithDeposit > totalCost + 0.01) { // Allow small tolerance for floating point
+                this.showNotification(
+                    `No se puede marcar el depósito como pagado. El total pagado ($${totalPaidWithDeposit.toFixed(2)}) excedería el costo total ($${totalCost.toFixed(2)}).`,
+                    'error'
+                );
+                return;
+            }
+        }
         
         // Set flag to prevent re-sorting
         this.isUpdatingDeposit = true;
@@ -3295,6 +3309,17 @@ class ReservationManager {
             notes: notes
         });
 
+        // Calculate what the total paid will be after this payment
+        const totalPaidAfterPayment = this.calculateTotalPaid(reservation) + actualAmount;
+        const totalCost = reservation.pricing?.totalCost || 0;
+        
+        // If the total paid equals or exceeds the total cost, automatically mark deposit as paid
+        // This prevents the issue where deposit can still be toggled after full payment
+        if (totalPaidAfterPayment >= totalCost && !reservation.depositPaid) {
+            reservation.depositPaid = true;
+            reservation.depositPaymentDate = date; // Use the payment date
+        }
+
         // Save to storage
         this.saveReservations();
 
@@ -3497,9 +3522,15 @@ class ReservationManager {
                         <strong>Depósito:</strong>
                         <span>
                             $${reservation.pricing.depositAmount.toFixed(2)} ${reservation.depositPercentage === 'custom' || reservation.pricing.depositPercentage === 'custom' ? '(Custom)' : `(${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%)`}
-                            <span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" onclick="reservationManager.toggleDepositStatus('${reservation.id}')" data-reservation-id="${reservation.id}">
-                                ${reservation.depositPaid ? '✓ Pagado' : 'No Pagado'}
-                            </span>
+                            ${(() => {
+                                const remainingBalance = this.calculateRemainingBalance(reservation);
+                                const isFullyPaid = remainingBalance <= 0.01; // Allow small tolerance
+                                // Disable deposit toggle when balance is fully paid
+                                if (isFullyPaid) {
+                                    return `<span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;" title="Reservación completamente pagada - El depósito no se puede modificar">${reservation.depositPaid ? '✓ Pagado' : 'No Pagado'}</span>`;
+                                }
+                                return `<span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" onclick="reservationManager.toggleDepositStatus('${reservation.id}')" data-reservation-id="${reservation.id}">${reservation.depositPaid ? '✓ Pagado' : 'No Pagado'}</span>`;
+                            })()}
                         </span>
                     </div>
                     <div class="reservation-detail">
@@ -3512,7 +3543,6 @@ class ReservationManager {
                     </div>
                     ` : ''}
                 </div>
-                ${this.getAdditionalServicesDisplay(reservation.additionalServices)}
                 <div class="reservation-actions">
                     <button class="btn btn-small btn-success" onclick="reservationManager.openPaymentModal('${reservation.id}')">
                         <i class="fas fa-money-bill-wave"></i> Registrar Pago
