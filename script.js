@@ -524,6 +524,25 @@ class ReservationManager {
             }
         });
 
+        // Today's events modal
+        const todayReservationsCard = document.getElementById('todayReservationsCard');
+        const todayEventsModal = document.getElementById('todayEventsModal');
+        const todayEventsCloseBtn = document.getElementById('todayEventsCloseBtn');
+        const todayEventsCloseBtn2 = document.getElementById('todayEventsCloseBtn2');
+        
+        todayReservationsCard?.addEventListener('click', () => this.openTodayEventsModal());
+        todayEventsCloseBtn?.addEventListener('click', () => this.closeTodayEventsModal());
+        todayEventsCloseBtn2?.addEventListener('click', () => this.closeTodayEventsModal());
+        
+        // Close modal when clicking outside
+        if (todayEventsModal) {
+            todayEventsModal.addEventListener('click', (e) => {
+                if (e.target === todayEventsModal) {
+                    this.closeTodayEventsModal();
+                }
+            });
+        }
+
         // Button events
         calculateBtn.addEventListener('click', () => this.calculatePrice());
         
@@ -2280,6 +2299,106 @@ class ReservationManager {
             </div>
             `;
         }).join('');
+    }
+
+    // Open today's events modal
+    openTodayEventsModal() {
+        const modal = document.getElementById('todayEventsModal');
+        if (!modal) return;
+        
+        // Populate the modal with today's events
+        this.populateTodayEventsModal();
+        
+        // Show with entrance animation
+        modal.classList.remove('hidden');
+        // Force reflow so the next class triggers transition
+        void modal.offsetWidth;
+        modal.classList.add('visible');
+    }
+
+    // Close today's events modal
+    closeTodayEventsModal() {
+        const modal = document.getElementById('todayEventsModal');
+        if (!modal) return;
+        modal.classList.remove('visible');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 220);
+    }
+
+    // Populate today's events modal
+    populateTodayEventsModal() {
+        const container = document.getElementById('todayEventsList');
+        if (!container) return;
+        
+        const today = new Date().toISOString().split('T')[0];
+        const todayEvents = this.reservations
+            .filter(res => res.eventDate === today)
+            .sort((a, b) => {
+                // Sort by time
+                const timeA = this.parseTime(a.eventTime);
+                const timeB = this.parseTime(b.eventTime);
+                return timeA - timeB;
+            });
+
+        if (todayEvents.length === 0) {
+            container.innerHTML = '<p class="empty-state" style="text-align: center; padding: 40px; color: var(--text-secondary);">No hay eventos programados para hoy</p>';
+            return;
+        }
+
+        container.innerHTML = todayEvents.map(reservation => {
+            const eventDate = new Date(reservation.eventDate + 'T00:00:00');
+            const month = String(eventDate.getMonth() + 1).padStart(2, '0');
+            const day = String(eventDate.getDate()).padStart(2, '0');
+            const year = eventDate.getFullYear();
+            const formattedDate = `${month}/${day}/${year}`;
+            
+            return `
+            <div class="today-event-item">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                    <div>
+                        <strong style="font-size: 1.1rem; color: var(--text-primary);">${reservation.clientName}</strong>
+                        <div style="margin-top: 4px; color: var(--text-secondary); font-size: 0.9rem;">
+                            <i class="fas fa-calendar"></i> ${formattedDate} 
+                            <i class="fas fa-clock" style="margin-left: 12px;"></i> ${this.formatTime12Hour(reservation.eventTime)}
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-weight: 600; color: var(--accent-color);">$${reservation.pricing.totalCost.toFixed(2)}</div>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color);">
+                    <div>
+                        <span style="color: var(--text-secondary); font-size: 0.85rem;">Espacio:</span>
+                        <div style="font-weight: 500; margin-top: 2px;">${this.getRoomDisplayName(reservation.roomType)}</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-secondary); font-size: 0.85rem;">Invitados:</span>
+                        <div style="font-weight: 500; margin-top: 2px;">${reservation.guestCount}</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-secondary); font-size: 0.85rem;">Tipo de Evento:</span>
+                        <div style="font-weight: 500; margin-top: 2px;">${this.getEventTypeDisplayName(reservation.eventType)}</div>
+                    </div>
+                </div>
+                ${reservation.clientPhone ? `
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color);">
+                    <span style="color: var(--text-secondary); font-size: 0.85rem;"><i class="fas fa-phone"></i> ${reservation.clientPhone}</span>
+                </div>
+                ` : ''}
+            </div>
+            `;
+        }).join('');
+    }
+
+    // Parse time string to minutes for sorting
+    parseTime(timeStr) {
+        const [time, period] = timeStr.split(' ');
+        const [hours, minutes] = time.split(':').map(Number);
+        let totalMinutes = hours * 60 + minutes;
+        if (period === 'PM' && hours !== 12) totalMinutes += 12 * 60;
+        if (period === 'AM' && hours === 12) totalMinutes -= 12 * 60;
+        return totalMinutes;
     }
 
     // Display calendar view

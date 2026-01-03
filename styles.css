@@ -1932,6 +1932,36 @@ body {
     transition: color 0.3s ease;
 }
 
+/* Today's Events Modal */
+.today-events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.today-event-item {
+    padding: 16px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.today-event-item:hover {
+    box-shadow: 0 2px 8px var(--shadow);
+}
+
+.stat-card.clickable {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card.clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--shadow-hover);
+}
+
 /* Animations */
 @keyframes fadeIn {
     from {

@@ -111,7 +111,7 @@
                             <p>Total de Invitados</p>
                         </div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card clickable" id="todayReservationsCard" style="cursor: pointer;">
                         <div class="stat-icon">
                             <i class="fas fa-calendar-day"></i>
                         </div>
@@ -1310,6 +1310,24 @@
             <div class="modal-actions">
                 <button type="button" class="btn btn-outline" id="paymentCancelBtn">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="paymentSaveBtn">Registrar Pago</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Today's Events Modal -->
+    <div id="todayEventsModal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Eventos de Hoy</h3>
+                <button type="button" class="modal-close" id="todayEventsCloseBtn" aria-label="Cerrar">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="todayEventsList" class="today-events-list">
+                    <!-- Today's events will be populated here -->
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-primary" id="todayEventsCloseBtn2">Cerrar</button>
             </div>
         </div>
     </div>
