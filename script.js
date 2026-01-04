@@ -4377,16 +4377,19 @@ class ReservationManager {
                             </tr>
                         `;
                     } else {
-                        const item = items.find(i => i.id === id);
-                        if (item && typeof qty === 'number' && qty > 0) {
-                            const total = item.price * qty;
-                            itemsHTML += `
-                                <tr>
-                                    <td><strong>${item.name}</strong></td>
-                                    <td>${qty}</td>
-                                    <td>$${total.toFixed(2)}</td>
-                                </tr>
-                            `;
+                        // Skip mimosa options as they're handled above - only process regular items
+                        if (id !== 'mimosa' && id !== 'mimosa-395') {
+                            const item = items.find(i => i.id === id);
+                            if (item && typeof qty === 'number' && qty > 0) {
+                                const total = item.price * qty;
+                                itemsHTML += `
+                                    <tr>
+                                        <td><strong>${item.name}</strong></td>
+                                        <td>${qty}</td>
+                                        <td>$${total.toFixed(2)}</td>
+                                    </tr>
+                                `;
+                            }
                         }
                     }
                 }
@@ -4599,14 +4602,17 @@ class ReservationManager {
                         total: `$${total.toFixed(2)}`
                     });
                 } else if (qty > 0 && typeof qty === 'number') {
-                    const item = items.find(i => i.id === id);
-                    if (item) {
-                        const total = item.price * qty;
-                        itemsData.push({
-                            description: item.name,
-                            qty: qty.toString(),
-                            total: `$${total.toFixed(2)}`
-                        });
+                    // Skip mimosa options as they're handled above - only process regular items
+                    if (id !== 'mimosa' && id !== 'mimosa-395') {
+                        const item = items.find(i => i.id === id);
+                        if (item) {
+                            const total = item.price * qty;
+                            itemsData.push({
+                                description: item.name,
+                                qty: qty.toString(),
+                                total: `$${total.toFixed(2)}`
+                            });
+                        }
                     }
                 }
             });
