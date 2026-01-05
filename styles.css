@@ -2061,6 +2061,17 @@ body {
         flex-shrink: 0;
         background: var(--bg-tertiary);
         border-top: 1px solid var(--border-color);
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px 15px;
+    }
+    
+    .modal-actions .btn {
+        flex: 1 1 auto;
+        min-width: calc(50% - 4px);
+        max-width: 100%;
+        font-size: 0.85rem;
+        padding: 8px 12px;
     }
     
     .section-header {
@@ -2151,6 +2162,18 @@ body {
     .btn-pay-full {
         width: 100%;
         margin-top: 8px;
+    }
+    
+    .modal-actions {
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+    }
+    
+    .modal-actions .btn {
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
     }
     
     .card-content {
