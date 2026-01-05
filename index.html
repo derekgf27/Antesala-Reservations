@@ -1144,9 +1144,53 @@
                 </div>
             </div>
             <div class="modal-actions">
+                <button type="button" class="btn btn-outline" id="addCustomBeverageBtn" title="Agregar Bebida Personalizada">
+                    <i class="fas fa-plus"></i> Agregar Bebida
+                </button>
                 <button type="button" class="btn btn-outline" id="beverageClearBtn">Limpiar Todo</button>
                 <button type="button" class="btn btn-outline" id="beverageCancelBtn">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="beverageSaveBtn">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Beverage Modal -->
+    <div id="customBeverageModal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Agregar Bebida Personalizada</h3>
+                <button type="button" class="modal-close" id="customBeverageCloseBtn" aria-label="Cerrar">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="customBeverageName">Nombre de la Bebida *</label>
+                    <input type="text" id="customBeverageName" name="customBeverageName" placeholder="Ej: Ron Añejo" required>
+                </div>
+                <div class="form-group">
+                    <label for="customBeveragePrice">Precio ($) *</label>
+                    <input type="number" id="customBeveragePrice" name="customBeveragePrice" min="0" step="0.01" placeholder="0.00" required>
+                </div>
+                <div class="form-group">
+                    <label for="customBeverageMeasurement">Medida *</label>
+                    <select id="customBeverageMeasurement" name="customBeverageMeasurement" required>
+                        <option value="">Seleccione una medida</option>
+                        <option value="Gancho">Gancho</option>
+                        <option value="Litro">Litro</option>
+                        <option value="Botella">Botella</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="customBeverageAlcohol" name="customBeverageAlcohol" checked>
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Contiene alcohol (aplicará impuesto de alcohol)</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" id="customBeverageCancelBtn">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="customBeverageSaveBtn">Agregar</button>
             </div>
         </div>
     </div>

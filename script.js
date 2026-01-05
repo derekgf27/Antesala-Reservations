@@ -4,6 +4,7 @@ class ReservationManager {
         this.reservations = [];
         this.beverageSelections = {};
         this.entremesesSelections = {};
+        this.customBeverages = []; // Store custom beverages
         this.currentSection = 'dashboard';
         this.currentCalendarMonth = new Date().getMonth();
         this.currentCalendarYear = new Date().getFullYear();
@@ -22,6 +23,7 @@ class ReservationManager {
         this.updateGuestCountDisplay();
         this.calculatePrice();
         this.updateFoodServiceSummary();
+        this.loadCustomBeverages(); // Load custom beverages on init
         this.updateBeverageSummary();
         this.updateEntremesesSummary();
         this.updateDashboard();
@@ -454,6 +456,27 @@ class ReservationManager {
             this.calculatePrice();
             this.closeBeverageModal();
         });
+        
+        // Custom beverage modal events
+        const addCustomBeverageBtn = document.getElementById('addCustomBeverageBtn');
+        const customBeverageModal = document.getElementById('customBeverageModal');
+        const customBeverageCloseBtn = document.getElementById('customBeverageCloseBtn');
+        const customBeverageCancelBtn = document.getElementById('customBeverageCancelBtn');
+        const customBeverageSaveBtn = document.getElementById('customBeverageSaveBtn');
+        
+        addCustomBeverageBtn?.addEventListener('click', () => this.openCustomBeverageModal());
+        customBeverageCloseBtn?.addEventListener('click', () => this.closeCustomBeverageModal());
+        customBeverageCancelBtn?.addEventListener('click', () => this.closeCustomBeverageModal());
+        customBeverageSaveBtn?.addEventListener('click', () => this.saveCustomBeverage());
+        
+        // Close custom beverage modal when clicking outside
+        if (customBeverageModal) {
+            customBeverageModal.addEventListener('click', (e) => {
+                if (e.target === customBeverageModal) {
+                    this.closeCustomBeverageModal();
+                }
+            });
+        }
         
         // Entremeses modal events
         openEntremesesModalBtn?.addEventListener('click', () => this.openEntremesesModal());
@@ -945,7 +968,10 @@ class ReservationManager {
 
     // ----- Beverages modal helpers -----
     getBeverageItems() {
-        return [
+        // Load custom beverages from localStorage
+        this.loadCustomBeverages();
+        
+        const standardBeverages = [
             // Non-alcoholic
             { id: 'soft-drinks', name: 'Refrescos Caja (24)', price: 35, alcohol: false },
             { id: 'water', name: 'Agua Caja (24)', price: 20, alcohol: false },
@@ -991,6 +1017,172 @@ class ReservationManager {
             { id: 'mimosa', name: 'Mimosa', price: 3.00, alcohol: true },
             { id: 'mimosa-395', name: 'Mimosa', price: 3.95, alcohol: true },
         ];
+        
+        // Combine standard beverages with custom beverages
+        return [...standardBeverages, ...this.customBeverages];
+    }
+    
+    // Load custom beverages from localStorage
+    loadCustomBeverages() {
+        try {
+            const saved = localStorage.getItem('customBeverages');
+            if (saved) {
+                this.customBeverages = JSON.parse(saved);
+            } else {
+                this.customBeverages = [];
+            }
+        } catch (error) {
+            console.error('Error loading custom beverages:', error);
+            this.customBeverages = [];
+        }
+    }
+    
+    // Save custom beverages to localStorage
+    saveCustomBeverages() {
+        try {
+            localStorage.setItem('customBeverages', JSON.stringify(this.customBeverages));
+        } catch (error) {
+            console.error('Error saving custom beverages:', error);
+        }
+    }
+    
+    // Add custom beverage
+    addCustomBeverage(name, price, measurement, alcohol = true) {
+        // Generate unique ID
+        const id = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Format name with measurement
+        const displayName = measurement && measurement !== 'Otro' 
+            ? `${name} ${measurement}` 
+            : name;
+        
+        const customBeverage = {
+            id: id,
+            name: displayName,
+            price: parseFloat(price),
+            alcohol: alcohol,
+            custom: true,
+            originalName: name,
+            measurement: measurement
+        };
+        
+        this.customBeverages.push(customBeverage);
+        this.saveCustomBeverages();
+        
+        // Refresh beverage modal to show new item
+        this.refreshBeverageModal();
+        
+        return customBeverage;
+    }
+    
+    // Refresh beverage modal to include custom beverages
+    refreshBeverageModal() {
+        // Add custom beverages section to the modal
+        this.addCustomBeveragesToModal();
+    }
+    
+    // Add custom beverages section to beverage modal
+    addCustomBeveragesToModal() {
+        const modalBody = document.querySelector('#beverageModal .modal-body');
+        if (!modalBody) return;
+        
+        // Remove existing custom beverages section if it exists
+        const existingSection = document.getElementById('customBeveragesSection');
+        if (existingSection) {
+            existingSection.remove();
+        }
+        
+        // Load custom beverages
+        this.loadCustomBeverages();
+        
+        if (this.customBeverages.length === 0) return;
+        
+        // Create custom beverages section
+        const customSection = document.createElement('details');
+        customSection.className = 'accordion';
+        customSection.id = 'customBeveragesSection';
+        customSection.innerHTML = `
+            <summary class="accordion-summary">Bebidas Personalizadas</summary>
+            <div class="accordion-content">
+                <div class="protein-grid" id="customBeveragesGrid">
+                    ${this.customBeverages.map(beverage => `
+                        <div>
+                            <label for="bev-${beverage.id}">${beverage.name} ($${beverage.price.toFixed(2)})</label>
+                            <div class="quantity-selector">
+                                <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-${beverage.id}">−</button>
+                                <input type="number" id="bev-${beverage.id}" min="0" value="0" readonly>
+                                <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-${beverage.id}">+</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        
+        // Insert before mimosa section
+        const mimosaSection = modalBody.querySelector('.entremeses-asopao-group');
+        if (mimosaSection) {
+            modalBody.insertBefore(customSection, mimosaSection);
+        } else {
+            modalBody.appendChild(customSection);
+        }
+        
+        // Attach handlers for custom beverage inputs
+        this.attachBeverageInputHandlers();
+    }
+    
+    // Open custom beverage modal
+    openCustomBeverageModal() {
+        const modal = document.getElementById('customBeverageModal');
+        if (!modal) return;
+        
+        // Clear form
+        document.getElementById('customBeverageName').value = '';
+        document.getElementById('customBeveragePrice').value = '';
+        document.getElementById('customBeverageMeasurement').value = '';
+        document.getElementById('customBeverageAlcohol').checked = true;
+        
+        // Show modal
+        modal.classList.remove('hidden');
+        void modal.offsetWidth;
+        modal.classList.add('visible');
+    }
+    
+    // Close custom beverage modal
+    closeCustomBeverageModal() {
+        const modal = document.getElementById('customBeverageModal');
+        if (!modal) return;
+        modal.classList.remove('visible');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 220);
+    }
+    
+    // Save custom beverage
+    saveCustomBeverage() {
+        const name = document.getElementById('customBeverageName').value.trim();
+        const price = document.getElementById('customBeveragePrice').value;
+        const measurement = document.getElementById('customBeverageMeasurement').value;
+        const alcohol = document.getElementById('customBeverageAlcohol').checked;
+        
+        if (!name || !price || !measurement) {
+            this.showNotification('Por favor complete todos los campos requeridos', 'error');
+            return;
+        }
+        
+        if (parseFloat(price) <= 0) {
+            this.showNotification('El precio debe ser mayor a 0', 'error');
+            return;
+        }
+        
+        // Add custom beverage
+        this.addCustomBeverage(name, price, measurement, alcohol);
+        
+        // Close modal
+        this.closeCustomBeverageModal();
+        
+        // Show success notification
+        this.showNotification('Bebida personalizada agregada exitosamente', 'success');
     }
 
     openBeverageModal() {
@@ -1057,6 +1249,28 @@ class ReservationManager {
         if (mimosa395Checkbox) {
             mimosa395Checkbox.checked = this.beverageSelections['mimosa-395'] === true;
         }
+        
+        // Add custom beverages to modal
+        this.addCustomBeveragesToModal();
+        
+        // Prefill custom beverage values after they're added to the modal
+        setTimeout(() => {
+            this.loadCustomBeverages();
+            this.customBeverages.forEach(beverage => {
+                const inputId = `bev-${beverage.id}`;
+                const el = document.getElementById(inputId);
+                if (el) {
+                    const qty = this.beverageSelections[beverage.id] || 0;
+                    el.value = qty;
+                    const wrapper = el.parentElement;
+                    if (wrapper) {
+                        if (qty > 0) wrapper.classList.add('selected');
+                        else wrapper.classList.remove('selected');
+                    }
+                }
+            });
+        }, 100);
+        
         // Attach change handlers for selection animation
         this.attachBeverageInputHandlers();
         // Show with entrance animation
@@ -1130,6 +1344,20 @@ class ReservationManager {
         if (mimosa395Checkbox && mimosa395Checkbox.checked) {
             selections['mimosa-395'] = true;
         }
+        
+        // Handle custom beverages
+        this.loadCustomBeverages();
+        this.customBeverages.forEach(beverage => {
+            const inputId = `bev-${beverage.id}`;
+            const el = document.getElementById(inputId);
+            if (el) {
+                const qty = parseInt(el.value) || 0;
+                if (qty > 0) {
+                    selections[beverage.id] = qty;
+                }
+            }
+        });
+        
         this.beverageSelections = selections;
     }
 
