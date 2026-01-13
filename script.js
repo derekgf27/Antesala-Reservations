@@ -3080,7 +3080,9 @@ class ReservationManager {
                 'mamposteado': 'Arroz Mamposteado',
                 'consomme': 'Arroz Consommé',
                 'griego': 'Arroz Griego',
-                'gandules': 'Arroz con Gandules'
+                'gandules': 'Arroz con Gandules',
+                'paella-marinera': 'Paella Marinera',
+                'paella-valenciana': 'Paella Valenciana'
             },
             protein: {
                 'pechuga-cilantro': 'Pechuga salsa Cilantro',
