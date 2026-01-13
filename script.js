@@ -2204,21 +2204,6 @@ class ReservationManager {
                 aguaRefresco: aguaRefrescoEl?.checked || false,
                 pasteles: pastelesEl?.checked || false
             };
-
-            if (!buffetSelections.rice) {
-                if (!missingFields.includes('buffetRice')) missingFields.push('buffetRice');
-            }
-            if (!buffetSelections.protein1) {
-                if (!missingFields.includes('buffetProtein1')) missingFields.push('buffetProtein1');
-            }
-            // Protein 2 is optional, no validation needed
-            if (!buffetSelections.side) {
-                if (!missingFields.includes('buffetSide')) missingFields.push('buffetSide');
-            }
-            if (!buffetSelections.salad) {
-                if (!missingFields.includes('buffetSalad')) missingFields.push('buffetSalad');
-            }
-            // Salad 2 is optional, no validation needed
         }
 
         // Extra validation when breakfast is chosen (modal fields are outside the form)
