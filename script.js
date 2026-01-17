@@ -3088,7 +3088,9 @@ class ReservationManager {
                 'papas-salteadas': 'Papas salteadas',
                 'ensalada-papa': 'Ensalada Papa',
                 'ensalada-coditos': 'Ensalada de coditos',
-                'guineos-escabeche': 'Guineos en Escabeche'
+                'guineos-escabeche': 'Guineos en Escabeche',
+                'amarillos': 'Amarillos',
+                'tostones': 'Tostones'
             },
             salad: {
                 'caesar': 'Ensalada César',
