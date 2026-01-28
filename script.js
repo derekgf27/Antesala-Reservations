@@ -4852,68 +4852,68 @@ class ReservationManager {
         }
 
         // Beverages
-        if (reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => {
-            if (qty === true) return true;
-            if (typeof qty === 'object' && qty !== null && qty.qty) return qty.qty > 0;
-            return typeof qty === 'number' && qty > 0;
-        })) {
+        if (reservation.beverages && Object.keys(reservation.beverages).length > 0) {
             const items = this.getBeverageItems();
             Object.entries(reservation.beverages).forEach(([id, qty]) => {
-                if (qty === true || (typeof qty === 'number' && qty > 0) || (typeof qty === 'object' && qty !== null && qty.qty > 0)) {
-                    // Handle Mimosa options separately - they're per person
-                    if (id === 'mimosa' && qty === true) {
-                        const total = 3.00 * reservation.guestCount;
-                        itemsHTML += `
-                            <tr>
-                                <td><strong>Mimosa ($3.00)</strong></td>
-                                <td>${reservation.guestCount}</td>
-                                <td>$${total.toFixed(2)}</td>
-                            </tr>
-                        `;
-                    } else if (id === 'mimosa-395' && qty === true) {
-                        const total = 3.95 * reservation.guestCount;
-                        itemsHTML += `
-                            <tr>
-                                <td><strong>Mimosa ($3.95)</strong></td>
-                                <td>${reservation.guestCount}</td>
-                                <td>$${total.toFixed(2)}</td>
-                            </tr>
-                        `;
-                    } else {
-                        // Skip mimosa options as they're handled above - only process regular items
-                        if (id !== 'mimosa' && id !== 'mimosa-395') {
-                            const item = items.find(i => i.id === id);
-                            let actualQty = qty;
-                            let notesText = '';
-                            if (typeof qty === 'object' && qty !== null && qty.qty) {
-                                actualQty = qty.qty;
-                                if (qty.notes) {
-                                    notesText = ` (${qty.notes})`;
-                                }
+                // Skip items with qty = 0 or falsy values (deleted items)
+                if (qty === false || qty === null || qty === undefined) return;
+                
+                // Handle Mimosa options separately - they're per person
+                if (id === 'mimosa' && qty === true) {
+                    const total = 3.00 * reservation.guestCount;
+                    itemsHTML += `
+                        <tr>
+                            <td><strong>Mimosa ($3.00)</strong></td>
+                            <td>${reservation.guestCount}</td>
+                            <td>$${total.toFixed(2)}</td>
+                        </tr>
+                    `;
+                } else if (id === 'mimosa-395' && qty === true) {
+                    const total = 3.95 * reservation.guestCount;
+                    itemsHTML += `
+                        <tr>
+                            <td><strong>Mimosa ($3.95)</strong></td>
+                            <td>${reservation.guestCount}</td>
+                            <td>$${total.toFixed(2)}</td>
+                        </tr>
+                    `;
+                } else {
+                    // Skip mimosa options as they're handled above - only process regular items
+                    if (id !== 'mimosa' && id !== 'mimosa-395') {
+                        let actualQty = qty;
+                        let notesText = '';
+                        if (typeof qty === 'object' && qty !== null && qty.qty !== undefined) {
+                            actualQty = qty.qty;
+                            if (qty.notes) {
+                                notesText = ` (${qty.notes})`;
                             }
-                            if (actualQty > 0) {
-                                let displayName;
-                                let price = 0;
-                                // Check if qty object has stored name and price (for custom beverages)
-                                if (typeof qty === 'object' && qty !== null && qty.name) {
-                                    displayName = qty.name;
-                                    price = qty.price || 0;
-                                } else if (item) {
+                        }
+                        // Only add items with actualQty > 0
+                        if (actualQty > 0 && typeof actualQty === 'number') {
+                            let displayName;
+                            let price = 0;
+                            // Check if qty object has stored name and price (for custom beverages)
+                            if (typeof qty === 'object' && qty !== null && qty.name) {
+                                displayName = qty.name;
+                                price = qty.price || 0;
+                            } else {
+                                const item = items.find(i => i.id === id);
+                                if (item) {
                                     displayName = item.name;
                                     price = item.price;
                                 } else {
                                     displayName = id;
                                     price = 0;
                                 }
-                                const total = price * actualQty;
-                                itemsHTML += `
-                                    <tr>
-                                        <td><strong>${displayName}${notesText}</strong></td>
-                                        <td>${actualQty}</td>
-                                        <td>$${total.toFixed(2)}</td>
-                                    </tr>
-                                `;
                             }
+                            const total = price * actualQty;
+                            itemsHTML += `
+                                <tr>
+                                    <td><strong>${displayName}${notesText}</strong></td>
+                                    <td>${actualQty}</td>
+                                    <td>$${total.toFixed(2)}</td>
+                                </tr>
+                            `;
                         }
                     }
                 }
@@ -4921,9 +4921,12 @@ class ReservationManager {
         }
 
         // Entremeses
-        if (reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) {
+        if (reservation.entremeses && Object.keys(reservation.entremeses).length > 0) {
             const entremesesItems = this.getEntremesesItems();
             Object.entries(reservation.entremeses).forEach(([id, qty]) => {
+                // Skip items with qty = 0 or falsy values (deleted items)
+                if (qty === false || qty === null || qty === undefined) return;
+                
                 // Handle Asopao, Caldo de Gallego, and Ceviche - they're per person
                 if (id === 'asopao' && qty === true) {
                     const total = 3.00 * reservation.guestCount;
@@ -4952,7 +4955,7 @@ class ReservationManager {
                             <td>$${total.toFixed(2)}</td>
                         </tr>
                     `;
-                } else if (qty > 0) {
+                } else if (typeof qty === 'number' && qty > 0) {
                     // Regular entremeses items
                     const item = entremesesItems.find(e => e.id === id);
                     if (item) {
@@ -5107,13 +5110,12 @@ class ReservationManager {
         }
 
         // Beverages
-        if (reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => {
-            if (qty === true) return true;
-            if (typeof qty === 'object' && qty !== null && qty.qty) return qty.qty > 0;
-            return typeof qty === 'number' && qty > 0;
-        })) {
+        if (reservation.beverages && Object.keys(reservation.beverages).length > 0) {
             const items = this.getBeverageItems();
             Object.entries(reservation.beverages).forEach(([id, qty]) => {
+                // Skip items with qty = 0 or falsy values (deleted items)
+                if (qty === false || qty === null || qty === undefined) return;
+                
                 // Handle Mimosa options separately - they're per person
                 if (id === 'mimosa' && qty === true) {
                     const total = 3.00 * reservation.guestCount;
@@ -5134,13 +5136,14 @@ class ReservationManager {
                     if (id !== 'mimosa' && id !== 'mimosa-395') {
                         let actualQty = qty;
                         let notesText = '';
-                        if (typeof qty === 'object' && qty !== null && qty.qty) {
+                        if (typeof qty === 'object' && qty !== null && qty.qty !== undefined) {
                             actualQty = qty.qty;
                             if (qty.notes) {
                                 notesText = ` (${qty.notes})`;
                             }
                         }
-                        if (actualQty > 0 && (typeof actualQty === 'number' || (typeof qty === 'object' && qty !== null && qty.qty))) {
+                        // Only add items with actualQty > 0
+                        if (actualQty > 0 && typeof actualQty === 'number') {
                             const item = items.find(i => i.id === id);
                             let displayName;
                             let price = 0;
@@ -5168,9 +5171,12 @@ class ReservationManager {
         }
 
         // Entremeses
-        if (reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) {
+        if (reservation.entremeses && Object.keys(reservation.entremeses).length > 0) {
             const entremesesItems = this.getEntremesesItems();
             Object.entries(reservation.entremeses).forEach(([id, qty]) => {
+                // Skip items with qty = 0 or falsy values (deleted items)
+                if (qty === false || qty === null || qty === undefined) return;
+                
                 if (id === 'asopao' && qty === true) {
                     const total = 3.00 * reservation.guestCount;
                     itemsData.push({
@@ -5192,7 +5198,7 @@ class ReservationManager {
                         qty: reservation.guestCount.toString(),
                         total: `$${total.toFixed(2)}`
                     });
-                } else if (qty > 0) {
+                } else if (typeof qty === 'number' && qty > 0) {
                     const item = entremesesItems.find(e => e.id === id);
                     if (item) {
                         const total = item.price * qty;
