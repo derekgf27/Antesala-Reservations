@@ -680,6 +680,7 @@ class ReservationManager {
     clearBeverageSelectionsInModal() {
         const map = {
             'bev-soft-drinks': 'soft-drinks',
+            'bev-caja-refrescos-surtidos': 'caja-refrescos-surtidos',
             'bev-water': 'water',
             'bev-michelob': 'michelob',
             'bev-medalla': 'medalla',
@@ -738,6 +739,16 @@ class ReservationManager {
         const mimosa395Checkbox = document.getElementById('bev-mimosa-395');
         if (mimosa395Checkbox) {
             mimosa395Checkbox.checked = false;
+        }
+        
+        // Clear notes field for caja-refrescos-surtidos
+        const notesEl = document.getElementById('bev-caja-refrescos-surtidos-notes');
+        if (notesEl) {
+            notesEl.value = '';
+        }
+        const notesContainer = document.getElementById('bev-caja-refrescos-surtidos-notes-container');
+        if (notesContainer) {
+            notesContainer.style.display = 'none';
         }
         
         // Clear the selections object
@@ -1394,6 +1405,8 @@ class ReservationManager {
             }
         });
         
+        // Replace beverageSelections with the new selections object
+        // This ensures beverages with qty = 0 are properly removed
         this.beverageSelections = selections;
     }
 
@@ -1762,8 +1775,13 @@ class ReservationManager {
         // Handle notes field for caja-refrescos-surtidos
         if (input.id === 'bev-caja-refrescos-surtidos') {
             const notesContainer = document.getElementById('bev-caja-refrescos-surtidos-notes-container');
+            const notesEl = document.getElementById('bev-caja-refrescos-surtidos-notes');
             if (notesContainer) {
                 notesContainer.style.display = qty > 0 ? 'block' : 'none';
+            }
+            // Clear notes when quantity is set to 0
+            if (qty === 0 && notesEl) {
+                notesEl.value = '';
             }
         }
     }
