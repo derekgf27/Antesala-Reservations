@@ -1136,6 +1136,26 @@
                     </div>
                 </details>
 
+                <details class="accordion">
+                    <summary class="accordion-summary">Caja de Refrescos Surtidos</summary>
+                    <div class="accordion-content">
+                        <div class="protein-grid">
+                            <div style="grid-column: 1 / -1;">
+                                <label for="bev-caja-refrescos-surtidos">Caja de Refrescos Surtidos ($24)</label>
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-caja-refrescos-surtidos">−</button>
+                                    <input type="number" id="bev-caja-refrescos-surtidos" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-caja-refrescos-surtidos">+</button>
+                                </div>
+                                <div id="bev-caja-refrescos-surtidos-notes-container" class="beverage-notes-container" style="display: none; margin-top: 15px;">
+                                    <label for="bev-caja-refrescos-surtidos-notes" style="display: block; margin-bottom: 8px; font-size: 0.9em; color: #666; font-weight: 500;">Especificar bebidas incluidas:</label>
+                                    <textarea id="bev-caja-refrescos-surtidos-notes" placeholder="Ej: 8 Coca-Cola, 8 Sprite, 4 Fanta, 4 Mountain Dew" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; font-size: 0.9em; resize: vertical;"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
                 <div class="form-group entremeses-asopao-group">
                     <label class="panecillos-label">
                         <input type="checkbox" id="bev-mimosa" name="bev-mimosa">
