@@ -1650,6 +1650,11 @@ class ReservationManager {
         if (asopaoCheckbox) {
             asopaoCheckbox.checked = this.entremesesSelections['asopao'] === true;
         }
+        // Handle Asopao $4.95 checkbox
+        const asopao495Checkbox = document.getElementById('entr-asopao-495');
+        if (asopao495Checkbox) {
+            asopao495Checkbox.checked = this.entremesesSelections['asopao-495'] === true;
+        }
         // Handle Caldo de Gallego checkbox
         const caldoGallegoCheckbox = document.getElementById('entr-caldo-gallego');
         if (caldoGallegoCheckbox) {
@@ -1696,6 +1701,11 @@ class ReservationManager {
         if (asopaoCheckbox && asopaoCheckbox.checked) {
             selections['asopao'] = true;
         }
+        // Handle Asopao $4.95 checkbox
+        const asopao495Checkbox = document.getElementById('entr-asopao-495');
+        if (asopao495Checkbox && asopao495Checkbox.checked) {
+            selections['asopao-495'] = true;
+        }
         // Handle Caldo de Gallego checkbox
         const caldoGallegoCheckbox = document.getElementById('entr-caldo-gallego');
         if (caldoGallegoCheckbox && caldoGallegoCheckbox.checked) {
@@ -1719,7 +1729,7 @@ class ReservationManager {
         
         // Add regular entremeses items (with quantities)
         Object.entries(this.entremesesSelections).forEach(([id, qty]) => {
-            if (id === 'asopao' || id === 'caldo-gallego' || id === 'ceviche') return; // Handle per-person items separately
+            if (id === 'asopao' || id === 'asopao-495' || id === 'caldo-gallego' || id === 'ceviche') return; // Handle per-person items separately
             if (qty > 0) {
                 const item = entremeses.find(e => e.id === id);
                 const label = item ? item.name : id;
@@ -1730,6 +1740,10 @@ class ReservationManager {
         // Add Asopao if checked
         if (this.entremesesSelections['asopao'] === true) {
             items.push(`<li>Asopao ($3.00 por persona)</li>`);
+        }
+        // Add Asopao $4.95 if checked
+        if (this.entremesesSelections['asopao-495'] === true) {
+            items.push(`<li>Asopao ($4.95 por persona)</li>`);
         }
         // Add Caldo de Gallego if checked
         if (this.entremesesSelections['caldo-gallego'] === true) {
@@ -1778,6 +1792,11 @@ class ReservationManager {
         const asopaoCheckbox = document.getElementById('entr-asopao');
         if (asopaoCheckbox) {
             asopaoCheckbox.checked = false;
+        }
+        // Clear Asopao $4.95 checkbox
+        const asopao495Checkbox = document.getElementById('entr-asopao-495');
+        if (asopao495Checkbox) {
+            asopao495Checkbox.checked = false;
         }
         // Clear Caldo de Gallego checkbox
         const caldoGallegoCheckbox = document.getElementById('entr-caldo-gallego');
@@ -2186,6 +2205,8 @@ class ReservationManager {
             // Handle Asopao, Caldo de Gallego, and Ceviche separately - they're per person
             if (id === 'asopao' && qty === true) {
                 entremesesCost += 3.00 * guestCount;
+            } else if (id === 'asopao-495' && qty === true) {
+                entremesesCost += 4.95 * guestCount;
             } else if (id === 'caldo-gallego' && qty === true) {
                 entremesesCost += 5.95 * guestCount;
             } else if (id === 'ceviche' && qty === true) {
@@ -3389,6 +3410,8 @@ class ReservationManager {
                 // Handle Asopao, Caldo de Gallego, and Ceviche separately - they're per person
                 if (id === 'asopao' && qty === true) {
                     return '<li>Asopao (por persona)</li>';
+                } else if (id === 'asopao-495' && qty === true) {
+                    return '<li>Asopao ($4.95 por persona)</li>';
                 } else if (id === 'caldo-gallego' && qty === true) {
                     return '<li>Caldo de Gallego (por persona)</li>';
                 } else if (id === 'ceviche' && qty === true) {
@@ -4131,6 +4154,8 @@ class ReservationManager {
                 // Handle Asopao, Caldo de Gallego, and Ceviche separately - they're per person
                 if (id === 'asopao' && qty === true) {
                     return 'Asopao (por persona)';
+                } else if (id === 'asopao-495' && qty === true) {
+                    return 'Asopao ($4.95 por persona)';
                 } else if (id === 'caldo-gallego' && qty === true) {
                     return 'Caldo de Gallego (por persona)';
                 } else if (id === 'ceviche' && qty === true) {
@@ -4937,6 +4962,15 @@ class ReservationManager {
                             <td>$${total.toFixed(2)}</td>
                         </tr>
                     `;
+                } else if (id === 'asopao-495' && qty === true) {
+                    const total = 4.95 * reservation.guestCount;
+                    itemsHTML += `
+                        <tr>
+                            <td><strong>Asopao ($4.95)</strong></td>
+                            <td>${reservation.guestCount}</td>
+                            <td>$${total.toFixed(2)}</td>
+                        </tr>
+                    `;
                 } else if (id === 'caldo-gallego' && qty === true) {
                     const total = 5.95 * reservation.guestCount;
                     itemsHTML += `
@@ -5181,6 +5215,13 @@ class ReservationManager {
                     const total = 3.00 * reservation.guestCount;
                     itemsData.push({
                         description: 'Asopao',
+                        qty: reservation.guestCount.toString(),
+                        total: `$${total.toFixed(2)}`
+                    });
+                } else if (id === 'asopao-495' && qty === true) {
+                    const total = 4.95 * reservation.guestCount;
+                    itemsData.push({
+                        description: 'Asopao ($4.95)',
                         qty: reservation.guestCount.toString(),
                         total: `$${total.toFixed(2)}`
                     });
