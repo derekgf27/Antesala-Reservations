@@ -113,12 +113,20 @@ class ReservationManager {
     // Initialize navigation
     initializeNavigation() {
         const menuItems = document.querySelectorAll('.menu-item');
+        if (menuItems.length === 0) {
+            console.warn('No menu items found. Navigation may not work correctly.');
+            return;
+        }
         menuItems.forEach(item => {
             item.addEventListener('click', () => {
                 const section = item.dataset.section;
-                this.showSection(section);
-                // Close mobile menu after selection
-                this.closeMobileMenu();
+                if (section) {
+                    this.showSection(section);
+                    // Close mobile menu after selection
+                    this.closeMobileMenu();
+                } else {
+                    console.warn('Menu item clicked but no section specified:', item);
+                }
             });
         });
 
@@ -213,7 +221,10 @@ class ReservationManager {
         document.querySelectorAll('.menu-item').forEach(item => {
             item.classList.remove('active');
         });
-        document.querySelector(`[data-section="${sectionId}"]`).classList.add('active');
+        const activeMenuItem = document.querySelector(`[data-section="${sectionId}"]`);
+        if (activeMenuItem) {
+            activeMenuItem.classList.add('active');
+        }
 
         this.currentSection = sectionId;
 
@@ -316,6 +327,15 @@ class ReservationManager {
         const buffetPriceInput = document.getElementById('buffetPricePerPerson');
         if (buffetPriceInput) {
             buffetPriceInput.addEventListener('input', () => {
+                this.calculatePrice();
+                this.updateFoodServiceSummary();
+            });
+        }
+        
+        // Add event listener for plato mexicano checkbox
+        const platoMexicanoCheckbox = document.getElementById('buffetPlatoMexicano');
+        if (platoMexicanoCheckbox) {
+            platoMexicanoCheckbox.addEventListener('change', () => {
                 this.calculatePrice();
                 this.updateFoodServiceSummary();
             });
@@ -674,6 +694,8 @@ class ReservationManager {
         if (aguaRefrescoEl) aguaRefrescoEl.checked = false;
         const pastelesEl = document.getElementById('buffetPasteles');
         if (pastelesEl) pastelesEl.checked = false;
+        const platoMexicanoEl = document.getElementById('buffetPlatoMexicano');
+        if (platoMexicanoEl) platoMexicanoEl.checked = false;
     }
 
     // Clear all beverage selections in the modal
@@ -888,6 +910,9 @@ class ReservationManager {
         const foodType = foodTypeEl?.value || '';
         
         if (this.isBuffet(foodType)) {
+            const platoMexicanoCheckbox = document.getElementById('buffetPlatoMexicano');
+            const platoMexicanoIsSelected = platoMexicanoCheckbox?.checked || false;
+            
             const buffetPriceInput = document.getElementById('buffetPricePerPerson');
             const buffetPricePerPerson = parseFloat(buffetPriceInput?.value || 0);
             
@@ -905,19 +930,28 @@ class ReservationManager {
             const pasteles = document.getElementById('buffetPasteles');
 
             const items = [];
-            if (buffetPricePerPerson > 0) {
-                items.push(`<li><strong>Precio: $${buffetPricePerPerson.toFixed(2)} por persona</strong></li>`);
+            
+            // Show plato mexicano if selected
+            if (platoMexicanoIsSelected) {
+                if (buffetPricePerPerson > 0) {
+                    items.push(`<li><strong>Plato Mexicano: $${buffetPricePerPerson.toFixed(2)} por persona</strong></li>`);
+                }
+            } else {
+                // Show regular buffet items
+                if (buffetPricePerPerson > 0) {
+                    items.push(`<li><strong>Precio: $${buffetPricePerPerson.toFixed(2)} por persona</strong></li>`);
+                }
+                if (rice?.value) items.push(`<li>Arroz: ${rice.selectedOptions[0].text}</li>`);
+                if (rice2?.value) items.push(`<li>${rice2.selectedOptions[0].text}</li>`);
+                if (p1?.value) items.push(`<li>Proteína 1: ${p1.selectedOptions[0].text}</li>`);
+                if (p2?.value) items.push(`<li>Proteína 2: ${p2.selectedOptions[0].text}</li>`);
+                if (side?.value) items.push(`<li>Complemento: ${side.selectedOptions[0].text}</li>`);
+                if (salad?.value) items.push(`<li>Ensalada 1: ${salad.selectedOptions[0].text}</li>`);
+                if (salad2?.value) items.push(`<li>Ensalada 2: ${salad2.selectedOptions[0].text}</li>`);
+                if (panecillos?.checked) items.push(`<li>Panecillos</li>`);
+                if (aguaRefresco?.checked) items.push(`<li>Agua y/o Refresco</li>`);
+                if (pasteles?.checked) items.push(`<li>Pasteles</li>`);
             }
-            if (rice?.value) items.push(`<li>Arroz: ${rice.selectedOptions[0].text}</li>`);
-            if (rice2?.value) items.push(`<li>${rice2.selectedOptions[0].text}</li>`);
-            if (p1?.value) items.push(`<li>Proteína 1: ${p1.selectedOptions[0].text}</li>`);
-            if (p2?.value) items.push(`<li>Proteína 2: ${p2.selectedOptions[0].text}</li>`);
-            if (side?.value) items.push(`<li>Complemento: ${side.selectedOptions[0].text}</li>`);
-            if (salad?.value) items.push(`<li>Ensalada 1: ${salad.selectedOptions[0].text}</li>`);
-            if (salad2?.value) items.push(`<li>Ensalada 2: ${salad2.selectedOptions[0].text}</li>`);
-            if (panecillos?.checked) items.push(`<li>Panecillos</li>`);
-            if (aguaRefresco?.checked) items.push(`<li>Agua y/o Refresco</li>`);
-            if (pasteles?.checked) items.push(`<li>Pasteles</li>`);
 
             container.classList.remove('hidden');
             editBuffetBtn?.classList.remove('hidden');
@@ -2119,7 +2153,7 @@ class ReservationManager {
         // Food cost
         let foodCost = 0;
         if (this.isBuffet(foodType.value)) {
-            // Get buffet price from input field
+            // Get buffet price from input field (used for both regular buffet and plato mexicano)
             const buffetPriceInput = document.getElementById('buffetPricePerPerson');
             const buffetPricePerPerson = parseFloat(buffetPriceInput?.value || 0);
             foodCost = buffetPricePerPerson * guestCount;
@@ -2424,6 +2458,10 @@ class ReservationManager {
         // Extra validation when buffet is chosen
         let buffetSelections = null;
         if (this.isBuffet(formData.get('foodType'))) {
+            const platoMexicanoCheckbox = document.getElementById('buffetPlatoMexicano');
+            const isPlatoMexicanoSelected = platoMexicanoCheckbox?.checked || false;
+            
+            // Get buffet price (required for both regular buffet and plato mexicano)
             const buffetPriceInput = document.getElementById('buffetPricePerPerson');
             const buffetCustomPriceInput = document.getElementById('buffetCustomPrice');
             let buffetPricePerPerson = 0;
@@ -2438,9 +2476,9 @@ class ReservationManager {
                     }
                 }
             } else {
-                // Use preset price from dropdown
+                // Use preset price from dropdown or direct input
                 buffetPricePerPerson = parseFloat(buffetPriceInput?.value || 0);
-                // Validate preset price selection
+                // Validate price (required for both regular buffet and plato mexicano)
                 if (!buffetPriceInput?.value || buffetPricePerPerson <= 0) {
                     if (!missingFields.includes('buffetPricePerPerson')) {
                         missingFields.push('buffetPricePerPerson');
@@ -2477,7 +2515,8 @@ class ReservationManager {
                 salad2: salad2El?.value || '',
                 panecillos: panecillosEl?.checked || false,
                 aguaRefresco: aguaRefrescoEl?.checked || false,
-                pasteles: pastelesEl?.checked || false
+                pasteles: pastelesEl?.checked || false,
+                platoMexicano: isPlatoMexicanoSelected
             };
         }
 
@@ -3134,8 +3173,13 @@ class ReservationManager {
                         ${reservation.foodType && reservation.foodType !== 'no-food' ? `
                         <div class="food-service-section">
                             <span class="detail-label">Servicio de Comida:</span>
-                            <span class="detail-value">${this.getFoodDisplayName(reservation.foodType)}</span>
+                            <span class="detail-value">${this.getFoodDisplayName(reservation.foodType, reservation)}</span>
                             ${this.isBuffet(reservation.foodType) && reservation.buffet ? `
+                            ${reservation.buffet.platoMexicano ? `
+                            <ul class="detail-bullet-list">
+                                <li>Plato Mexicano ($${reservation.buffet.pricePerPerson?.toFixed(2) || '0.00'} por persona)</li>
+                            </ul>
+                            ` : `
                             <ul class="detail-bullet-list">
                                 ${reservation.buffet.rice ? `<li>${this.getBuffetItemName('rice', reservation.buffet.rice)}</li>` : ''}
                                 ${reservation.buffet.rice2 ? `<li>${this.getBuffetItemName('rice', reservation.buffet.rice2)}</li>` : ''}
@@ -3148,6 +3192,7 @@ class ReservationManager {
                                 ${reservation.buffet.aguaRefresco ? `<li>Agua y Refresco</li>` : ''}
                                 ${reservation.buffet.pasteles ? `<li>Pasteles</li>` : ''}
                             </ul>
+                            `}
                             ` : ''}
                         </div>
                         ` : ''}
@@ -3969,7 +4014,7 @@ class ReservationManager {
                     ${reservation.foodType && reservation.foodType !== 'no-food' ? `
                     <div class="reservation-detail">
                         <strong>Comida:</strong>
-                        <span>${this.getFoodDisplayName(reservation.foodType)}</span>
+                        <span>${this.getFoodDisplayName(reservation.foodType, reservation)}</span>
                     </div>
                     ` : ''}
                     ${reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => (typeof qty === 'number' && qty > 0) || qty === true) ? `
@@ -4065,8 +4110,14 @@ class ReservationManager {
         return roomNames[roomType] || roomType;
     }
 
-    getFoodDisplayName(foodType) {
-        if (this.isBuffet(foodType)) return 'Buffet';
+    getFoodDisplayName(foodType, reservation = null) {
+        if (this.isBuffet(foodType)) {
+            // Check if plato mexicano is selected
+            if (reservation && reservation.buffet && reservation.buffet.platoMexicano) {
+                return 'Plato Mexicano';
+            }
+            return 'Buffet';
+        }
         const foodNames = {
             'individual-plates': 'Platos Individuales',
             'cocktail-reception': 'Recepción de Cóctel',
@@ -4274,8 +4325,9 @@ class ReservationManager {
         if (this.isBuffet(reservation.foodType)) {
             const buffet = reservation.buffet || {};
             const buffetPriceInput = document.getElementById('buffetPricePerPerson');
+            const platoMexicanoEl = document.getElementById('buffetPlatoMexicano');
             
-            // Load the price
+            // Load the price (used for both regular buffet and plato mexicano)
             if (buffetPriceInput && buffet.pricePerPerson) {
                 buffetPriceInput.value = buffet.pricePerPerson.toString();
             }
@@ -4300,6 +4352,10 @@ class ReservationManager {
             if (aguaRefrescoEl) aguaRefrescoEl.checked = buffet.aguaRefresco || false;
             const pastelesEl = document.getElementById('buffetPasteles');
             if (pastelesEl) pastelesEl.checked = buffet.pasteles || false;
+            
+            if (platoMexicanoEl) {
+                platoMexicanoEl.checked = buffet.platoMexicano || false;
+            }
             this.clearBreakfastSelections();
         } else {
             this.clearBuffetSelections();
@@ -4777,6 +4833,8 @@ class ReservationManager {
             console.log('Reservation pricing:', reservation.pricing);
             console.log('Reservation beverages:', reservation.beverages);
             console.log('Reservation entremeses:', reservation.entremeses);
+            console.log('Reservation buffet:', reservation.buffet);
+            console.log('Plato mexicano value:', reservation.buffet?.platoMexicano);
 
         // Convert logo to base64 for embedding
         let logoBase64 = '';
@@ -4811,38 +4869,60 @@ class ReservationManager {
         
         // Food items
         if (this.isBuffet(reservation.foodType) && reservation.buffet) {
-            const buffetItems = [];
-            if (reservation.buffet.rice) buffetItems.push(this.getBuffetItemName('rice', reservation.buffet.rice));
-            if (reservation.buffet.rice2) buffetItems.push(this.getBuffetItemName('rice', reservation.buffet.rice2));
-            if (reservation.buffet.protein1) buffetItems.push(this.getBuffetItemName('protein', reservation.buffet.protein1));
-            if (reservation.buffet.protein2) buffetItems.push(this.getBuffetItemName('protein', reservation.buffet.protein2));
-            if (reservation.buffet.side) buffetItems.push(this.getBuffetItemName('side', reservation.buffet.side));
-            if (reservation.buffet.salad) buffetItems.push(this.getBuffetItemName('salad', reservation.buffet.salad));
-            if (reservation.buffet.salad2) buffetItems.push(this.getBuffetItemName('salad', reservation.buffet.salad2));
-            if (reservation.buffet.panecillos) buffetItems.push('Panecillos');
-            if (reservation.buffet.aguaRefresco) buffetItems.push('Agua y Refresco');
-            if (reservation.buffet.pasteles) buffetItems.push('Pasteles');
+            // Check if plato mexicano is selected - check explicitly for true
+            // Also check if no buffet items are selected (which indicates plato mexicano)
+            const hasBuffetItems = reservation.buffet.rice || reservation.buffet.rice2 || 
+                                   reservation.buffet.protein1 || reservation.buffet.protein2 || 
+                                   reservation.buffet.side || reservation.buffet.salad || 
+                                   reservation.buffet.salad2 || reservation.buffet.panecillos || 
+                                   reservation.buffet.aguaRefresco || reservation.buffet.pasteles;
+            const isPlatoMexicano = reservation.buffet.platoMexicano === true || 
+                                   (reservation.buffet.platoMexicano !== false && !hasBuffetItems);
             
-            // Build bullet points for buffet options
-            const buffetOptionsList = buffetItems.map(item => `<li style="margin-left: 20px; padding: 2px 0; list-style: disc;">${item}</li>`).join('');
-            
-            // Show Buffet as a single row with bullet points below
-            itemsHTML += `
-                <tr>
-                    <td>
-                        <strong>Buffet</strong>
-                        <ul style="margin: 8px 0 0 20px; padding-left: 0; list-style-type: disc;">
-                            ${buffetOptionsList}
-                        </ul>
-                    </td>
-                    <td>${reservation.guestCount}</td>
-                    <td>$${reservation.pricing.foodCost.toFixed(2)}</td>
-                </tr>
-            `;
+            if (isPlatoMexicano) {
+                // Show plato mexicano
+                itemsHTML += `
+                    <tr>
+                        <td><strong>Plato Mexicano</strong></td>
+                        <td>${reservation.guestCount}</td>
+                        <td>$${reservation.pricing.foodCost.toFixed(2)}</td>
+                    </tr>
+                `;
+            } else {
+                // Show regular buffet
+                const buffetItems = [];
+                if (reservation.buffet.rice) buffetItems.push(this.getBuffetItemName('rice', reservation.buffet.rice));
+                if (reservation.buffet.rice2) buffetItems.push(this.getBuffetItemName('rice', reservation.buffet.rice2));
+                if (reservation.buffet.protein1) buffetItems.push(this.getBuffetItemName('protein', reservation.buffet.protein1));
+                if (reservation.buffet.protein2) buffetItems.push(this.getBuffetItemName('protein', reservation.buffet.protein2));
+                if (reservation.buffet.side) buffetItems.push(this.getBuffetItemName('side', reservation.buffet.side));
+                if (reservation.buffet.salad) buffetItems.push(this.getBuffetItemName('salad', reservation.buffet.salad));
+                if (reservation.buffet.salad2) buffetItems.push(this.getBuffetItemName('salad', reservation.buffet.salad2));
+                if (reservation.buffet.panecillos) buffetItems.push('Panecillos');
+                if (reservation.buffet.aguaRefresco) buffetItems.push('Agua y Refresco');
+                if (reservation.buffet.pasteles) buffetItems.push('Pasteles');
+                
+                // Build bullet points for buffet options
+                const buffetOptionsList = buffetItems.map(item => `<li style="margin-left: 20px; padding: 2px 0; list-style: disc;">${item}</li>`).join('');
+                
+                // Show Buffet as a single row with bullet points below
+                itemsHTML += `
+                    <tr>
+                        <td>
+                            <strong>Buffet</strong>
+                            <ul style="margin: 8px 0 0 20px; padding-left: 0; list-style-type: disc;">
+                                ${buffetOptionsList}
+                            </ul>
+                        </td>
+                        <td>${reservation.guestCount}</td>
+                        <td>$${reservation.pricing.foodCost.toFixed(2)}</td>
+                    </tr>
+                `;
+            }
         } else if (reservation.pricing.foodCost > 0 && reservation.foodType && reservation.foodType !== 'no-food') {
             itemsHTML += `
                 <tr>
-                    <td><strong>${this.getFoodDisplayName(reservation.foodType)}</strong></td>
+                    <td><strong>${this.getFoodDisplayName(reservation.foodType, reservation)}</strong></td>
                     <td>${reservation.guestCount}</td>
                     <td>$${reservation.pricing.foodCost.toFixed(2)}</td>
                 </tr>
@@ -5070,29 +5150,48 @@ class ReservationManager {
         
         // Food items
         if (this.isBuffet(reservation.foodType) && reservation.buffet) {
-            const buffetItems = [];
-            if (reservation.buffet.rice) buffetItems.push(this.getBuffetItemName('rice', reservation.buffet.rice));
-            if (reservation.buffet.rice2) buffetItems.push(this.getBuffetItemName('rice', reservation.buffet.rice2));
-            if (reservation.buffet.protein1) buffetItems.push(this.getBuffetItemName('protein', reservation.buffet.protein1));
-            if (reservation.buffet.protein2) buffetItems.push(this.getBuffetItemName('protein', reservation.buffet.protein2));
-            if (reservation.buffet.side) buffetItems.push(this.getBuffetItemName('side', reservation.buffet.side));
-            if (reservation.buffet.salad) buffetItems.push(this.getBuffetItemName('salad', reservation.buffet.salad));
-            if (reservation.buffet.salad2) buffetItems.push(this.getBuffetItemName('salad', reservation.buffet.salad2));
-            if (reservation.buffet.panecillos) buffetItems.push('Panecillos');
-            if (reservation.buffet.aguaRefresco) buffetItems.push('Agua y Refresco');
-            if (reservation.buffet.pasteles) buffetItems.push('Pasteles');
+            // Check if plato mexicano is selected - check explicitly for true
+            // Also check if no buffet items are selected (which indicates plato mexicano)
+            const hasBuffetItems = reservation.buffet.rice || reservation.buffet.rice2 || 
+                                   reservation.buffet.protein1 || reservation.buffet.protein2 || 
+                                   reservation.buffet.side || reservation.buffet.salad || 
+                                   reservation.buffet.salad2 || reservation.buffet.panecillos || 
+                                   reservation.buffet.aguaRefresco || reservation.buffet.pasteles;
+            const isPlatoMexicano = reservation.buffet.platoMexicano === true || 
+                                   (reservation.buffet.platoMexicano !== false && !hasBuffetItems);
             
-            // For buffet, create description with title and bullet points
-            const buffetDesc = 'Buffet\n' + buffetItems.map(item => '• ' + item).join('\n');
-            itemsData.push({
-                description: buffetDesc,
-                qty: reservation.guestCount.toString(),
-                total: `$${reservation.pricing.foodCost.toFixed(2)}`,
-                isBuffet: true
-            });
+            if (isPlatoMexicano) {
+                itemsData.push({
+                    description: 'Plato Mexicano',
+                    qty: reservation.guestCount.toString(),
+                    total: `$${reservation.pricing.foodCost.toFixed(2)}`
+                });
+            } else {
+                // Regular buffet
+                const buffetItems = [];
+                if (reservation.buffet.rice) buffetItems.push(this.getBuffetItemName('rice', reservation.buffet.rice));
+                if (reservation.buffet.rice2) buffetItems.push(this.getBuffetItemName('rice', reservation.buffet.rice2));
+                if (reservation.buffet.protein1) buffetItems.push(this.getBuffetItemName('protein', reservation.buffet.protein1));
+                if (reservation.buffet.protein2) buffetItems.push(this.getBuffetItemName('protein', reservation.buffet.protein2));
+                if (reservation.buffet.side) buffetItems.push(this.getBuffetItemName('side', reservation.buffet.side));
+                if (reservation.buffet.salad) buffetItems.push(this.getBuffetItemName('salad', reservation.buffet.salad));
+                if (reservation.buffet.salad2) buffetItems.push(this.getBuffetItemName('salad', reservation.buffet.salad2));
+                if (reservation.buffet.panecillos) buffetItems.push('Panecillos');
+                if (reservation.buffet.aguaRefresco) buffetItems.push('Agua y Refresco');
+                if (reservation.buffet.pasteles) buffetItems.push('Pasteles');
+                
+                // For buffet, create description with title and bullet points
+                const buffetDesc = 'Buffet\n' + buffetItems.map(item => '• ' + item).join('\n');
+                itemsData.push({
+                    description: buffetDesc,
+                    qty: reservation.guestCount.toString(),
+                    total: `$${reservation.pricing.foodCost.toFixed(2)}`,
+                    isBuffet: true
+                });
+            }
         } else if (reservation.pricing.foodCost > 0 && reservation.foodType && reservation.foodType !== 'no-food') {
             itemsData.push({
-                description: this.getFoodDisplayName(reservation.foodType),
+                description: this.getFoodDisplayName(reservation.foodType, reservation),
                 qty: reservation.guestCount.toString(),
                 total: `$${reservation.pricing.foodCost.toFixed(2)}`
             });

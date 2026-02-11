@@ -532,8 +532,8 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label for="buffetPricePerPerson">Precio por Persona ($)</label>
-                    <input type="number" id="buffetPricePerPerson" name="buffetPricePerPerson" min="0" step="0.01" placeholder="0.00" required>
-                    <small class="form-help">Ingrese el precio por persona para el buffet</small>
+                    <input type="number" id="buffetPricePerPerson" name="buffetPricePerPerson" min="0" step="0.01" placeholder="0.00">
+                    <small class="form-help">Ingrese el precio por persona para el buffet o plato mexicano</small>
                 </div>
                 <div class="form-group">
                     <label for="buffetRice">Arroz (Escoger 1)</label>
@@ -649,6 +649,13 @@
                         <input type="checkbox" id="buffetPasteles" name="buffetPasteles">
                         <span class="check-box"></span>
                         <span class="panecillos-text">Pasteles</span>
+                    </label>
+                </div>
+                <div class="form-group panecillos-group" style="border-top: 1px solid #ddd; padding-top: 15px; margin-top: 15px;">
+                    <label class="panecillos-label">
+                        <input type="checkbox" id="buffetPlatoMexicano" name="buffetPlatoMexicano">
+                        <span class="check-box"></span>
+                        <span class="panecillos-text">Plato Mexicano</span>
                     </label>
                 </div>
             </div>
