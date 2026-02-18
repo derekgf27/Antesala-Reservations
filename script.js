@@ -676,21 +676,29 @@ class ReservationManager {
                 this.openBuffetModal();
             }
             editBuffetBtn?.classList.remove('hidden');
-            addIndividualPlatesBtn?.classList.add('hidden');
-            editIndividualPlatesBtn?.classList.add('hidden');
-        } else if (foodType && foodType.value === 'individual-plates') {
-            editBuffetBtn?.classList.add('hidden');
+            // Allow individual plates to be added alongside buffet
             addIndividualPlatesBtn?.classList.remove('hidden');
             if (this.individualPlatesSelections.length > 0) {
                 editIndividualPlatesBtn?.classList.remove('hidden');
+            } else {
+                editIndividualPlatesBtn?.classList.add('hidden');
             }
-            this.clearBuffetSelections();
+        } else if (foodType && foodType.value === 'individual-plates') {
+            // Allow buffet to be added alongside individual plates
+            editBuffetBtn?.classList.remove('hidden');
+            addIndividualPlatesBtn?.classList.remove('hidden');
+            if (this.individualPlatesSelections.length > 0) {
+                editIndividualPlatesBtn?.classList.remove('hidden');
+            } else {
+                editIndividualPlatesBtn?.classList.add('hidden');
+            }
+            // Don't clear buffet selections - allow both
         } else {
+            // Show both options when no food type is selected
             editBuffetBtn?.classList.add('hidden');
-            // Keep add button visible so users can click it to select individual-plates
             addIndividualPlatesBtn?.classList.remove('hidden');
             editIndividualPlatesBtn?.classList.add('hidden');
-            this.clearBuffetSelections();
+            // Don't clear selections - user might want to add them back
         }
         // Recalculate price to keep totals fresh
         this.calculatePrice();
@@ -960,7 +968,7 @@ class ReservationManager {
         this.clearDessertSelections();
     }
 
-    // Build and render Food & Beverage summary (buffet only)
+    // Build and render Food & Beverage summary (buffet and/or individual plates)
     updateFoodServiceSummary() {
         const container = document.getElementById('foodServiceSummary');
         const editBuffetBtn = document.getElementById('editBuffetBtn');
@@ -969,36 +977,12 @@ class ReservationManager {
         const foodTypeEl = document.getElementById('foodType');
         const foodType = foodTypeEl?.value || '';
         
-        if (foodType === 'individual-plates') {
-            // Show individual plates summary
-            if (this.individualPlatesSelections.length === 0) {
-                container.innerHTML = '';
-                return;
-            }
-            const itemsHTML = this.individualPlatesSelections.map(plate => {
-                const plateTotal = plate.price * plate.quantity;
-                const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
-                                    (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
-                const complementosTotal = complementos.reduce((sum, comp) => sum + ((comp.price || 0) * plate.quantity), 0);
-                const total = plateTotal + complementosTotal;
-                
-                let complementosText = '';
-                if (complementos.length > 0) {
-                    const complementosList = complementos.map(comp => comp.name).join(', ');
-                    complementosText = ` - Complementos: ${complementosList}`;
-                }
-                
-                return `<li style="color: #333;">${plate.name} - $${plate.price.toFixed(2)}${complementosText} <strong>Total: $${total.toFixed(2)}</strong></li>`;
-            }).join('');
-            const totalCost = this.individualPlatesSelections.reduce((sum, plate) => {
-                const plateTotal = plate.price * plate.quantity;
-                const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
-                                    (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
-                const complementosTotal = complementos.reduce((compSum, comp) => compSum + ((comp.price || 0) * plate.quantity), 0);
-                return sum + plateTotal + complementosTotal;
-            }, 0);
-            container.innerHTML = `<ul>${itemsHTML}<li><strong>Total General: $${totalCost.toFixed(2)}</strong></li></ul>`;
-        } else if (this.isBuffet(foodType)) {
+        const hasBuffet = this.isBuffet(foodType);
+        const hasIndividualPlates = this.individualPlatesSelections.length > 0;
+        const items = [];
+        
+        // Display buffet items if buffet is selected
+        if (hasBuffet) {
             const platoMexicanoCheckbox = document.getElementById('buffetPlatoMexicano');
             const platoMexicanoIsSelected = platoMexicanoCheckbox?.checked || false;
             
@@ -1017,8 +1001,6 @@ class ReservationManager {
             const panecillos = document.getElementById('buffetPanecillos');
             const aguaRefresco = document.getElementById('buffetAguaRefresco');
             const pasteles = document.getElementById('buffetPasteles');
-
-            const items = [];
             
             // Show plato mexicano if selected
             if (platoMexicanoIsSelected) {
@@ -1041,16 +1023,43 @@ class ReservationManager {
                 if (aguaRefresco?.checked) items.push(`<li>Agua y/o Refresco</li>`);
                 if (pasteles?.checked) items.push(`<li>Pasteles</li>`);
             }
-
+        }
+        
+        // Show individual plates summary if individual plates are added
+        if (hasIndividualPlates) {
+            if (hasBuffet) {
+                items.push(`<li style="margin-top: 10px;"><strong>Platos Individuales:</strong></li>`);
+            }
+            const platesHTML = this.individualPlatesSelections.map(plate => {
+                const plateTotal = plate.price * plate.quantity;
+                const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
+                                    (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
+                const complementosTotal = complementos.reduce((sum, comp) => sum + ((comp.price || 0) * plate.quantity), 0);
+                const total = plateTotal + complementosTotal;
+                
+                let complementosText = '';
+                if (complementos.length > 0) {
+                    const complementosList = complementos.map(comp => comp.name).join(', ');
+                    complementosText = ` - Complementos: ${complementosList}`;
+                }
+                
+                return `<li style="color: #333;">${plate.name} - $${plate.price.toFixed(2)}${complementosText} <strong>Total: $${total.toFixed(2)}</strong></li>`;
+            });
+            items.push(...platesHTML);
+        }
+        
+        if (items.length > 0) {
             container.classList.remove('hidden');
-            editBuffetBtn?.classList.remove('hidden');
-            container.innerHTML = items.length
-                ? `<ul>${items.join('')}</ul>`
-                : '<em>Seleccione opciones del buffet y haga clic en Save.</em>';
+            if (hasBuffet) {
+                editBuffetBtn?.classList.remove('hidden');
+            }
+            container.innerHTML = `<ul>${items.join('')}</ul>`;
         } else {
             container.classList.add('hidden');
             container.innerHTML = '';
-            editBuffetBtn?.classList.add('hidden');
+            if (!hasBuffet) {
+                editBuffetBtn?.classList.add('hidden');
+            }
         }
     }
 
@@ -1944,10 +1953,13 @@ class ReservationManager {
             return;
         }
         
-        // Automatically set food type to individual-plates if not already set
+        // Automatically set food type to individual-plates if not already set (but don't clear buffet)
         const foodType = document.getElementById('foodType');
-        if (foodType && foodType.value !== 'individual-plates') {
+        if (foodType && foodType.value !== 'individual-plates' && foodType.value !== 'buffet') {
             foodType.value = 'individual-plates';
+            this.handleFoodTypeChange();
+        } else if (foodType && foodType.value === 'buffet') {
+            // If buffet is selected, keep it and allow individual plates too
             this.handleFoodTypeChange();
         }
         
@@ -2500,15 +2512,18 @@ class ReservationManager {
         // Room cost - event spaces are now free (no cost)
         const roomCost = 0;
 
-        // Food cost
+        // Food cost - can include both buffet and individual plates
         let foodCost = 0;
+        
+        // Calculate buffet cost if buffet is selected
         if (this.isBuffet(foodType.value)) {
-            // Get buffet price from input field (used for both regular buffet and plato mexicano)
             const buffetPriceInput = document.getElementById('buffetPricePerPerson');
             const buffetPricePerPerson = parseFloat(buffetPriceInput?.value || 0);
-            foodCost = buffetPricePerPerson * guestCount;
-        } else if (foodType.value === 'individual-plates') {
-            // Calculate cost from individual plates selections (including complementos)
+            foodCost += buffetPricePerPerson * guestCount;
+        }
+        
+        // Calculate individual plates cost (can be added alongside buffet)
+        if (foodType.value === 'individual-plates' || this.individualPlatesSelections.length > 0) {
             this.individualPlatesSelections.forEach(plate => {
                 const plateTotal = plate.price * plate.quantity;
                 const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
@@ -2516,7 +2531,10 @@ class ReservationManager {
                 const complementosTotal = complementos.reduce((sum, comp) => sum + ((comp.price || 0) * plate.quantity), 0);
                 foodCost += plateTotal + complementosTotal;
             });
-        } else {
+        }
+        
+        // If neither buffet nor individual plates, use default price
+        if (!this.isBuffet(foodType.value) && foodType.value !== 'individual-plates' && this.individualPlatesSelections.length === 0) {
             const foodPrice = foodType.selectedOptions[0]?.dataset.price || 0;
             foodCost = parseFloat(foodPrice) * guestCount;
         }
@@ -2814,14 +2832,20 @@ class ReservationManager {
             }
         }
 
-        // Extra validation when buffet is chosen
+        // Extra validation when buffet is chosen (can be alongside individual plates)
+        // Check for buffet selections even if foodType is not "buffet" (user might have added both)
         let buffetSelections = null;
-        if (this.isBuffet(formData.get('foodType'))) {
-            const platoMexicanoCheckbox = document.getElementById('buffetPlatoMexicano');
+        const foodTypeValue = formData.get('foodType');
+        const buffetPriceInput = document.getElementById('buffetPricePerPerson');
+        const platoMexicanoCheckbox = document.getElementById('buffetPlatoMexicano');
+        const hasBuffetData = this.isBuffet(foodTypeValue) || 
+                             (buffetPriceInput && buffetPriceInput.value && parseFloat(buffetPriceInput.value) > 0) ||
+                             (platoMexicanoCheckbox && platoMexicanoCheckbox.checked);
+        
+        if (hasBuffetData) {
             const isPlatoMexicanoSelected = platoMexicanoCheckbox?.checked || false;
             
             // Get buffet price (required for both regular buffet and plato mexicano)
-            const buffetPriceInput = document.getElementById('buffetPricePerPerson');
             const buffetCustomPriceInput = document.getElementById('buffetCustomPrice');
             let buffetPricePerPerson = 0;
             
@@ -2948,7 +2972,7 @@ class ReservationManager {
             foodType: formData.get('foodType'),
             breakfastType: breakfastType || null,
             dessertType: dessertType || null,
-            buffet: this.isBuffet(formData.get('foodType')) ? {
+            buffet: buffetSelections !== null ? {
                 pricePerPerson: buffetSelections?.pricePerPerson || 0,
                 rice: buffetSelections?.rice || null,
                 rice2: buffetSelections?.rice2 || null,
@@ -2962,7 +2986,7 @@ class ReservationManager {
                 pasteles: buffetSelections?.pasteles || false,
                 platoMexicano: buffetSelections?.platoMexicano || false
             } : null,
-            individualPlates: formData.get('foodType') === 'individual-plates' ? this.individualPlatesSelections : null,
+            individualPlates: (formData.get('foodType') === 'individual-plates' || this.individualPlatesSelections.length > 0) ? this.individualPlatesSelections : null,
             breakfast: this.isBreakfast(breakfastType) ? {
                 cafe: breakfastSelections?.cafe || false,
                 jugo: breakfastSelections?.jugo || false,
@@ -4738,6 +4762,8 @@ class ReservationManager {
         this.updateIndividualPlatesSummary();
         
         // Update food service summary and recalculate price after loading all data
+        // Call handleFoodTypeChange to ensure buttons are shown correctly when both buffet and individual plates exist
+        this.handleFoodTypeChange();
         this.updateFoodServiceSummary();
         this.calculatePrice();
 
@@ -5232,31 +5258,12 @@ class ReservationManager {
         // Build itemized list
         let itemsHTML = '';
         
-        // Food items
-        if (reservation.foodType === 'individual-plates' && reservation.individualPlates && reservation.individualPlates.length > 0) {
-            // Show individual plates
-            reservation.individualPlates.forEach(plate => {
-                const plateTotal = plate.price * plate.quantity;
-                const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
-                                    (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
-                const complementosTotal = complementos.reduce((sum, comp) => sum + ((comp.price || 0) * plate.quantity), 0);
-                const total = plateTotal + complementosTotal;
-                
-                let description = `<strong style="color: #333;">${plate.name} - $${plate.price.toFixed(2)}</strong>`;
-                if (complementos.length > 0) {
-                    const complementosList = complementos.map(comp => comp.name).join(', ');
-                    description += `<br><span style="font-size: 0.9em; color: #333;">Complementos: ${complementosList}</span>`;
-                }
-                
-                itemsHTML += `
-                    <tr>
-                        <td>${description}</td>
-                        <td>${plate.quantity}</td>
-                        <td>$${total.toFixed(2)}</td>
-                    </tr>
-                `;
-            });
-        } else if (this.isBuffet(reservation.foodType) && reservation.buffet) {
+        // Food items - can show both buffet and individual plates
+        const hasBuffet = this.isBuffet(reservation.foodType) && reservation.buffet;
+        const hasIndividualPlates = reservation.individualPlates && reservation.individualPlates.length > 0;
+        
+        // Show buffet if present
+        if (hasBuffet) {
             // Check if plato mexicano is selected - check explicitly for true
             // Also check if no buffet items are selected (which indicates plato mexicano)
             const hasBuffetItems = reservation.buffet.rice || reservation.buffet.rice2 || 
@@ -5307,7 +5314,35 @@ class ReservationManager {
                     </tr>
                 `;
             }
-        } else if (reservation.pricing.foodCost > 0 && reservation.foodType && reservation.foodType !== 'no-food') {
+        }
+        
+        // Show individual plates if present (can be alongside buffet)
+        if (hasIndividualPlates) {
+            reservation.individualPlates.forEach(plate => {
+                const plateTotal = plate.price * plate.quantity;
+                const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
+                                    (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
+                const complementosTotal = complementos.reduce((sum, comp) => sum + ((comp.price || 0) * plate.quantity), 0);
+                const total = plateTotal + complementosTotal;
+                
+                let description = `<strong style="color: #333;">${plate.name} - $${plate.price.toFixed(2)}</strong>`;
+                if (complementos.length > 0) {
+                    const complementosList = complementos.map(comp => comp.name).join(', ');
+                    description += `<br><span style="font-size: 0.9em; color: #333;">Complementos: ${complementosList}</span>`;
+                }
+                
+                itemsHTML += `
+                    <tr>
+                        <td>${description}</td>
+                        <td>${plate.quantity}</td>
+                        <td>$${total.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+        }
+        
+        // Show other food types if neither buffet nor individual plates
+        if (!hasBuffet && !hasIndividualPlates && reservation.pricing.foodCost > 0 && reservation.foodType && reservation.foodType !== 'no-food') {
             itemsHTML += `
                 <tr>
                     <td><strong>${this.getFoodDisplayName(reservation.foodType, reservation)}</strong></td>
@@ -5536,29 +5571,12 @@ class ReservationManager {
         // Build items array for PDF table
         const itemsData = [];
         
-        // Food items
-        if (reservation.foodType === 'individual-plates' && reservation.individualPlates && reservation.individualPlates.length > 0) {
-            // Show individual plates
-            reservation.individualPlates.forEach(plate => {
-                const plateTotal = plate.price * plate.quantity;
-                const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
-                                    (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
-                const complementosTotal = complementos.reduce((sum, comp) => sum + ((comp.price || 0) * plate.quantity), 0);
-                const total = plateTotal + complementosTotal;
-                
-                let description = `${plate.name} - $${plate.price.toFixed(2)}`;
-                if (complementos.length > 0) {
-                    const complementosList = complementos.map(comp => comp.name).join(', ');
-                    description += '\nComplementos: ' + complementosList;
-                }
-                
-                itemsData.push({
-                    description: description,
-                    qty: plate.quantity.toString(),
-                    total: `$${total.toFixed(2)}`
-                });
-            });
-        } else if (this.isBuffet(reservation.foodType) && reservation.buffet) {
+        // Food items - can show both buffet and individual plates
+        const hasBuffetPDF = this.isBuffet(reservation.foodType) && reservation.buffet;
+        const hasIndividualPlatesPDF = reservation.individualPlates && reservation.individualPlates.length > 0;
+        
+        // Show buffet if present
+        if (hasBuffetPDF) {
             // Check if plato mexicano is selected - check explicitly for true
             // Also check if no buffet items are selected (which indicates plato mexicano)
             const hasBuffetItems = reservation.buffet.rice || reservation.buffet.rice2 || 
@@ -5598,7 +5616,33 @@ class ReservationManager {
                     isBuffet: true
                 });
             }
-        } else if (reservation.pricing.foodCost > 0 && reservation.foodType && reservation.foodType !== 'no-food') {
+        }
+        
+        // Show individual plates if present (can be alongside buffet)
+        if (hasIndividualPlates) {
+            reservation.individualPlates.forEach(plate => {
+                const plateTotal = plate.price * plate.quantity;
+                const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
+                                    (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
+                const complementosTotal = complementos.reduce((sum, comp) => sum + ((comp.price || 0) * plate.quantity), 0);
+                const total = plateTotal + complementosTotal;
+                
+                let description = `${plate.name} - $${plate.price.toFixed(2)}`;
+                if (complementos.length > 0) {
+                    const complementosList = complementos.map(comp => comp.name).join(', ');
+                    description += `\nComplementos: ${complementosList}`;
+                }
+                
+                itemsData.push({
+                    description: description,
+                    qty: plate.quantity.toString(),
+                    total: `$${total.toFixed(2)}`
+                });
+            });
+        }
+        
+        // Show other food types if neither buffet nor individual plates
+        if (!hasBuffet && !hasIndividualPlates && reservation.pricing.foodCost > 0 && reservation.foodType && reservation.foodType !== 'no-food') {
             itemsData.push({
                 description: this.getFoodDisplayName(reservation.foodType, reservation),
                 qty: reservation.guestCount.toString(),
