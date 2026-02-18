@@ -6212,10 +6212,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Make reservationManager globally accessible for debugging
     window.reservationManager = reservationManager;
     
-    // Set minimum date to today
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('eventDate').min = today;
-    
     // Initialize dark mode
     initializeDarkMode();
     
