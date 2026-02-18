@@ -5325,7 +5325,7 @@ class ReservationManager {
                 const complementosTotal = complementos.reduce((sum, comp) => sum + ((comp.price || 0) * plate.quantity), 0);
                 const total = plateTotal + complementosTotal;
                 
-                let description = `<strong style="color: #333;">${plate.name} - $${plate.price.toFixed(2)}</strong>`;
+                let description = `<strong style="color: #333;">${plate.name}</strong>`;
                 if (complementos.length > 0) {
                     const complementosList = complementos.map(comp => comp.name).join(', ');
                     description += `<br><span style="font-size: 0.9em; color: #333;">Complementos: ${complementosList}</span>`;
@@ -5627,7 +5627,7 @@ class ReservationManager {
                 const complementosTotal = complementos.reduce((sum, comp) => sum + ((comp.price || 0) * plate.quantity), 0);
                 const total = plateTotal + complementosTotal;
                 
-                let description = `${plate.name} - $${plate.price.toFixed(2)}`;
+                let description = `${plate.name}`;
                 if (complementos.length > 0) {
                     const complementosList = complementos.map(comp => comp.name).join(', ');
                     description += `\nComplementos: ${complementosList}`;
