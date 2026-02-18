@@ -279,6 +279,9 @@
                                     </div>
                                     <div id="foodServiceSummary" class="food-summary"></div>
                                     <button type="button" id="editBuffetBtn" class="btn btn-outline hidden">Editar Opciones de Buffet</button>
+                                    <div id="individualPlatesSummary" class="food-summary hidden"></div>
+                                    <button type="button" id="addIndividualPlatesBtn" class="btn btn-outline">Agregar Platos Individuales</button>
+                                    <button type="button" id="editIndividualPlatesBtn" class="btn btn-outline hidden">Editar Platos Individuales</button>
                                     <div class="form-group form-group-spacing-top">
                                         <label></label>
                                     </div>
@@ -1313,6 +1316,53 @@
                 <button type="button" class="btn btn-outline" id="entremesesClearBtn">Limpiar Todo</button>
                 <button type="button" class="btn btn-outline" id="entremesesCancelBtn">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="entremesesSaveBtn">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Individual Plates Modal -->
+    <div id="individualPlatesModal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Platos Individuales</h3>
+                <button type="button" class="modal-close" id="individualPlatesCloseBtn" aria-label="Cerrar">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="individualPlatesList" class="individual-plates-list">
+                    <!-- Individual plates will be dynamically added here -->
+                </div>
+                <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+                    <h4 style="margin-bottom: 15px;">Agregar Nuevo Plato</h4>
+                    <div class="form-group">
+                        <label for="newPlateName">Nombre del Plato *</label>
+                        <input type="text" id="newPlateName" name="newPlateName" placeholder="Ej: Pollo Asado" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPlatePrice">Precio por Persona ($) *</label>
+                        <input type="number" id="newPlatePrice" name="newPlatePrice" min="0" step="0.01" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPlateQuantity">Cantidad de Personas *</label>
+                        <input type="number" id="newPlateQuantity" name="newPlateQuantity" min="1" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Complementos (Opcional)</label>
+                        <div id="complementosList" style="margin-bottom: 10px;">
+                            <!-- Complementos will be dynamically added here -->
+                        </div>
+                        <button type="button" class="btn btn-outline btn-sm" id="addComplementoBtn" style="margin-bottom: 15px;">
+                            <i class="fas fa-plus"></i> Agregar Complemento
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-primary" id="addPlateBtn">
+                        <i class="fas fa-plus"></i> Agregar Plato
+                    </button>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" id="individualPlatesClearBtn">Limpiar Todo</button>
+                <button type="button" class="btn btn-outline" id="individualPlatesCancelBtn">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="individualPlatesSaveBtn">Guardar</button>
             </div>
         </div>
     </div>

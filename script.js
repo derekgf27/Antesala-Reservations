@@ -4,6 +4,7 @@ class ReservationManager {
         this.reservations = [];
         this.beverageSelections = {};
         this.entremesesSelections = {};
+        this.individualPlatesSelections = []; // Store individual plates: [{name, price, quantity, id}]
         this.customBeverages = []; // Store custom beverages
         this.currentSection = 'dashboard';
         this.currentCalendarMonth = new Date().getMonth();
@@ -278,6 +279,13 @@ class ReservationManager {
         const entremesesCancelBtn = document.getElementById('entremesesCancelBtn');
         const entremesesSaveBtn = document.getElementById('entremesesSaveBtn');
         const entremesesClearBtn = document.getElementById('entremesesClearBtn');
+        const addIndividualPlatesBtn = document.getElementById('addIndividualPlatesBtn');
+        const editIndividualPlatesBtn = document.getElementById('editIndividualPlatesBtn');
+        const individualPlatesCloseBtn = document.getElementById('individualPlatesCloseBtn');
+        const individualPlatesCancelBtn = document.getElementById('individualPlatesCancelBtn');
+        const individualPlatesSaveBtn = document.getElementById('individualPlatesSaveBtn');
+        const individualPlatesClearBtn = document.getElementById('individualPlatesClearBtn');
+        const addPlateBtn = document.getElementById('addPlateBtn');
 
         // Real-time updates for pricing
         const pricingInputs = [
@@ -511,6 +519,40 @@ class ReservationManager {
         });
         entremesesClearBtn?.addEventListener('click', () => this.clearEntremesesSelectionsInModal());
 
+        // Individual Plates modal events
+        addIndividualPlatesBtn?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Add individual plates button clicked');
+            this.openIndividualPlatesModal();
+        });
+        editIndividualPlatesBtn?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.openIndividualPlatesModal();
+        });
+        individualPlatesCloseBtn?.addEventListener('click', () => this.closeIndividualPlatesModal());
+        individualPlatesCancelBtn?.addEventListener('click', () => this.closeIndividualPlatesModal());
+        individualPlatesSaveBtn?.addEventListener('click', () => {
+            this.updateIndividualPlatesSummary();
+            this.calculatePrice();
+            this.closeIndividualPlatesModal();
+        });
+        individualPlatesClearBtn?.addEventListener('click', () => this.clearIndividualPlatesSelections());
+        addPlateBtn?.addEventListener('click', () => this.addPlateToModal());
+        const addComplementoBtn = document.getElementById('addComplementoBtn');
+        addComplementoBtn?.addEventListener('click', () => this.addComplementoField());
+
+        // Close individual plates modal when clicking outside
+        const individualPlatesModal = document.getElementById('individualPlatesModal');
+        if (individualPlatesModal) {
+            individualPlatesModal.addEventListener('click', (e) => {
+                if (e.target === individualPlatesModal) {
+                    this.closeIndividualPlatesModal();
+                }
+            });
+        }
+
         // Form submission
         form.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -623,6 +665,9 @@ class ReservationManager {
     // Launch modal when buffet is selected
     handleFoodTypeChange() {
         const foodType = document.getElementById('foodType');
+        const editBuffetBtn = document.getElementById('editBuffetBtn');
+        const addIndividualPlatesBtn = document.getElementById('addIndividualPlatesBtn');
+        const editIndividualPlatesBtn = document.getElementById('editIndividualPlatesBtn');
         
         if (foodType && this.isBuffet(foodType.value)) {
             // Only open modal if it's not already visible (prevents reopening when editing)
@@ -630,12 +675,27 @@ class ReservationManager {
             if (modal && modal.classList.contains('hidden')) {
                 this.openBuffetModal();
             }
+            editBuffetBtn?.classList.remove('hidden');
+            addIndividualPlatesBtn?.classList.add('hidden');
+            editIndividualPlatesBtn?.classList.add('hidden');
+        } else if (foodType && foodType.value === 'individual-plates') {
+            editBuffetBtn?.classList.add('hidden');
+            addIndividualPlatesBtn?.classList.remove('hidden');
+            if (this.individualPlatesSelections.length > 0) {
+                editIndividualPlatesBtn?.classList.remove('hidden');
+            }
+            this.clearBuffetSelections();
         } else {
+            editBuffetBtn?.classList.add('hidden');
+            // Keep add button visible so users can click it to select individual-plates
+            addIndividualPlatesBtn?.classList.remove('hidden');
+            editIndividualPlatesBtn?.classList.add('hidden');
             this.clearBuffetSelections();
         }
         // Recalculate price to keep totals fresh
         this.calculatePrice();
         this.updateFoodServiceSummary();
+        this.updateIndividualPlatesSummary();
     }
 
     // Launch modal when breakfast is selected
@@ -909,7 +969,36 @@ class ReservationManager {
         const foodTypeEl = document.getElementById('foodType');
         const foodType = foodTypeEl?.value || '';
         
-        if (this.isBuffet(foodType)) {
+        if (foodType === 'individual-plates') {
+            // Show individual plates summary
+            if (this.individualPlatesSelections.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            const itemsHTML = this.individualPlatesSelections.map(plate => {
+                const plateTotal = plate.price * plate.quantity;
+                const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
+                                    (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
+                const complementosTotal = complementos.reduce((sum, comp) => sum + ((comp.price || 0) * plate.quantity), 0);
+                const total = plateTotal + complementosTotal;
+                
+                let complementosText = '';
+                if (complementos.length > 0) {
+                    const complementosList = complementos.map(comp => comp.name).join(', ');
+                    complementosText = ` - Complementos: ${complementosList}`;
+                }
+                
+                return `<li style="color: #333;">${plate.name} - $${plate.price.toFixed(2)}${complementosText} <strong>Total: $${total.toFixed(2)}</strong></li>`;
+            }).join('');
+            const totalCost = this.individualPlatesSelections.reduce((sum, plate) => {
+                const plateTotal = plate.price * plate.quantity;
+                const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
+                                    (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
+                const complementosTotal = complementos.reduce((compSum, comp) => compSum + ((comp.price || 0) * plate.quantity), 0);
+                return sum + plateTotal + complementosTotal;
+            }, 0);
+            container.innerHTML = `<ul>${itemsHTML}<li><strong>Total General: $${totalCost.toFixed(2)}</strong></li></ul>`;
+        } else if (this.isBuffet(foodType)) {
             const platoMexicanoCheckbox = document.getElementById('buffetPlatoMexicano');
             const platoMexicanoIsSelected = platoMexicanoCheckbox?.checked || false;
             
@@ -1846,6 +1935,267 @@ class ReservationManager {
         // Clear the selections object
         this.entremesesSelections = {};
     }
+
+    // Individual Plates functions
+    openIndividualPlatesModal() {
+        const modal = document.getElementById('individualPlatesModal');
+        if (!modal) {
+            console.error('Individual plates modal not found');
+            return;
+        }
+        
+        // Automatically set food type to individual-plates if not already set
+        const foodType = document.getElementById('foodType');
+        if (foodType && foodType.value !== 'individual-plates') {
+            foodType.value = 'individual-plates';
+            this.handleFoodTypeChange();
+        }
+        
+        // Clear complementos list when opening modal
+        this.clearComplementosFields();
+        
+        // Show modal with animation (similar to buffet modal)
+        modal.classList.remove('hidden');
+        // Force reflow so the next class triggers transition
+        void modal.offsetWidth;
+        modal.classList.add('visible');
+        this.renderIndividualPlatesList();
+    }
+
+    addComplementoField() {
+        const container = document.getElementById('complementosList');
+        if (!container) return;
+
+        const complementoIndex = container.children.length;
+        const complementoDiv = document.createElement('div');
+        complementoDiv.className = 'complemento-item';
+        complementoDiv.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-end;';
+        complementoDiv.innerHTML = `
+            <div style="flex: 1;">
+                <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Nombre del Complemento</label>
+                <input type="text" class="complemento-name" placeholder="Ej: Arroz" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div style="width: 150px;">
+                <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Precio ($)</label>
+                <input type="number" class="complemento-price" min="0" step="0.01" placeholder="0.00" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <button type="button" class="btn btn-outline btn-sm remove-complemento-btn" style="padding: 8px 12px;">
+                <i class="fas fa-trash"></i>
+            </button>
+        `;
+
+        // Add remove button handler
+        const removeBtn = complementoDiv.querySelector('.remove-complemento-btn');
+        removeBtn.addEventListener('click', () => {
+            complementoDiv.remove();
+        });
+
+        container.appendChild(complementoDiv);
+    }
+
+    clearComplementosFields() {
+        const container = document.getElementById('complementosList');
+        if (container) {
+            container.innerHTML = '';
+        }
+    }
+
+    getComplementosFromFields() {
+        const container = document.getElementById('complementosList');
+        if (!container) return [];
+
+        const complementos = [];
+        const items = container.querySelectorAll('.complemento-item');
+        
+        items.forEach(item => {
+            const nameInput = item.querySelector('.complemento-name');
+            const priceInput = item.querySelector('.complemento-price');
+            
+            const name = nameInput?.value.trim() || '';
+            const price = priceInput?.value ? parseFloat(priceInput.value) : 0;
+            
+            if (name) {
+                complementos.push({
+                    name: name,
+                    price: price || 0
+                });
+            }
+        });
+
+        return complementos;
+    }
+
+    closeIndividualPlatesModal() {
+        const modal = document.getElementById('individualPlatesModal');
+        if (!modal) return;
+        modal.classList.remove('visible');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 220);
+    }
+
+    renderIndividualPlatesList() {
+        const container = document.getElementById('individualPlatesList');
+        if (!container) return;
+
+        if (this.individualPlatesSelections.length === 0) {
+            container.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">No hay platos agregados aún.</p>';
+            return;
+        }
+
+        const platesHTML = this.individualPlatesSelections.map((plate, index) => {
+            const plateTotal = plate.price * plate.quantity;
+            const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
+                                (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
+            const complementosTotal = complementos.reduce((sum, comp) => sum + ((comp.price || 0) * plate.quantity), 0);
+            const total = plateTotal + complementosTotal;
+            
+            let complementosText = '';
+            if (complementos.length > 0) {
+                const complementosList = complementos.map(comp => comp.name).join(', ');
+                complementosText = `<br><span style="color: #333; font-size: 0.9em; display: block;">Complementos: ${complementosList}</span>`;
+            }
+            
+            return `
+            <div class="individual-plate-item" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9;">
+                <div style="flex: 1; color: #333;">
+                    <strong style="color: #333;">${plate.name} - $${plate.price.toFixed(2)}</strong><br>
+                    <span style="color: #333; font-size: 0.9em;">Cantidad: ${plate.quantity} personas</span>
+                    ${complementosText}
+                    <br><span style="color: #333; font-size: 0.95em; font-weight: 600;">Total: $${total.toFixed(2)}</span>
+                </div>
+                <button type="button" class="btn btn-outline" onclick="reservationManager.removePlate(${index})" style="margin-left: 10px;">
+                    <i class="fas fa-trash"></i> Eliminar
+                </button>
+            </div>
+        `;
+        }).join('');
+
+        container.innerHTML = platesHTML;
+    }
+
+    addPlateToModal() {
+        const nameInput = document.getElementById('newPlateName');
+        const priceInput = document.getElementById('newPlatePrice');
+        const quantityInput = document.getElementById('newPlateQuantity');
+
+        if (!nameInput || !priceInput || !quantityInput) return;
+
+        const name = nameInput.value.trim();
+        const price = parseFloat(priceInput.value);
+        const quantity = parseInt(quantityInput.value);
+        const complementos = this.getComplementosFromFields();
+
+        if (!name) {
+            alert('Por favor ingrese el nombre del plato.');
+            nameInput.focus();
+            return;
+        }
+
+        if (isNaN(price) || price <= 0) {
+            alert('Por favor ingrese un precio válido mayor a 0.');
+            priceInput.focus();
+            return;
+        }
+
+        if (isNaN(quantity) || quantity <= 0) {
+            alert('Por favor ingrese una cantidad válida mayor a 0.');
+            quantityInput.focus();
+            return;
+        }
+
+        // Validate complementos prices
+        for (const comp of complementos) {
+            if (isNaN(comp.price) || comp.price < 0) {
+                alert(`Por favor ingrese un precio válido para el complemento "${comp.name}" (mayor o igual a 0).`);
+                return;
+            }
+        }
+
+        // Add plate with unique ID
+        const plate = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            name: name,
+            price: price,
+            quantity: quantity,
+            complementos: complementos.length > 0 ? complementos : []
+        };
+
+        this.individualPlatesSelections.push(plate);
+        this.renderIndividualPlatesList();
+        this.updateIndividualPlatesSummary();
+        this.calculatePrice();
+
+        // Clear inputs
+        nameInput.value = '';
+        priceInput.value = '';
+        quantityInput.value = '1';
+        this.clearComplementosFields();
+        nameInput.focus();
+    }
+
+    removePlate(index) {
+        if (index >= 0 && index < this.individualPlatesSelections.length) {
+            this.individualPlatesSelections.splice(index, 1);
+            this.renderIndividualPlatesList();
+            this.updateIndividualPlatesSummary();
+            this.calculatePrice();
+        }
+    }
+
+    updateIndividualPlatesSummary() {
+        const container = document.getElementById('individualPlatesSummary');
+        const editBtn = document.getElementById('editIndividualPlatesBtn');
+        const addBtn = document.getElementById('addIndividualPlatesBtn');
+        const foodType = document.getElementById('foodType');
+
+        if (!container) return;
+
+        // Only show if individual-plates is selected
+        if (foodType?.value !== 'individual-plates') {
+            container.classList.add('hidden');
+            container.innerHTML = '';
+            editBtn?.classList.add('hidden');
+            return;
+        }
+
+        if (this.individualPlatesSelections.length === 0) {
+            container.classList.add('hidden');
+            container.innerHTML = '';
+            editBtn?.classList.add('hidden');
+            addBtn?.classList.remove('hidden');
+            return;
+        }
+
+        container.classList.remove('hidden');
+        editBtn?.classList.remove('hidden');
+        addBtn?.classList.add('hidden');
+
+        const itemsHTML = this.individualPlatesSelections.map(plate => {
+            const plateTotal = plate.price * plate.quantity;
+            const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
+                                (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
+            const complementosTotal = complementos.reduce((sum, comp) => sum + ((comp.price || 0) * plate.quantity), 0);
+            const total = plateTotal + complementosTotal;
+            
+            let complementosText = '';
+            if (complementos.length > 0) {
+                const complementosList = complementos.map(comp => comp.name).join(', ');
+                complementosText = ` - Complementos: ${complementosList}`;
+            }
+            
+            return `<li style="color: #333;">${plate.name} - $${plate.price.toFixed(2)}${complementosText} <strong>Total: $${total.toFixed(2)}</strong></li>`;
+        }).join('');
+
+        container.innerHTML = `<ul>${itemsHTML}</ul>`;
+    }
+
+    clearIndividualPlatesSelections() {
+        this.individualPlatesSelections = [];
+        this.renderIndividualPlatesList();
+        this.updateIndividualPlatesSummary();
+        this.calculatePrice();
+    }
     
     attachEntremesesInputHandlers() {
         const modal = document.getElementById('entremesesModal');
@@ -2157,6 +2507,15 @@ class ReservationManager {
             const buffetPriceInput = document.getElementById('buffetPricePerPerson');
             const buffetPricePerPerson = parseFloat(buffetPriceInput?.value || 0);
             foodCost = buffetPricePerPerson * guestCount;
+        } else if (foodType.value === 'individual-plates') {
+            // Calculate cost from individual plates selections (including complementos)
+            this.individualPlatesSelections.forEach(plate => {
+                const plateTotal = plate.price * plate.quantity;
+                const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
+                                    (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
+                const complementosTotal = complementos.reduce((sum, comp) => sum + ((comp.price || 0) * plate.quantity), 0);
+                foodCost += plateTotal + complementosTotal;
+            });
         } else {
             const foodPrice = foodType.selectedOptions[0]?.dataset.price || 0;
             foodCost = parseFloat(foodPrice) * guestCount;
@@ -2600,8 +2959,10 @@ class ReservationManager {
                 salad2: buffetSelections?.salad2 || null,
                 panecillos: buffetSelections?.panecillos || false,
                 aguaRefresco: buffetSelections?.aguaRefresco || false,
-                pasteles: buffetSelections?.pasteles || false
+                pasteles: buffetSelections?.pasteles || false,
+                platoMexicano: buffetSelections?.platoMexicano || false
             } : null,
+            individualPlates: formData.get('foodType') === 'individual-plates' ? this.individualPlatesSelections : null,
             breakfast: this.isBreakfast(breakfastType) ? {
                 cafe: breakfastSelections?.cafe || false,
                 jugo: breakfastSelections?.jugo || false,
@@ -2741,6 +3102,8 @@ class ReservationManager {
         this.updateBeverageSummary();
         this.entremesesSelections = {};
         this.updateEntremesesSummary();
+        this.individualPlatesSelections = [];
+        this.updateIndividualPlatesSummary();
     }
 
     // Update dashboard statistics
@@ -4371,6 +4734,8 @@ class ReservationManager {
         this.updateBeverageSummary();
         this.entremesesSelections = reservation.entremeses || {};
         this.updateEntremesesSummary();
+        this.individualPlatesSelections = reservation.individualPlates || [];
+        this.updateIndividualPlatesSummary();
         
         // Update food service summary and recalculate price after loading all data
         this.updateFoodServiceSummary();
@@ -4868,7 +5233,30 @@ class ReservationManager {
         let itemsHTML = '';
         
         // Food items
-        if (this.isBuffet(reservation.foodType) && reservation.buffet) {
+        if (reservation.foodType === 'individual-plates' && reservation.individualPlates && reservation.individualPlates.length > 0) {
+            // Show individual plates
+            reservation.individualPlates.forEach(plate => {
+                const plateTotal = plate.price * plate.quantity;
+                const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
+                                    (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
+                const complementosTotal = complementos.reduce((sum, comp) => sum + ((comp.price || 0) * plate.quantity), 0);
+                const total = plateTotal + complementosTotal;
+                
+                let description = `<strong style="color: #333;">${plate.name} - $${plate.price.toFixed(2)}</strong>`;
+                if (complementos.length > 0) {
+                    const complementosList = complementos.map(comp => comp.name).join(', ');
+                    description += `<br><span style="font-size: 0.9em; color: #333;">Complementos: ${complementosList}</span>`;
+                }
+                
+                itemsHTML += `
+                    <tr>
+                        <td>${description}</td>
+                        <td>${plate.quantity}</td>
+                        <td>$${total.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+        } else if (this.isBuffet(reservation.foodType) && reservation.buffet) {
             // Check if plato mexicano is selected - check explicitly for true
             // Also check if no buffet items are selected (which indicates plato mexicano)
             const hasBuffetItems = reservation.buffet.rice || reservation.buffet.rice2 || 
@@ -5149,7 +5537,28 @@ class ReservationManager {
         const itemsData = [];
         
         // Food items
-        if (this.isBuffet(reservation.foodType) && reservation.buffet) {
+        if (reservation.foodType === 'individual-plates' && reservation.individualPlates && reservation.individualPlates.length > 0) {
+            // Show individual plates
+            reservation.individualPlates.forEach(plate => {
+                const plateTotal = plate.price * plate.quantity;
+                const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
+                                    (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
+                const complementosTotal = complementos.reduce((sum, comp) => sum + ((comp.price || 0) * plate.quantity), 0);
+                const total = plateTotal + complementosTotal;
+                
+                let description = `${plate.name} - $${plate.price.toFixed(2)}`;
+                if (complementos.length > 0) {
+                    const complementosList = complementos.map(comp => comp.name).join(', ');
+                    description += '\nComplementos: ' + complementosList;
+                }
+                
+                itemsData.push({
+                    description: description,
+                    qty: plate.quantity.toString(),
+                    total: `$${total.toFixed(2)}`
+                });
+            });
+        } else if (this.isBuffet(reservation.foodType) && reservation.buffet) {
             // Check if plato mexicano is selected - check explicitly for true
             // Also check if no buffet items are selected (which indicates plato mexicano)
             const hasBuffetItems = reservation.buffet.rice || reservation.buffet.rice2 || 
