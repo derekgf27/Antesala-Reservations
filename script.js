@@ -1750,7 +1750,7 @@ class ReservationManager {
             { id: 'bandeja-surtido', name: 'Bandeja de Surtido', price: 100 },
             { id: 'media-bandeja', name: 'Media Bandeja de Surtidos', price: 50 },
             { id: 'bandeja-cortes-frios', name: 'Bandeja Cortes Frios', price: 150 },
-            { id: 'platos-entremeses', name: 'Platos de Entremeses', price: 20 },
+            { id: 'platos-entremeses', name: 'Bandejas Entremeses Surtidos', price: 20 },
         ];
     }
 
