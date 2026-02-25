@@ -3774,7 +3774,8 @@ class ReservationManager {
                 'griego': 'Arroz Griego',
                 'gandules': 'Arroz con Gandules',
                 'paella-marinera': 'Paella Marinera',
-                'paella-valenciana': 'Paella Valenciana'
+                'paella-valenciana': 'Paella Valenciana',
+                'tocinos': 'Arroz con Tocinos'
             },
             protein: {
                 'pechuga-cilantro': 'Pechuga salsa Cilantro',
@@ -3788,7 +3789,8 @@ class ReservationManager {
                 'pernil-asado': 'Pernil Asado',
                 'pernil-al-horno': 'Pernil al Horno',
                 'pescado-ajillo': 'Filete de Pescado Ajillo',
-                'churrasco-setas': 'Churrasco salsa setas'
+                'churrasco-setas': 'Churrasco salsa setas',
+                'ternera-fricase': 'Ternera en Fricase'
             },
             side: {
                 'papas-leonesa': 'Papas Leonesa',
