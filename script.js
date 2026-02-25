@@ -3799,7 +3799,8 @@ class ReservationManager {
                 'ensalada-coditos': 'Ensalada de coditos',
                 'guineos-escabeche': 'Guineos en Escabeche',
                 'amarillos': 'Amarillos',
-                'tostones': 'Tostones'
+                'tostones': 'Tostones',
+                'yuca-ajillo': 'Yuca al Ajillo'
             },
             salad: {
                 'caesar': 'Ensalada César',
