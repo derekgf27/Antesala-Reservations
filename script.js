@@ -764,18 +764,19 @@ class ReservationManager {
         }
     }
 
-    // Launch modal when buffet is selected
-    handleFoodTypeChange() {
+    // Launch modal when buffet is selected (unless openModal is false, e.g. when loading reservation for edit)
+    handleFoodTypeChange(openModal = true) {
         const foodType = document.getElementById('foodType');
         const editBuffetBtn = document.getElementById('editBuffetBtn');
         const addIndividualPlatesBtn = document.getElementById('addIndividualPlatesBtn');
         const editIndividualPlatesBtn = document.getElementById('editIndividualPlatesBtn');
         
         if (foodType && this.isBuffet(foodType.value)) {
-            // Only open modal if it's not already visible (prevents reopening when editing)
-            const modal = document.getElementById('buffetModal');
-            if (modal && modal.classList.contains('hidden')) {
-                this.openBuffetModal();
+            if (openModal) {
+                const modal = document.getElementById('buffetModal');
+                if (modal && modal.classList.contains('hidden')) {
+                    this.openBuffetModal();
+                }
             }
             editBuffetBtn?.classList.remove('hidden');
             // Allow individual plates to be added alongside buffet
@@ -881,7 +882,6 @@ class ReservationManager {
             'bev-corona': 'corona',
             'bev-modelo': 'modelo',
             'bev-miller-lite': 'miller-lite',
-            'bev-miller-lite': 'miller-lite',
             'bev-black-label-1l': 'black-label-1l',
             'bev-tito-1l': 'tito-1l',
             'bev-dewars-12-handle': 'dewars-12-handle',
@@ -895,7 +895,6 @@ class ReservationManager {
             'bev-donq-oro-handle': 'donq-oro-handle',
             'bev-tito-handle': 'tito-handle',
             'bev-sky-vodka-litro': 'sky-vodka-litro',
-            'bev-sky-vodka-gancho': 'sky-vodka-gancho',
             'bev-bravada': 'bravada',
             'bev-bravada-375': 'bravada-375',
             'bev-dewars-12-375': 'dewars-12-375',
@@ -1952,6 +1951,7 @@ class ReservationManager {
             'bev-coors': 'coors',
             'bev-corona': 'corona',
             'bev-modelo': 'modelo',
+            'bev-miller-lite': 'miller-lite',
             'bev-black-label-1l': 'black-label-1l',
             'bev-tito-1l': 'tito-1l',
             'bev-dewars-12-handle': 'dewars-12-handle',
@@ -2083,6 +2083,7 @@ class ReservationManager {
             { inputId: 'bev-coors', key: 'coors' },
             { inputId: 'bev-corona', key: 'corona' },
             { inputId: 'bev-modelo', key: 'modelo' },
+            { inputId: 'bev-miller-lite', key: 'miller-lite' },
             { inputId: 'bev-black-label-1l', key: 'black-label-1l' },
             { inputId: 'bev-tito-1l', key: 'tito-1l' },
             { inputId: 'bev-dewars-12-handle', key: 'dewars-12-handle' },
@@ -5923,8 +5924,8 @@ class ReservationManager {
         this.updateIndividualPlatesSummary();
         
         // Update food service summary and recalculate price after loading all data
-        // Call handleFoodTypeChange to ensure buttons are shown correctly when both buffet and individual plates exist
-        this.handleFoodTypeChange();
+        // Call handleFoodTypeChange without opening the buffet modal (user clicked Edit, not the food type dropdown)
+        this.handleFoodTypeChange(false);
         this.updateFoodServiceSummary();
         this.calculatePrice();
 
