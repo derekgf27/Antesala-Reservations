@@ -880,6 +880,8 @@ class ReservationManager {
             'bev-coors': 'coors',
             'bev-corona': 'corona',
             'bev-modelo': 'modelo',
+            'bev-miller-lite': 'miller-lite',
+            'bev-miller-lite': 'miller-lite',
             'bev-black-label-1l': 'black-label-1l',
             'bev-tito-1l': 'tito-1l',
             'bev-dewars-12-handle': 'dewars-12-handle',
@@ -1333,6 +1335,7 @@ class ReservationManager {
             { id: 'coors', name: 'Coors Light', price: 72, alcohol: true },
             { id: 'corona', name: 'Corona', price: 72, alcohol: true },
             { id: 'modelo', name: 'Modelo', price: 72, alcohol: true },
+            { id: 'miller-lite', name: 'Miller Lite', price: 72, alcohol: true },
             // Liquors
             { id: 'black-label-1l', name: 'Black Label 1 Litro', price: 65, alcohol: true },
             { id: 'tito-1l', name: 'Tito Vodka 1 Litro', price: 45, alcohol: true },
