@@ -4957,7 +4957,14 @@ class ReservationManager {
         }
         const items = this.getBeverageItems();
         const beverageList = Object.entries(beveragesMap)
-            .filter(([, qty]) => (typeof qty === 'number' && qty > 0) || qty === true)
+            .filter(([, qty]) => {
+                if (qty === true) return true;
+                if (typeof qty === 'object' && qty !== null && 'qty' in qty) {
+                    const n = parseInt(qty.qty) || 0;
+                    return n > 0;
+                }
+                return typeof qty === 'number' && qty > 0;
+            })
             .map(([id, qty]) => {
                 const item = items.find(i => i.id === id);
                 // Handle Mimosa options separately - they're per person
@@ -6543,6 +6550,11 @@ class ReservationManager {
             Object.entries(reservation.beverages).forEach(([id, qty]) => {
                 // Skip items with qty = 0 or falsy values (deleted items)
                 if (qty === false || qty === null || qty === undefined) return;
+                if (typeof qty === 'number' && qty <= 0) return;
+                if (typeof qty === 'object' && qty !== null && 'qty' in qty) {
+                    const n = parseInt(qty.qty) || 0;
+                    if (n <= 0) return;
+                }
                 
                 // Handle Mimosa options separately - they're per person
                 if (id === 'mimosa' && qty === true) {
