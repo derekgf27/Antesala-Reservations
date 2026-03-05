@@ -83,6 +83,7 @@ class ReservationManager {
                 if (!reservation.hasOwnProperty('additionalPayments')) {
                     reservation.additionalPayments = [];
                 }
+                reservation.beverages = this.normalizeBeverageSelectionsMap(reservation.beverages || {});
                 reservations.push(reservation);
             });
             
@@ -1256,7 +1257,7 @@ class ReservationManager {
             { id: 'coors', name: 'Coors Light', price: 72, alcohol: true },
             { id: 'corona', name: 'Corona', price: 72, alcohol: true },
             { id: 'modelo', name: 'Modelo', price: 72, alcohol: true },
-            { id: 'miller-lite', name: 'Miller Lite', price: 72, alcohol: true },
+            { id: 'miller-lite-beer', name: 'Miller Lite', price: 72, alcohol: true },
             // Liquors
             { id: 'black-label-1l', name: 'Black Label 1 Litro', price: 65, alcohol: true },
             { id: 'tito-1l', name: 'Tito Vodka 1 Litro', price: 45, alcohol: true },
@@ -1297,6 +1298,36 @@ class ReservationManager {
         
         // Combine standard beverages with custom beverages
         return [...standardBeverages, ...this.customBeverages];
+    }
+    
+    normalizeBeverageKey(id) {
+        if (typeof id !== 'string') return id;
+        const trimmed = id.trim();
+        const lowered = trimmed.toLowerCase();
+        if (
+            lowered === 'miller-lite' ||
+            lowered === 'miller_lite' ||
+            lowered === 'miller lite' ||
+            lowered === 'millerlite' ||
+            lowered === 'miller-lite-beer'
+        ) {
+            return 'miller-lite-beer';
+        }
+        return trimmed;
+    }
+    
+    getBeverageItemById(items, id) {
+        const normalizedId = this.normalizeBeverageKey(id);
+        return items.find(item => this.normalizeBeverageKey(item.id) === normalizedId);
+    }
+    
+    normalizeBeverageSelectionsMap(beveragesMap) {
+        if (!beveragesMap || typeof beveragesMap !== 'object') return {};
+        const normalizedSelections = {};
+        Object.entries(beveragesMap).forEach(([id, qty]) => {
+            normalizedSelections[this.normalizeBeverageKey(id)] = qty;
+        });
+        return normalizedSelections;
     }
     
     // Load custom beverages from localStorage
@@ -1740,11 +1771,19 @@ class ReservationManager {
         // Use the name as the ID (sanitized)
         const baseId = this.sanitizeBeverageId(name);
         let id = baseId;
+        const standardBeverageIds = new Set(
+            this.getBeverageItems()
+                .filter(beverage => beverage.custom !== true)
+                .map(beverage => this.normalizeBeverageKey(beverage.id))
+        );
         
         // Check if a custom beverage with this ID already exists
         // If it does, append a number to make it unique
         let counter = 1;
-        while (this.customBeverages.some(b => b.id === id)) {
+        while (
+            this.customBeverages.some(b => this.normalizeBeverageKey(b.id) === this.normalizeBeverageKey(id)) ||
+            standardBeverageIds.has(this.normalizeBeverageKey(id))
+        ) {
             id = `${baseId}-${counter}`;
             counter++;
         }
@@ -1862,13 +1901,18 @@ class ReservationManager {
     openBeverageModal() {
         const modal = document.getElementById('beverageModal');
         if (!modal) return;
+        const normalizedSelections = this.normalizeBeverageSelectionsMap(this.beverageSelections);
+        this.beverageSelections = normalizedSelections;
         
         // Add custom beverages first, then prefill all visible quantity inputs.
         this.addCustomBeveragesToModal();
         const qtyInputs = modal.querySelectorAll('input[type="number"][id^="bev-"]');
         qtyInputs.forEach(el => {
-            const key = el.id.replace(/^bev-/, '');
-            const selection = this.beverageSelections[key];
+            const rawKey = el.id.replace(/^bev-/, '');
+            const key = this.normalizeBeverageKey(rawKey);
+            const selection = normalizedSelections[key] !== undefined
+                ? normalizedSelections[key]
+                : normalizedSelections[rawKey];
             let qty = 0;
             if (typeof selection === 'object' && selection !== null && selection.qty !== undefined) {
                 qty = parseInt(selection.qty) || 0;
@@ -1922,7 +1966,8 @@ class ReservationManager {
         const qtyInputs = modal ? modal.querySelectorAll('input[type="number"][id^="bev-"]') : [];
         
         qtyInputs.forEach(el => {
-            const key = el.id.replace(/^bev-/, '');
+            const rawKey = el.id.replace(/^bev-/, '');
+            const key = this.normalizeBeverageKey(rawKey);
             const qty = parseInt(el.value) || 0;
             if (qty > 0) {
                 // Handle notes for caja-refrescos-surtidos
@@ -2024,7 +2069,7 @@ class ReservationManager {
             if (id === 'mimosa' || id === 'mimosa-395') return; // Handle Mimosa separately
             if (typeof qty === 'object' && qty !== null && qty.qty) {
                 // Handle beverages with notes
-                const item = beverages.find(b => b.id === id);
+                const item = this.getBeverageItemById(beverages, id);
                 let label;
                 // Check if qty object has stored name (for custom beverages)
                 if (qty.name) {
@@ -2037,7 +2082,7 @@ class ReservationManager {
                 const notesText = qty.notes ? ` (${qty.notes})` : '';
                 items.push(`<li>${label}: ${qty.qty}${notesText}</li>`);
             } else if (qty > 0) {
-                const item = beverages.find(b => b.id === id);
+                const item = this.getBeverageItemById(beverages, id);
                 let label;
                 // Check if qty is an object with stored name (for custom beverages)
                 if (typeof qty === 'object' && qty !== null && qty.name) {
@@ -3009,7 +3054,7 @@ class ReservationManager {
                     }
                 } else {
                     // Standard beverage - look it up
-                    const item = beverages.find(b => b.id === id);
+                    const item = this.getBeverageItemById(beverages, id);
                     if (item && actualQty > 0) {
                         const itemCost = item.price * actualQty;
                         drinkCost += itemCost;
@@ -3444,7 +3489,7 @@ class ReservationManager {
                 customPostres: this.dessertCustomSelections && Object.keys(this.dessertCustomSelections).length > 0 ? { ...this.dessertCustomSelections } : undefined
             } : null,
             // drinkType removed; beverages are captured in the beverages map
-            beverages: this.beverageSelections,
+            beverages: this.normalizeBeverageSelectionsMap(this.beverageSelections),
             entremeses: this.entremesesSelections,
             guestCount: pricing.guestCount,
             tableConfiguration: null,
@@ -4774,7 +4819,7 @@ class ReservationManager {
                 return typeof qty === 'number' && qty > 0;
             })
             .map(([id, qty]) => {
-                const item = items.find(i => i.id === id);
+                const item = this.getBeverageItemById(items, id);
                 // Handle Mimosa options separately - they're per person
                 if (id === 'mimosa' && qty === true) {
                     return `<li>Mimosa ($3.00 por persona)</li>`;
@@ -5510,7 +5555,7 @@ class ReservationManager {
                 return typeof qty === 'number' && qty > 0;
             })
             .map(([id, qty]) => {
-                const item = items.find(i => i.id === id);
+                const item = this.getBeverageItemById(items, id);
                 // Handle Mimosa options separately - they're per person
                 if (id === 'mimosa' && qty === true) {
                     return 'Mimosa ($3.00)';
@@ -5719,7 +5764,7 @@ class ReservationManager {
         const dessertTypeEl = document.getElementById('dessertType');
         if (dessertTypeEl) dessertTypeEl.value = reservation.dessertType || '';
         // no drinkType select anymore
-        this.beverageSelections = reservation.beverages || {};
+        this.beverageSelections = this.normalizeBeverageSelectionsMap(reservation.beverages || {});
         this.updateBeverageSummary();
         this.entremesesSelections = reservation.entremeses || {};
         this.updateEntremesesSummary();
@@ -6115,6 +6160,7 @@ class ReservationManager {
                 if (!reservation.hasOwnProperty('additionalPayments')) {
                     reservation.additionalPayments = [];
                 }
+                reservation.beverages = this.normalizeBeverageSelectionsMap(reservation.beverages || {});
                 reservations.push(reservation);
             });
             // Sort by date
@@ -6143,6 +6189,7 @@ class ReservationManager {
             if (!reservation.hasOwnProperty('additionalPayments')) {
                 reservation.additionalPayments = [];
             }
+            reservation.beverages = this.normalizeBeverageSelectionsMap(reservation.beverages || {});
             return reservation;
         });
     }
@@ -6403,7 +6450,7 @@ class ReservationManager {
                                 displayName = qty.name;
                                 price = qty.price || 0;
                             } else {
-                                const item = items.find(i => i.id === id);
+                                const item = this.getBeverageItemById(items, id);
                                 if (item) {
                                     displayName = item.name;
                                     price = item.price;
@@ -6737,7 +6784,7 @@ class ReservationManager {
                         }
                         // Only add items with actualQty > 0
                         if (actualQty > 0 && typeof actualQty === 'number') {
-                            const item = items.find(i => i.id === id);
+                            const item = this.getBeverageItemById(items, id);
                             let displayName;
                             let price = 0;
                             // Check if qty object has stored name and price (for custom beverages)
