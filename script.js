@@ -6601,33 +6601,32 @@ class ReservationManager {
                                 notesText = ` (${qty.notes})`;
                             }
                         }
-                        // Only add items with actualQty > 0
-                        if (actualQty > 0 && typeof actualQty === 'number') {
-                            let displayName;
-                            let price = 0;
-                            // Check if qty object has stored name and price (for custom beverages)
-                            if (typeof qty === 'object' && qty !== null && qty.name) {
-                                displayName = qty.name;
-                                price = qty.price || 0;
+                        const numQty = parseInt(actualQty, 10) || 0;
+                        if (numQty <= 0) return;
+                        let displayName;
+                        let price = 0;
+                        // Check if qty object has stored name and price (for custom beverages)
+                        if (typeof qty === 'object' && qty !== null && qty.name) {
+                            displayName = qty.name;
+                            price = qty.price || 0;
+                        } else {
+                            const item = items.find(i => i.id === id);
+                            if (item) {
+                                displayName = item.name;
+                                price = item.price;
                             } else {
-                                const item = items.find(i => i.id === id);
-                                if (item) {
-                                    displayName = item.name;
-                                    price = item.price;
-                                } else {
-                                    displayName = id;
-                                    price = 0;
-                                }
+                                displayName = id;
+                                price = 0;
                             }
-                            const total = price * actualQty;
-                            itemsHTML += `
-                                <tr>
-                                    <td><strong>${displayName}${notesText}</strong></td>
-                                    <td>${actualQty}</td>
-                                    <td>$${total.toFixed(2)}</td>
-                                </tr>
-                            `;
                         }
+                        const total = price * numQty;
+                        itemsHTML += `
+                            <tr>
+                                <td><strong>${displayName}${notesText}</strong></td>
+                                <td>${numQty}</td>
+                                <td>$${total.toFixed(2)}</td>
+                            </tr>
+                        `;
                     }
                 }
             });
@@ -6920,6 +6919,11 @@ class ReservationManager {
             Object.entries(reservation.beverages).forEach(([id, qty]) => {
                 // Skip items with qty = 0 or falsy values (deleted items)
                 if (qty === false || qty === null || qty === undefined) return;
+                if (typeof qty === 'number' && qty <= 0) return;
+                if (typeof qty === 'object' && qty !== null && 'qty' in qty) {
+                    const n = parseInt(qty.qty) || 0;
+                    if (n <= 0) return;
+                }
                 
                 // Handle Mimosa options separately - they're per person
                 if (id === 'mimosa' && qty === true) {
@@ -6947,29 +6951,28 @@ class ReservationManager {
                                 notesText = ` (${qty.notes})`;
                             }
                         }
-                        // Only add items with actualQty > 0
-                        if (actualQty > 0 && typeof actualQty === 'number') {
-                            const item = items.find(i => i.id === id);
-                            let displayName;
-                            let price = 0;
-                            // Check if qty object has stored name and price (for custom beverages)
-                            if (typeof qty === 'object' && qty !== null && qty.name) {
-                                displayName = qty.name;
-                                price = qty.price || 0;
-                            } else if (item) {
-                                displayName = item.name;
-                                price = item.price;
-                            } else {
-                                displayName = id;
-                                price = 0;
-                            }
-                            const total = price * actualQty;
-                            itemsData.push({
-                                description: displayName + notesText,
-                                qty: actualQty.toString(),
-                                total: `$${total.toFixed(2)}`
-                            });
+                        const numQty = parseInt(actualQty, 10) || 0;
+                        if (numQty <= 0) return;
+                        const item = items.find(i => i.id === id);
+                        let displayName;
+                        let price = 0;
+                        // Check if qty object has stored name and price (for custom beverages)
+                        if (typeof qty === 'object' && qty !== null && qty.name) {
+                            displayName = qty.name;
+                            price = qty.price || 0;
+                        } else if (item) {
+                            displayName = item.name;
+                            price = item.price;
+                        } else {
+                            displayName = id;
+                            price = 0;
                         }
+                        const total = price * numQty;
+                        itemsData.push({
+                            description: displayName + notesText,
+                            qty: numQty.toString(),
+                            total: `$${total.toFixed(2)}`
+                        });
                     }
                 }
             });
