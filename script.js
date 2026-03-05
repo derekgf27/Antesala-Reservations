@@ -870,62 +870,16 @@ class ReservationManager {
 
     // Clear all beverage selections in the modal
     clearBeverageSelectionsInModal() {
-        const map = {
-            'bev-soft-drinks': 'soft-drinks',
-            'bev-caja-refrescos-surtidos': 'caja-refrescos-surtidos',
-            'bev-water': 'water',
-            'bev-michelob': 'michelob',
-            'bev-medalla': 'medalla',
-            'bev-heineken': 'heineken',
-            'bev-coors': 'coors',
-            'bev-corona': 'corona',
-            'bev-modelo': 'modelo',
-            'bev-miller-lite': 'miller-lite',
-            'bev-miller-lite': 'miller-lite',
-            'bev-black-label-1l': 'black-label-1l',
-            'bev-tito-1l': 'tito-1l',
-            'bev-dewars-12-handle': 'dewars-12-handle',
-            'bev-pama': 'pama',
-            'bev-dewars-handle': 'dewars-handle',
-            'bev-donq-cristal-handle': 'donq-cristal-handle',
-            'bev-donq-limon-handle': 'donq-limon-handle',
-            'bev-donq-passion-handle': 'donq-passion-handle',
-            'bev-donq-coco-handle': 'donq-coco-handle',
-            'bev-donq-naranja-handle': 'donq-naranja-handle',
-            'bev-donq-oro-handle': 'donq-oro-handle',
-            'bev-tito-handle': 'tito-handle',
-            'bev-sky-vodka-litro': 'sky-vodka-litro',
-            'bev-sky-vodka-gancho': 'sky-vodka-gancho',
-            'bev-bravada': 'bravada',
-            'bev-bravada-375': 'bravada-375',
-            'bev-dewars-12-375': 'dewars-12-375',
-            'bev-sangria': 'sangria',
-            'bev-red-wine-25': 'red-wine-25',
-            'bev-red-wine-30': 'red-wine-30',
-            'bev-red-wine-35-1': 'red-wine-35-1',
-            'bev-red-wine-35-2': 'red-wine-35-2',
-            'bev-red-wine-40': 'red-wine-40',
-            'bev-white-wine-25': 'white-wine-25',
-            'bev-white-wine-30': 'white-wine-30',
-            'bev-white-wine-35-1': 'white-wine-35-1',
-            'bev-white-wine-35-2': 'white-wine-35-2',
-            'bev-white-wine-40': 'white-wine-40',
-            'bev-descorche-10': 'descorche-10',
-            'bev-descorche-20': 'descorche-20',
-            'bev-descorche-30': 'descorche-30',
-        };
-        
-        // Clear all input fields and remove selected class
-        Object.keys(map).forEach(inputId => {
-            const el = document.getElementById(inputId);
-            if (el) {
-                el.value = 0;
-                const wrapper = el.parentElement;
-                if (wrapper) {
-                    wrapper.classList.remove('selected');
-                }
-            }
-        });
+        const modal = document.getElementById('beverageModal');
+        if (modal) {
+            // Clear every quantity input currently rendered in the modal.
+            // This avoids hardcoded lists dropping beverages from save state.
+            const allBeverageInputs = modal.querySelectorAll('input[type="number"][id^="bev-"]');
+            allBeverageInputs.forEach(input => {
+                input.value = 0;
+                this.updateBeverageSelectionState(input);
+            });
+        }
         
         // Clear Mimosa checkboxes
         const mimosaCheckbox = document.getElementById('bev-mimosa');
@@ -945,39 +899,6 @@ class ReservationManager {
         const notesContainer = document.getElementById('bev-caja-refrescos-surtidos-notes-container');
         if (notesContainer) {
             notesContainer.style.display = 'none';
-        }
-        
-        // Clear all custom beverages
-        this.loadCustomBeverages();
-        this.customBeverages.forEach(beverage => {
-            const inputId = `bev-${beverage.id}`;
-            const el = document.getElementById(inputId);
-            if (el) {
-                el.value = 0;
-                const wrapper = el.parentElement;
-                if (wrapper) {
-                    wrapper.classList.remove('selected');
-                }
-            }
-        });
-        
-        // Also clear any custom beverages that might be in the modal but not in the list
-        // (for beverages that were deleted from localStorage but still exist in the modal)
-        const modal = document.getElementById('beverageModal');
-        if (modal) {
-            const allBeverageInputs = modal.querySelectorAll('input[type="number"][id^="bev-"]');
-            allBeverageInputs.forEach(input => {
-                // Check if this is a custom beverage (not in the standard map)
-                const inputId = input.id;
-                const isStandardBeverage = Object.keys(map).includes(inputId);
-                if (!isStandardBeverage && inputId !== 'bev-mimosa' && inputId !== 'bev-mimosa-395') {
-                    input.value = 0;
-                    const wrapper = input.parentElement;
-                    if (wrapper) {
-                        wrapper.classList.remove('selected');
-                    }
-                }
-            });
         }
         
         // Clear the selections object
@@ -1941,81 +1862,32 @@ class ReservationManager {
     openBeverageModal() {
         const modal = document.getElementById('beverageModal');
         if (!modal) return;
-        // Prefill inputs from current selections
-        const map = {
-            'bev-soft-drinks': 'soft-drinks',
-            'bev-caja-refrescos-surtidos': 'caja-refrescos-surtidos',
-            'bev-water': 'water',
-            'bev-michelob': 'michelob',
-            'bev-medalla': 'medalla',
-            'bev-heineken': 'heineken',
-            'bev-coors': 'coors',
-            'bev-corona': 'corona',
-            'bev-modelo': 'modelo',
-            'bev-black-label-1l': 'black-label-1l',
-            'bev-tito-1l': 'tito-1l',
-            'bev-dewars-12-handle': 'dewars-12-handle',
-            'bev-pama': 'pama',
-            'bev-dewars-handle': 'dewars-handle',
-            'bev-donq-cristal-handle': 'donq-cristal-handle',
-            'bev-donq-limon-handle': 'donq-limon-handle',
-            'bev-donq-passion-handle': 'donq-passion-handle',
-            'bev-donq-coco-handle': 'donq-coco-handle',
-            'bev-donq-naranja-handle': 'donq-naranja-handle',
-            'bev-donq-oro-handle': 'donq-oro-handle',
-            'bev-tito-handle': 'tito-handle',
-            'bev-sky-vodka-litro': 'sky-vodka-litro',
-            'bev-sky-vodka-gancho': 'sky-vodka-gancho',
-            'bev-bravada': 'bravada',
-            'bev-bravada-375': 'bravada-375',
-            'bev-dewars-12-375': 'dewars-12-375',
-            'bev-sangria': 'sangria',
-            'bev-red-wine-25': 'red-wine-25',
-            'bev-red-wine-30': 'red-wine-30',
-            'bev-red-wine-35-1': 'red-wine-35-1',
-            'bev-red-wine-35-2': 'red-wine-35-2',
-            'bev-red-wine-40': 'red-wine-40',
-            'bev-white-wine-25': 'white-wine-25',
-            'bev-white-wine-30': 'white-wine-30',
-            'bev-white-wine-35-1': 'white-wine-35-1',
-            'bev-white-wine-35-2': 'white-wine-35-2',
-            'bev-white-wine-40': 'white-wine-40',
-            'bev-descorche-10': 'descorche-10',
-            'bev-descorche-20': 'descorche-20',
-            'bev-descorche-30': 'descorche-30',
-        };
-        Object.entries(map).forEach(([inputId, key]) => {
-            const el = document.getElementById(inputId);
-            if (el) {
-                const selection = this.beverageSelections[key];
-                let qty = 0;
-                if (typeof selection === 'object' && selection !== null && selection.qty) {
-                    qty = selection.qty;
-                    // Restore notes for caja-refrescos-surtidos
-                    if (key === 'caja-refrescos-surtidos' && selection.notes) {
-                        const notesEl = document.getElementById('bev-caja-refrescos-surtidos-notes');
-                        if (notesEl) {
-                            notesEl.value = selection.notes;
-                        }
-                    }
-                } else {
-                    qty = selection || 0;
-                }
-                el.value = qty;
-                const wrapper = el.parentElement;
-                if (wrapper) {
-                    if (qty > 0) wrapper.classList.add('selected');
-                    else wrapper.classList.remove('selected');
-                }
-                // Show/hide notes field for caja-refrescos-surtidos
-                if (key === 'caja-refrescos-surtidos') {
-                    const notesContainer = document.getElementById('bev-caja-refrescos-surtidos-notes-container');
-                    if (notesContainer) {
-                        notesContainer.style.display = qty > 0 ? 'block' : 'none';
-                    }
+        
+        // Add custom beverages first, then prefill all visible quantity inputs.
+        this.addCustomBeveragesToModal();
+        const qtyInputs = modal.querySelectorAll('input[type="number"][id^="bev-"]');
+        qtyInputs.forEach(el => {
+            const key = el.id.replace(/^bev-/, '');
+            const selection = this.beverageSelections[key];
+            let qty = 0;
+            if (typeof selection === 'object' && selection !== null && selection.qty !== undefined) {
+                qty = parseInt(selection.qty) || 0;
+            } else {
+                qty = parseInt(selection) || 0;
+            }
+            el.value = qty;
+            
+            // Restore notes for caja-refrescos-surtidos when present
+            if (key === 'caja-refrescos-surtidos') {
+                const notesEl = document.getElementById('bev-caja-refrescos-surtidos-notes');
+                if (notesEl) {
+                    const notes = (typeof selection === 'object' && selection !== null && selection.notes) ? selection.notes : '';
+                    notesEl.value = notes;
                 }
             }
+            this.updateBeverageSelectionState(el);
         });
+        
         // Handle Mimosa checkboxes
         const mimosaCheckbox = document.getElementById('bev-mimosa');
         if (mimosaCheckbox) {
@@ -2025,34 +1897,6 @@ class ReservationManager {
         if (mimosa395Checkbox) {
             mimosa395Checkbox.checked = this.beverageSelections['mimosa-395'] === true;
         }
-        
-        // Add custom beverages to modal
-        this.addCustomBeveragesToModal();
-        
-        // Prefill custom beverage values after they're added to the modal
-        setTimeout(() => {
-            this.loadCustomBeverages();
-            this.customBeverages.forEach(beverage => {
-                const inputId = `bev-${beverage.id}`;
-                const el = document.getElementById(inputId);
-                if (el) {
-                    const selection = this.beverageSelections[beverage.id];
-                    // Handle custom beverages stored as objects (with qty, name, price)
-                    let qty = 0;
-                    if (typeof selection === 'object' && selection !== null && selection.qty) {
-                        qty = selection.qty;
-                    } else {
-                        qty = selection || 0;
-                    }
-                    el.value = qty;
-                    const wrapper = el.parentElement;
-                    if (wrapper) {
-                        if (qty > 0) wrapper.classList.add('selected');
-                        else wrapper.classList.remove('selected');
-                    }
-                }
-            });
-        }, 100);
         
         // Attach change handlers for selection animation
         this.attachBeverageInputHandlers();
@@ -2073,52 +1917,13 @@ class ReservationManager {
     }
 
     saveBeverageSelectionsFromModal() {
-        const inputs = [
-            { inputId: 'bev-soft-drinks', key: 'soft-drinks' },
-            { inputId: 'bev-caja-refrescos-surtidos', key: 'caja-refrescos-surtidos' },
-            { inputId: 'bev-water', key: 'water' },
-            { inputId: 'bev-michelob', key: 'michelob' },
-            { inputId: 'bev-medalla', key: 'medalla' },
-            { inputId: 'bev-heineken', key: 'heineken' },
-            { inputId: 'bev-coors', key: 'coors' },
-            { inputId: 'bev-corona', key: 'corona' },
-            { inputId: 'bev-modelo', key: 'modelo' },
-            { inputId: 'bev-black-label-1l', key: 'black-label-1l' },
-            { inputId: 'bev-tito-1l', key: 'tito-1l' },
-            { inputId: 'bev-dewars-12-handle', key: 'dewars-12-handle' },
-            { inputId: 'bev-pama', key: 'pama' },
-            { inputId: 'bev-dewars-handle', key: 'dewars-handle' },
-            { inputId: 'bev-donq-cristal-handle', key: 'donq-cristal-handle' },
-            { inputId: 'bev-donq-limon-handle', key: 'donq-limon-handle' },
-            { inputId: 'bev-donq-passion-handle', key: 'donq-passion-handle' },
-            { inputId: 'bev-donq-coco-handle', key: 'donq-coco-handle' },
-            { inputId: 'bev-donq-naranja-handle', key: 'donq-naranja-handle' },
-            { inputId: 'bev-donq-oro-handle', key: 'donq-oro-handle' },
-            { inputId: 'bev-tito-handle', key: 'tito-handle' },
-            { inputId: 'bev-sky-vodka-litro', key: 'sky-vodka-litro' },
-            { inputId: 'bev-sky-vodka-gancho', key: 'sky-vodka-gancho' },
-            { inputId: 'bev-bravada', key: 'bravada' },
-            { inputId: 'bev-bravada-375', key: 'bravada-375' },
-            { inputId: 'bev-dewars-12-375', key: 'dewars-12-375' },
-            { inputId: 'bev-sangria', key: 'sangria' },
-            { inputId: 'bev-red-wine-25', key: 'red-wine-25' },
-            { inputId: 'bev-red-wine-30', key: 'red-wine-30' },
-            { inputId: 'bev-red-wine-35-1', key: 'red-wine-35-1' },
-            { inputId: 'bev-red-wine-35-2', key: 'red-wine-35-2' },
-            { inputId: 'bev-red-wine-40', key: 'red-wine-40' },
-            { inputId: 'bev-white-wine-25', key: 'white-wine-25' },
-            { inputId: 'bev-white-wine-30', key: 'white-wine-30' },
-            { inputId: 'bev-white-wine-35-1', key: 'white-wine-35-1' },
-            { inputId: 'bev-white-wine-35-2', key: 'white-wine-35-2' },
-            { inputId: 'bev-white-wine-40', key: 'white-wine-40' },
-            { inputId: 'bev-descorche-10', key: 'descorche-10' },
-            { inputId: 'bev-descorche-20', key: 'descorche-20' },
-            { inputId: 'bev-descorche-30', key: 'descorche-30' },
-        ];
         const selections = {};
-        inputs.forEach(({ inputId, key }) => {
-            const el = document.getElementById(inputId);
-            const qty = parseInt(el?.value) || 0;
+        const modal = document.getElementById('beverageModal');
+        const qtyInputs = modal ? modal.querySelectorAll('input[type="number"][id^="bev-"]') : [];
+        
+        qtyInputs.forEach(el => {
+            const key = el.id.replace(/^bev-/, '');
+            const qty = parseInt(el.value) || 0;
             if (qty > 0) {
                 // Handle notes for caja-refrescos-surtidos
                 if (key === 'caja-refrescos-surtidos') {
