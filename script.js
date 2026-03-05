@@ -6375,17 +6375,20 @@ class ReservationManager {
             }
             console.log('jsPDF library loaded successfully');
 
-            // Reload reservations to ensure we have the latest data
-            if (window.FIREBASE_LOADED && window.firestore) {
-                await this.loadReservationsFromFirestore();
-            } else {
-                this.reservations = this.loadReservations();
+            // Use in-memory reservation so the exported PDF matches what the user sees on screen
+            // (avoids stale Firestore data when user removed items but export ran before save completed)
+            let reservation = this.reservations.find(r => r.id === id);
+            if (!reservation) {
+                // Not in memory (e.g. page just loaded on another tab); load from storage
+                if (window.FIREBASE_LOADED && window.firestore) {
+                    await this.loadReservationsFromFirestore();
+                } else {
+                    this.reservations = this.loadReservations();
+                }
+                reservation = this.reservations.find(r => r.id === id);
             }
-            console.log('Total reservations loaded:', this.reservations.length);
+            console.log('Total reservations in memory:', this.reservations.length);
             console.log('Looking for reservation ID:', id);
-            console.log('Available reservation IDs:', this.reservations.map(r => r.id));
-            
-            const reservation = this.reservations.find(r => r.id === id);
             if (!reservation) {
                 console.error('Reservation not found. Available IDs:', this.reservations.map(r => r.id));
                 this.showNotification('Error: Reservación no encontrada.', 'error');
