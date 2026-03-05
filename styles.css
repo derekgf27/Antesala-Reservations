@@ -2410,3 +2410,169 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Anadir Items – centered on load, form opens on card click */
+#menu-config .menu-config-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 70vh;
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+    text-align: center;
+}
+
+#menu-config .menu-config-intro {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 100%;
+}
+
+#menu-config .menu-config-form-container {
+    display: none;
+}
+
+#menu-config.menu-config-form-open .menu-config-header {
+    min-height: 0;
+    justify-content: flex-start;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--border-color);
+    text-align: left;
+}
+
+#menu-config.menu-config-form-open .menu-config-intro {
+    align-items: flex-start;
+    width: 100%;
+}
+
+#menu-config.menu-config-form-open .menu-config-form-container {
+    display: block;
+}
+
+/* Anadir Items – choice cards (Buffet, Bebidas, Platos, Postres, Entremeses, Desayuno) */
+.menu-config-subtitle {
+    margin: 0.5rem 0 1rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.menu-config-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .menu-config-cards {
+        grid-template-columns: 1fr;
+    }
+}
+
+.menu-config-choice-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 1.25rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    min-height: 120px;
+}
+
+.menu-config-choice-card:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-color: #F27B21;
+    box-shadow: 0 4px 16px rgba(242, 123, 33, 0.2);
+    transform: translateY(-2px);
+}
+
+.menu-config-choice-card.active {
+    background: linear-gradient(135deg, #F27B21 0%, #D4A04B 100%);
+    color: #fff;
+    border-color: #F27B21;
+    box-shadow: 0 4px 16px rgba(242, 123, 33, 0.35);
+}
+
+.menu-config-choice-card.active:hover {
+    background: linear-gradient(135deg, #e06d1a 0%, #c4913f 100%);
+    color: #fff;
+    border-color: #e06d1a;
+    transform: translateY(-2px);
+}
+
+.choice-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 0.5rem;
+    font-size: 1.5rem;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.menu-config-choice-card:not(.active) .choice-card-icon {
+    background: rgba(242, 123, 33, 0.12);
+    color: #F27B21;
+}
+
+.choice-card-title {
+    display: block;
+    font-size: 1.05rem;
+    margin-bottom: 0.25rem;
+}
+
+.choice-card-desc {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 500;
+    opacity: 0.9;
+}
+
+.menu-config-choice-card:not(.active) .choice-card-desc {
+    color: var(--text-secondary);
+    opacity: 0.85;
+}
+
+#plateConfigComplementosList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.plate-config-complemento-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.plate-config-complemento-row .plate-config-complemento-name {
+    flex: 1;
+    min-width: 140px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.95rem;
+}
+
+.plate-config-complemento-row .plate-config-complemento-price {
+    width: 100px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.95rem;
+}

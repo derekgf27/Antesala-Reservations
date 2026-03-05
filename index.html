@@ -50,6 +50,10 @@
                     <i class="fas fa-chart-bar"></i>
                     <span>Análisis</span>
                 </li>
+                <li class="menu-item" data-section="menu-config">
+                    <i class="fas fa-cog"></i>
+                    <span>Anadir Items</span>
+                </li>
             </ul>
             <div class="dark-mode-toggle-container">
                 <button class="dark-mode-toggle" id="darkModeToggle" aria-label="Alternar modo oscuro">
@@ -380,6 +384,10 @@
                                             <span id="entremesesCost">$0</span>
                                         </div>
                                         <div class="pricing-item">
+                                            <span>Postres:</span>
+                                            <span id="postresCost">$0</span>
+                                        </div>
+                                        <div class="pricing-item">
                                             <span>Servicios Adicionales:</span>
                                             <span id="additionalCost">$0</span>
                                         </div>
@@ -511,7 +519,7 @@
                     <div class="analytics-card">
                         <h3>Espacios Populares</h3>
                         <div id="roomStats" class="stats-list">
-                            <!-- Room statistics will be populated here -->
+                            <!-- Room statistics will be poblulated here -->
                         </div>
                     </div>
                     <div class="analytics-card">
@@ -522,6 +530,300 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Menu Configuration Section -->
+            <section id="menu-config" class="content-section">
+                <div class="section-header menu-config-header">
+                    <div class="menu-config-intro">
+                        <h1>Anadir Items</h1>
+                        <p class="menu-config-subtitle">Elige dónde quieres agregar un nuevo ítem:</p>
+                        <div class="menu-config-cards">
+                            <button type="button" class="menu-config-choice-card menu-config-tab" data-menu-tab="buffet">
+                                <span class="choice-card-icon"><i class="fas fa-utensils"></i></span>
+                                <span class="choice-card-title">Buffet</span>
+                                <span class="choice-card-desc">Arroz, proteína, complemento, ensalada</span>
+                            </button>
+                            <button type="button" class="menu-config-choice-card menu-config-tab" data-menu-tab="beverages">
+                                <span class="choice-card-icon"><i class="fas fa-wine-bottle"></i></span>
+                                <span class="choice-card-title">Bebidas</span>
+                                <span class="choice-card-desc">Vinos, licores, cervezas, no alcohólicas</span>
+                            </button>
+                            <button type="button" class="menu-config-choice-card menu-config-tab" data-menu-tab="plates">
+                                <span class="choice-card-icon"><i class="fas fa-concierge-bell"></i></span>
+                                <span class="choice-card-title">Platos Individuales</span>
+                                <span class="choice-card-desc">Plantillas con nombre, precio y complementos</span>
+                            </button>
+                            <button type="button" class="menu-config-choice-card menu-config-tab" data-menu-tab="postres">
+                                <span class="choice-card-icon"><i class="fas fa-birthday-cake"></i></span>
+                                <span class="choice-card-title">Postres</span>
+                                <span class="choice-card-desc">Dulces y postres con nombre y precio</span>
+                            </button>
+                            <button type="button" class="menu-config-choice-card menu-config-tab" data-menu-tab="entremeses">
+                                <span class="choice-card-icon"><i class="fas fa-leaf"></i></span>
+                                <span class="choice-card-title">Entremeses</span>
+                                <span class="choice-card-desc">Entremeses y bandejas con nombre y precio</span>
+                            </button>
+                            <button type="button" class="menu-config-choice-card menu-config-tab" data-menu-tab="desayuno">
+                                <span class="choice-card-icon"><i class="fas fa-coffee"></i></span>
+                                <span class="choice-card-title">Desayuno</span>
+                                <span class="choice-card-desc">Items de desayuno con nombre y precio</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-container menu-config-grid menu-config-form-container" aria-hidden="true">
+                    <!-- Buffet options card -->
+                    <div class="form-card" data-menu-panel="buffet">
+                        <div class="card-header">
+                            <i class="fas fa-utensils"></i>
+                            <h3>Buffet</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="buffetConfigCategory">Tipo de opción de Buffet</label>
+                                <select id="buffetConfigCategory" name="buffetConfigCategory">
+                                    <option value="">Seleccionar tipo</option>
+                                    <option value="buffet-rice">Arroz</option>
+                                    <option value="buffet-protein">Proteína</option>
+                                    <option value="buffet-side">Complemento</option>
+                                    <option value="buffet-salad">Ensalada</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="buffetConfigName">Nombre para mostrar</label>
+                                <input type="text" id="buffetConfigName" name="buffetConfigName" placeholder="Ej. Arroz Primavera, Pechuga en Salsa Blanca">
+                                <div id="buffetConfigError" class="field-error"></div>
+                            </div>
+                            <div class="form-group">
+                                <button type="button" class="btn btn-primary" id="buffetConfigAddBtn">
+                                    <i class="fas fa-plus-circle"></i> Agregar a Buffet
+                                </button>
+                            </div>
+                            <small class="form-help">
+                                Estas opciones se agregarán a los menús desplegables del Buffet.
+                            </small>
+                            <div class="form-group">
+                                <label for="buffetConfigSearch">Buscar opciones de buffet</label>
+                                <input type="text" id="buffetConfigSearch" name="buffetConfigSearch" placeholder="Buscar por nombre">
+                            </div>
+                            <div class="menu-preview">
+                                <h4>Opciones personalizadas de Buffet</h4>
+                                <div id="buffetConfigPreview" class="menu-config-preview"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Beverage options card -->
+                    <div class="form-card" data-menu-panel="beverages">
+                        <div class="card-header">
+                            <i class="fas fa-wine-bottle"></i>
+                            <h3>Bebidas Personalizadas</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="bevConfigName">Nombre de la bebida</label>
+                                <input type="text" id="bevConfigName" name="bevConfigName" placeholder="Ej. Vino de la Casa (Botella)">
+                                <div id="bevConfigError" class="field-error"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="bevConfigPrice">Precio ($)</label>
+                                <input type="number" id="bevConfigPrice" name="bevConfigPrice" min="0" step="0.01" placeholder="0.00">
+                            </div>
+                            <div class="form-group">
+                                <label for="bevConfigSection">Sección</label>
+                                <select id="bevConfigSection" name="bevConfigSection">
+                                    <option value="vinos">Vinos</option>
+                                    <option value="licores">Licores</option>
+                                    <option value="cervezas">Cervezas</option>
+                                    <option value="no-alcoholicas">No Alcohólicas</option>
+                                    <option value="otros">Otros</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="bevConfigMeasurement">Medida / Detalle</label>
+                                <input type="text" id="bevConfigMeasurement" name="bevConfigMeasurement" placeholder="Ej. Botella, Copa, Jarrita">
+                            </div>
+                            <div class="form-group">
+                                <label class="panecillos-label">
+                                    <input type="checkbox" id="bevConfigAlcohol" name="bevConfigAlcohol" checked>
+                                    <span class="check-box"></span>
+                                    <span class="panecillos-text">Contiene alcohol</span>
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <button type="button" class="btn btn-primary" id="bevConfigAddBtn">
+                                    <i class="fas fa-plus-circle"></i> Agregar Bebida
+                                </button>
+                            </div>
+                            <small class="form-help">
+                                Las bebidas personalizadas aparecerán en la sección de bebidas al crear una reservación.
+                            </small>
+                            <div class="form-group">
+                                <label for="bevConfigSearch">Buscar bebidas</label>
+                                <input type="text" id="bevConfigSearch" name="bevConfigSearch" placeholder="Buscar por nombre">
+                            </div>
+                            <div class="menu-preview">
+                                <h4>Bebidas personalizadas</h4>
+                                <div id="bevConfigPreview" class="menu-config-preview"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Individual plates templates card -->
+                    <div class="form-card" data-menu-panel="plates">
+                        <div class="card-header">
+                            <i class="fas fa-concierge-bell"></i>
+                            <h3>Platos Individuales</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="plateConfigName">Nombre del plato</label>
+                                <input type="text" id="plateConfigName" name="plateConfigName" placeholder="Ej. Pechuga a la Parrilla">
+                                <div id="plateConfigError" class="field-error"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="plateConfigPrice">Precio del plato ($)</label>
+                                <input type="number" id="plateConfigPrice" name="plateConfigPrice" min="0" step="0.01" placeholder="0.00">
+                            </div>
+                            <div class="form-group">
+                                <label>Complementos por defecto (nombre y precio)</label>
+                                <div id="plateConfigComplementosList" class="complementos-list">
+                                    <!-- Filas nombre + precio se agregan con el botón -->
+                                </div>
+                                <button type="button" class="btn btn-outline btn-sm" id="plateConfigAddComplementoBtn" style="margin-top: 8px;">
+                                    <i class="fas fa-plus"></i> Agregar complemento
+                                </button>
+                            </div>
+                            <div class="form-group">
+                                <button type="button" class="btn btn-primary" id="plateConfigAddBtn">
+                                    <i class="fas fa-plus-circle"></i> Guardar Plato
+                                </button>
+                            </div>
+                            <small class="form-help">
+                                Los platos guardados aparecerán como plantillas en el modal de Platos Individuales.
+                            </small>
+                            <div class="form-group">
+                                <label for="plateConfigSearch">Buscar platos guardados</label>
+                                <input type="text" id="plateConfigSearch" name="plateConfigSearch" placeholder="Buscar por nombre">
+                            </div>
+                            <div class="menu-preview">
+                                <h4>Platos guardados</h4>
+                                <div id="plateTemplatesPreview" class="menu-config-preview" aria-label="Platos guardados"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Postres card -->
+                    <div class="form-card" data-menu-panel="postres">
+                        <div class="card-header">
+                            <i class="fas fa-birthday-cake"></i>
+                            <h3>Postres</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="postresConfigName">Nombre del postre</label>
+                                <input type="text" id="postresConfigName" name="postresConfigName" placeholder="Ej. Flan de Coco, Tres Leches">
+                                <div id="postresConfigError" class="field-error"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="postresConfigPrice">Precio ($)</label>
+                                <input type="number" id="postresConfigPrice" name="postresConfigPrice" min="0" step="0.01" placeholder="0.00">
+                            </div>
+                            <div class="form-group">
+                                <button type="button" class="btn btn-primary" id="postresConfigAddBtn">
+                                    <i class="fas fa-plus-circle"></i> Agregar Postre
+                                </button>
+                            </div>
+                            <small class="form-help">
+                                Los postres guardados estarán disponibles para usar en reservaciones.
+                            </small>
+                            <div class="form-group">
+                                <label for="postresConfigSearch">Buscar postres</label>
+                                <input type="text" id="postresConfigSearch" name="postresConfigSearch" placeholder="Buscar por nombre">
+                            </div>
+                            <div class="menu-preview">
+                                <h4>Postres guardados</h4>
+                                <div id="postresConfigPreview" class="menu-config-preview"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Entremeses card -->
+                    <div class="form-card" data-menu-panel="entremeses">
+                        <div class="card-header">
+                            <i class="fas fa-leaf"></i>
+                            <h3>Entremeses</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="entremesesConfigName">Nombre del entremés</label>
+                                <input type="text" id="entremesesConfigName" name="entremesesConfigName" placeholder="Ej. Bandeja Entremeses Surtidos">
+                                <div id="entremesesConfigError" class="field-error"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="entremesesConfigPrice">Precio ($)</label>
+                                <input type="number" id="entremesesConfigPrice" name="entremesesConfigPrice" min="0" step="0.01" placeholder="0.00">
+                            </div>
+                            <div class="form-group">
+                                <button type="button" class="btn btn-primary" id="entremesesConfigAddBtn">
+                                    <i class="fas fa-plus-circle"></i> Agregar Entremés
+                                </button>
+                            </div>
+                            <small class="form-help">
+                                Los entremeses guardados estarán disponibles para usar en reservaciones.
+                            </small>
+                            <div class="form-group">
+                                <label for="entremesesConfigSearch">Buscar entremeses</label>
+                                <input type="text" id="entremesesConfigSearch" name="entremesesConfigSearch" placeholder="Buscar por nombre">
+                            </div>
+                            <div class="menu-preview">
+                                <h4>Entremeses guardados</h4>
+                                <div id="entremesesConfigPreview" class="menu-config-preview"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Desayuno card -->
+                    <div class="form-card" data-menu-panel="desayuno">
+                        <div class="card-header">
+                            <i class="fas fa-coffee"></i>
+                            <h3>Desayuno</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="desayunoConfigName">Nombre del ítem</label>
+                                <input type="text" id="desayunoConfigName" name="desayunoConfigName" placeholder="Ej. Desayuno Continental, Huevos Benedict">
+                                <div id="desayunoConfigError" class="field-error"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="desayunoConfigPrice">Precio ($)</label>
+                                <input type="number" id="desayunoConfigPrice" name="desayunoConfigPrice" min="0" step="0.01" placeholder="0.00">
+                            </div>
+                            <div class="form-group">
+                                <button type="button" class="btn btn-primary" id="desayunoConfigAddBtn">
+                                    <i class="fas fa-plus-circle"></i> Agregar Ítem
+                                </button>
+                            </div>
+                            <small class="form-help">
+                                Los ítems de desayuno guardados estarán disponibles para usar en reservaciones.
+                            </small>
+                            <div class="form-group">
+                                <label for="desayunoConfigSearch">Buscar ítems</label>
+                                <input type="text" id="desayunoConfigSearch" name="desayunoConfigSearch" placeholder="Buscar por nombre">
+                            </div>
+                            <div class="menu-preview">
+                                <h4>Desayuno guardados</h4>
+                                <div id="desayunoConfigPreview" class="menu-config-preview"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="menu-config-footer">
+                    <small id="menuConfigLastModified">Última modificación: Ninguna</small>
+                </div>
+            </section>
+
+            <!-- Ensure individual plates modal has a place for templates -->
         </main>
     </div>
 
@@ -609,6 +911,20 @@
                     <label for="buffetSide">Complementos (Escoger 1)</label>
                     <select id="buffetSide" name="buffetSide">
                         <option value="">Seleccione complemento</option>
+                        <option value="ensalada-coditos">Ensalada de coditos</option>
+                        <option value="ensalada-papa">Ensalada Papa</option>
+                        <option value="guineos-escabeche">Guineos en Escabeche</option>
+                        <option value="papas-leonesa">Papas Leonesa</option>
+                        <option value="papas-salteadas">Papas salteadas</option>
+                        <option value="amarillos">Amarillos</option>
+                        <option value="tostones">Tostones</option>
+                        <option value="yuca-ajillo">Yuca al Ajillo</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="buffetSide2">Segundo Complemento (Opcional)</label>
+                    <select id="buffetSide2" name="buffetSide2">
+                        <option value="">Seleccione segundo complemento (opcional)</option>
                         <option value="ensalada-coditos">Ensalada de coditos</option>
                         <option value="ensalada-papa">Ensalada Papa</option>
                         <option value="guineos-escabeche">Guineos en Escabeche</option>
@@ -805,6 +1121,7 @@
                         <span class="panecillos-text">Tres Leches</span>
                     </label>
                 </div>
+                <div id="dessertCustomContainer" class="form-group" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);" aria-label="Postres personalizados"></div>
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-outline" id="dessertClearBtn">Limpiar Todo</button>
@@ -1010,6 +1327,22 @@
                                     <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-tito-handle">+</button>
                                 </div>
                             </div>
+                            <div>
+                                <label for="bev-sky-vodka-litro">Sky Vodka Litro ($65)</label>
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-sky-vodka-litro">−</button>
+                                    <input type="number" id="bev-sky-vodka-litro" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-sky-vodka-litro">+</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="bev-sky-vodka-gancho">Sky Vodka Gancho ($120)</label>
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-sky-vodka-gancho">−</button>
+                                    <input type="number" id="bev-sky-vodka-gancho" min="0" value="0" readonly>
+                                    <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-sky-vodka-gancho">+</button>
+                                </div>
+                            </div>
                             
                         </div>
                     </div>
@@ -1185,63 +1518,9 @@
                 </div>
             </div>
             <div class="modal-actions">
-                <button type="button" class="btn btn-outline" id="addCustomBeverageBtn" title="Agregar Bebida Personalizada">
-                    <i class="fas fa-plus"></i> Agregar Bebida
-                </button>
                 <button type="button" class="btn btn-outline" id="beverageClearBtn">Limpiar Todo</button>
                 <button type="button" class="btn btn-outline" id="beverageCancelBtn">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="beverageSaveBtn">Guardar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Custom Beverage Modal -->
-    <div id="customBeverageModal" class="modal-overlay hidden">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>Agregar Bebida Personalizada</h3>
-                <button type="button" class="modal-close" id="customBeverageCloseBtn" aria-label="Cerrar">×</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="customBeverageName">Nombre de la Bebida *</label>
-                    <input type="text" id="customBeverageName" name="customBeverageName" placeholder="Ej: Ron Añejo" required>
-                </div>
-                <div class="form-group">
-                    <label for="customBeveragePrice">Precio ($) *</label>
-                    <input type="number" id="customBeveragePrice" name="customBeveragePrice" min="0" step="0.01" placeholder="0.00" required>
-                </div>
-                <div class="form-group">
-                    <label for="customBeverageCategory">Categoría *</label>
-                    <select id="customBeverageCategory" name="customBeverageCategory" required>
-                        <option value="">Seleccione una categoría</option>
-                        <option value="cervezas">Cervezas</option>
-                        <option value="licores">Licores</option>
-                        <option value="vinos">Vinos</option>
-                        <option value="no-alcoholicas">No Alcohólicas</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="customBeverageMeasurement">Medida *</label>
-                    <select id="customBeverageMeasurement" name="customBeverageMeasurement" required>
-                        <option value="">Seleccione una medida</option>
-                        <option value="Gancho">Gancho</option>
-                        <option value="Litro">Litro</option>
-                        <option value="Botella">Botella</option>
-                        <option value="Otro">Otro</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="panecillos-label">
-                        <input type="checkbox" id="customBeverageAlcohol" name="customBeverageAlcohol" checked>
-                        <span class="check-box"></span>
-                        <span class="panecillos-text">Contiene alcohol (aplicará impuesto de alcohol)</span>
-                    </label>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="btn btn-outline" id="customBeverageCancelBtn">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="customBeverageSaveBtn">Agregar</button>
             </div>
         </div>
     </div>
@@ -1288,6 +1567,7 @@
                         </div>
                     </div>
                 </div>
+                <div id="entremesesCustomContainer" class="protein-grid" aria-label="Entremeses personalizados"></div>
                 <div class="form-group entremeses-asopao-group">
                     <label class="panecillos-label">
                         <input type="checkbox" id="entr-asopao" name="entr-asopao">
@@ -1338,6 +1618,12 @@
                 </div>
                 <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
                     <h4 style="margin-bottom: 15px;">Agregar Nuevo Plato</h4>
+                    <div class="form-group">
+                        <label for="plateTemplateSelect">Usar plantilla de plato (opcional)</label>
+                        <select id="plateTemplateSelect" name="plateTemplateSelect">
+                            <!-- Opciones de plantillas se poblarán dinámicamente -->
+                        </select>
+                    </div>
                     <div class="form-group">
                         <label for="newPlateName">Nombre del Plato *</label>
                         <input type="text" id="newPlateName" name="newPlateName" placeholder="Ej: Pollo Asado" required>
