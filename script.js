@@ -4990,7 +4990,12 @@ class ReservationManager {
         }
         const items = this.getEntremesesItems();
         const entremesesList = Object.entries(entremesesMap)
-            .filter(([, qty]) => (typeof qty === 'number' && qty > 0) || qty === true)
+            .filter(([, qty]) => {
+                if (qty === true) return true;
+                if (typeof qty === 'number' && qty > 0) return true;
+                if (typeof qty === 'object' && qty !== null && 'qty' in qty) return (parseInt(qty.qty) || 0) > 0;
+                return false;
+            })
             .map(([id, qty]) => {
                 // Handle Asopao, Caldo de Gallego, and Ceviche separately - they're per person
                 if (id === 'asopao' && qty === true) {
@@ -5004,6 +5009,11 @@ class ReservationManager {
                 } else if (typeof qty === 'number' && qty > 0) {
                     const item = items.find(i => i.id === id);
                     return `<li>${qty} x ${item ? item.name : id}</li>`;
+                } else if (typeof qty === 'object' && qty !== null && 'qty' in qty) {
+                    const n = parseInt(qty.qty) || 0;
+                    if (n <= 0) return '';
+                    const item = items.find(i => i.id === id);
+                    return `<li>${n} x ${item ? item.name : id}</li>`;
                 }
                 return '';
             })
@@ -6422,7 +6432,8 @@ class ReservationManager {
         
         // Food items - can show both buffet and individual plates
         const hasBuffet = this.isBuffet(reservation.foodType) && reservation.buffet;
-        const hasIndividualPlates = reservation.individualPlates && reservation.individualPlates.length > 0;
+        const individualPlatesWithQty = (reservation.individualPlates || []).filter(p => (p.quantity || 0) > 0);
+        const hasIndividualPlates = individualPlatesWithQty.length > 0;
         
         // Show buffet if present
         if (hasBuffet) {
@@ -6479,9 +6490,9 @@ class ReservationManager {
             }
         }
         
-        // Show individual plates if present (can be alongside buffet)
+        // Show individual plates if present (can be alongside buffet) — only plates with quantity > 0
         if (hasIndividualPlates) {
-            reservation.individualPlates.forEach(plate => {
+            individualPlatesWithQty.forEach(plate => {
                 const plateTotal = plate.price * plate.quantity;
                 const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
                                     (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
@@ -6628,6 +6639,10 @@ class ReservationManager {
             Object.entries(reservation.entremeses).forEach(([id, qty]) => {
                 // Skip items with qty = 0 or falsy values (deleted items)
                 if (qty === false || qty === null || qty === undefined) return;
+                if (typeof qty === 'object' && qty !== null && 'qty' in qty) {
+                    const n = parseInt(qty.qty) || 0;
+                    if (n <= 0) return;
+                }
                 
                 // Handle Asopao, Caldo de Gallego, and Ceviche - they're per person
                 if (id === 'asopao' && qty === true) {
@@ -6766,9 +6781,10 @@ class ReservationManager {
         // Build items array for PDF table
         const itemsData = [];
         
-        // Food items - can show both buffet and individual plates
+        // Food items - can show both buffet and individual plates (only plates with quantity > 0)
         const hasBuffetPDF = this.isBuffet(reservation.foodType) && reservation.buffet;
-        const hasIndividualPlatesPDF = reservation.individualPlates && reservation.individualPlates.length > 0;
+        const individualPlatesWithQtyPDF = (reservation.individualPlates || []).filter(p => (p.quantity || 0) > 0);
+        const hasIndividualPlatesPDF = individualPlatesWithQtyPDF.length > 0;
         
         // Show buffet if present
         if (hasBuffetPDF) {
@@ -6814,9 +6830,9 @@ class ReservationManager {
             }
         }
         
-        // Show individual plates if present (can be alongside buffet)
-        if (hasIndividualPlates) {
-            reservation.individualPlates.forEach(plate => {
+        // Show individual plates if present (can be alongside buffet) — only plates with quantity > 0
+        if (hasIndividualPlatesPDF) {
+            individualPlatesWithQtyPDF.forEach(plate => {
                 const plateTotal = plate.price * plate.quantity;
                 const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
                                     (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
@@ -6965,6 +6981,10 @@ class ReservationManager {
             Object.entries(reservation.entremeses).forEach(([id, qty]) => {
                 // Skip items with qty = 0 or falsy values (deleted items)
                 if (qty === false || qty === null || qty === undefined) return;
+                if (typeof qty === 'object' && qty !== null && 'qty' in qty) {
+                    const n = parseInt(qty.qty) || 0;
+                    if (n <= 0) return;
+                }
                 
                 if (id === 'asopao' && qty === true) {
                     const total = 3.00 * reservation.guestCount;
