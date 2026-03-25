@@ -1078,6 +1078,8 @@ class ReservationManager {
     }
 
     clearBreakfastSelections() {
+        const medianochePavoEl = document.getElementById('breakfastMedianochePavo');
+        if (medianochePavoEl) medianochePavoEl.checked = false;
         const cafeEl = document.getElementById('breakfastCafe');
         if (cafeEl) cafeEl.checked = false;
         const jugoEl = document.getElementById('breakfastJugo');
@@ -1237,6 +1239,7 @@ class ReservationManager {
                 editBreakfastBtn?.classList.add('hidden');
                 container.innerHTML = `<ul><li>${this.getFoodDisplayName(breakfastType)}</li></ul>`;
             } else {
+                const medianochePavo = document.getElementById('breakfastMedianochePavo');
                 const cafe = document.getElementById('breakfastCafe');
                 const jugo = document.getElementById('breakfastJugo');
                 const avena = document.getElementById('breakfastAvena');
@@ -1244,6 +1247,7 @@ class ReservationManager {
                 const bocadilloJamonQueso = document.getElementById('breakfastBocadilloJamonQueso');
 
                 const items = [];
+                if (medianochePavo?.checked) items.push(`<li>Medianoche de Pavo</li>`);
                 if (cafe?.checked) items.push(`<li>Café</li>`);
                 if (jugo?.checked) items.push(`<li>Jugo</li>`);
                 if (avena?.checked) items.push(`<li>Avena</li>`);
@@ -3538,6 +3542,7 @@ class ReservationManager {
         let breakfastSelections = null;
         const breakfastType = formData.get('breakfastType');
         if (this.isBreakfast(breakfastType)) {
+            const medianochePavoEl = document.getElementById('breakfastMedianochePavo');
             const cafeEl = document.getElementById('breakfastCafe');
             const jugoEl = document.getElementById('breakfastJugo');
             const avenaEl = document.getElementById('breakfastAvena');
@@ -3545,6 +3550,7 @@ class ReservationManager {
             const bocadilloJamonQuesoEl = document.getElementById('breakfastBocadilloJamonQueso');
 
             breakfastSelections = {
+                medianochePavo: medianochePavoEl?.checked || false,
                 cafe: cafeEl?.checked || false,
                 jugo: jugoEl?.checked || false,
                 avena: avenaEl?.checked || false,
@@ -3620,6 +3626,7 @@ class ReservationManager {
             } : null,
             individualPlates: (formData.get('foodType') === 'individual-plates' || this.individualPlatesSelections.length > 0) ? this.individualPlatesSelections : null,
             breakfast: this.isBreakfast(breakfastType) && !String(breakfastType).startsWith('custom-') ? {
+                medianochePavo: breakfastSelections?.medianochePavo || false,
                 cafe: breakfastSelections?.cafe || false,
                 jugo: breakfastSelections?.jugo || false,
                 avena: breakfastSelections?.avena || false,
@@ -4225,6 +4232,7 @@ class ReservationManager {
                             <span class="detail-value">${this.getFoodDisplayName(reservation.breakfastType)}</span>
                             ${reservation.breakfast ? `
                             <ul class="detail-bullet-list">
+                                ${reservation.breakfast.medianochePavo ? `<li>Medianoche de Pavo</li>` : ''}
                                 ${reservation.breakfast.cafe ? `<li>Café</li>` : ''}
                                 ${reservation.breakfast.jugo ? `<li>Jugo</li>` : ''}
                                 ${reservation.breakfast.avena ? `<li>Avena</li>` : ''}
@@ -5680,6 +5688,7 @@ class ReservationManager {
             'desayuno-9.95': 'Desayuno $9.95',
             'desayuno-10.95': 'Desayuno $10.95',
             'desayuno-12': 'Desayuno Continental $12',
+            'desayuno-15.95': 'Desayuno $15.95',
             'no-food': 'Sin Servicio de Comida'
         };
         return foodNames[foodType] || foodType;
@@ -5942,6 +5951,8 @@ class ReservationManager {
         // Populate breakfast modal fields (do not open the modal)
         if (reservation.breakfastType && this.isBreakfast(reservation.breakfastType)) {
             const breakfast = reservation.breakfast || {};
+            const medianochePavoEl = document.getElementById('breakfastMedianochePavo');
+            if (medianochePavoEl) medianochePavoEl.checked = breakfast.medianochePavo || false;
             const cafeEl = document.getElementById('breakfastCafe');
             if (cafeEl) cafeEl.checked = breakfast.cafe || false;
             const jugoEl = document.getElementById('breakfastJugo');
@@ -6533,6 +6544,7 @@ class ReservationManager {
         if (reservation.breakfastType && this.isBreakfast(reservation.breakfastType) && reservation.pricing.breakfastCost > 0) {
             if (reservation.breakfast) {
                 const breakfastItems = [];
+                if (reservation.breakfast.medianochePavo) breakfastItems.push('Medianoche de Pavo');
                 if (reservation.breakfast.cafe) breakfastItems.push('Café');
                 if (reservation.breakfast.jugo) breakfastItems.push('Jugo');
                 if (reservation.breakfast.avena) breakfastItems.push('Avena');
@@ -6868,6 +6880,7 @@ class ReservationManager {
         if (reservation.breakfastType && this.isBreakfast(reservation.breakfastType) && reservation.pricing.breakfastCost > 0) {
             if (reservation.breakfast) {
                 const breakfastItems = [];
+                if (reservation.breakfast.medianochePavo) breakfastItems.push('Medianoche de Pavo');
                 if (reservation.breakfast.cafe) breakfastItems.push('Café');
                 if (reservation.breakfast.jugo) breakfastItems.push('Jugo');
                 if (reservation.breakfast.avena) breakfastItems.push('Avena');
