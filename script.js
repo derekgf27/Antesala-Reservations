@@ -751,6 +751,10 @@ class ReservationManager {
                 this.displayReservations();
             });
         }
+        const reservationSearch = document.getElementById('reservationSearch');
+        if (reservationSearch) {
+            reservationSearch.addEventListener('input', () => this.displayReservations());
+        }
         
         // Sort direction toggle button
         const sortDirectionToggle = document.getElementById('sortDirectionToggle');
@@ -5482,6 +5486,35 @@ class ReservationManager {
         }
     }
 
+    /** Returns true if reservation matches the search query (name, phone, email, room, date, id, guests). */
+    reservationMatchesSearchQuery(reservation, queryLower) {
+        if (!queryLower) return true;
+        const includes = (s) => s != null && String(s).toLowerCase().includes(queryLower);
+        const phoneDigits = (reservation.clientPhone || '').replace(/\D/g, '');
+        const qDigits = queryLower.replace(/\D/g, '');
+        const phoneMatch = qDigits.length >= 2 && phoneDigits.includes(qDigits);
+        let dateFormatted = '';
+        try {
+            const eventDate = new Date((reservation.eventDate || '') + 'T00:00:00');
+            if (!isNaN(eventDate.getTime())) {
+                const month = String(eventDate.getMonth() + 1).padStart(2, '0');
+                const day = String(eventDate.getDate()).padStart(2, '0');
+                const year = eventDate.getFullYear();
+                dateFormatted = `${month}/${day}/${year}`;
+            }
+        } catch (e) { /* ignore */ }
+        const roomName = this.getRoomDisplayName(reservation.roomType);
+        return includes(reservation.clientName)
+            || includes(reservation.clientEmail)
+            || includes(reservation.companyName)
+            || includes(reservation.id)
+            || includes(reservation.eventDate)
+            || includes(dateFormatted)
+            || includes(roomName)
+            || includes(String(reservation.guestCount ?? ''))
+            || phoneMatch;
+    }
+
     // Display reservations
     displayReservations() {
         const container = document.getElementById('reservationsContainer');
@@ -5495,6 +5528,9 @@ class ReservationManager {
             `;
             return;
         }
+
+        const searchInput = document.getElementById('reservationSearch');
+        const queryLower = (searchInput?.value || '').trim().toLowerCase();
 
         // Sort reservations based on selected option
         const sortedReservations = [...this.reservations].sort((a, b) => {
@@ -5536,7 +5572,21 @@ class ReservationManager {
             return this.sortDirection === 'desc' ? -result : result;
         });
 
-        container.innerHTML = sortedReservations.map(reservation => `
+        const filteredReservations = queryLower
+            ? sortedReservations.filter(r => this.reservationMatchesSearchQuery(r, queryLower))
+            : sortedReservations;
+
+        if (filteredReservations.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <h3>No se encontraron reservaciones</h3>
+                    <p>Pruebe otro término o borre la búsqueda.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = filteredReservations.map(reservation => `
             <div class="reservation-card">
                 <div class="reservation-header">
                     <div class="reservation-client">${reservation.clientName}</div>
