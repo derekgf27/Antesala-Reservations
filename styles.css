@@ -863,6 +863,126 @@ body {
     opacity: 1;
 }
 
+/* Beverage modal: main card + sidebar with selected items */
+.modal-overlay--beverage {
+    align-items: center;
+    justify-content: center;
+}
+
+.beverage-modal-shell {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 14px;
+    width: 100%;
+    max-width: min(1180px, calc(100vw - 24px));
+}
+
+.modal-overlay--beverage.visible .beverage-modal-shell .modal.beverage-modal-card {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+}
+
+.beverage-modal-card.modal {
+    flex: 1 1 480px;
+    min-width: 0;
+    max-width: 720px;
+}
+
+.beverage-sidebar {
+    flex: 0 0 300px;
+    min-width: 260px;
+    max-height: min(90vh, 720px);
+    background: var(--bg-secondary);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px var(--shadow-hover);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.beverage-sidebar-header {
+    padding: 14px 16px;
+    background: linear-gradient(135deg, #F27B21 0%, #D4A04B 100%);
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.beverage-sidebar-title {
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.beverage-sidebar-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 12px;
+    min-height: 120px;
+}
+
+.beverage-sidebar-empty {
+    margin: 0;
+    padding: 12px 8px;
+    font-size: 0.9rem;
+    color: var(--text-muted, #888);
+    text-align: center;
+}
+
+.beverage-sidebar-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.beverage-sidebar-row:last-child {
+    border-bottom: none;
+}
+
+.beverage-sidebar-row-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.92rem;
+    color: var(--text-secondary);
+    line-height: 1.35;
+}
+
+.beverage-sidebar-row-qty {
+    font-weight: 600;
+    color: #F27B21;
+    white-space: nowrap;
+}
+
+.beverage-sidebar-remove {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+}
+
+@media (max-width: 960px) {
+    .beverage-modal-shell {
+        flex-direction: column;
+        align-items: stretch;
+        max-height: calc(100vh - 32px);
+    }
+
+    .beverage-modal-card.modal {
+        flex: 1 1 auto;
+        max-height: calc(100vh - 280px);
+        max-width: 100%;
+    }
+
+    .beverage-sidebar {
+        flex: 0 0 auto;
+        max-height: 220px;
+        min-width: 0;
+        width: 100%;
+    }
+}
+
 .modal-actions {
     display: flex;
     justify-content: flex-end;
@@ -1531,12 +1651,20 @@ body {
 
 .calendar-navigation {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    justify-content: center;
     align-items: center;
+    gap: 10px 14px;
     margin-bottom: 25px;
     padding-bottom: 20px;
     border-bottom: 2px solid var(--border-color);
     transition: border-color 0.3s ease;
+}
+
+.calendar-navigation #calendarMonthYear {
+    flex: 1 1 auto;
+    text-align: center;
+    min-width: 160px;
 }
 
 .calendar-navigation h2 {
@@ -1962,7 +2090,19 @@ body {
     background: var(--bg-tertiary);
     border-radius: 10px;
     border-left: 4px solid #F27B21;
-    transition: background-color 0.3s ease;
+    transition: background-color 0.3s ease, box-shadow 0.2s ease;
+}
+
+.recent-item--action,
+.upcoming-item--action {
+    cursor: pointer;
+}
+
+.recent-item--action:hover,
+.upcoming-item--action:focus-visible {
+    outline: none;
+    background: var(--bg-secondary);
+    box-shadow: 0 2px 12px rgba(242, 123, 33, 0.18);
 }
 
 .recent-item-info,
@@ -2464,13 +2604,13 @@ body {
     100% { transform: rotate(360deg); }
 }
 
-/* Anadir Items – centered on load, form opens on card click */
+/* Añadir ítems – centered on load, form opens on card click */
 #menu-config .menu-config-header {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 70vh;
+    min-height: min(52vh, 520px);
     margin-bottom: 0;
     padding-bottom: 0;
     border-bottom: none;
@@ -2504,9 +2644,150 @@ body {
 
 #menu-config.menu-config-form-open .menu-config-form-container {
     display: block;
+    order: 1;
 }
 
-/* Anadir Items – choice cards (Buffet, Bebidas, Platos, Postres, Entremeses, Desayuno) */
+#menu-config .menu-config-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+#menu-config.menu-config-form-open .menu-config-body {
+    display: grid;
+    /* Form (left, wide) | Catálogo guardado (right, narrow) */
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 400px);
+    gap: 1.5rem 1.75rem;
+    align-items: start;
+}
+
+@media (max-width: 960px) {
+    #menu-config.menu-config-form-open .menu-config-body {
+        grid-template-columns: 1fr;
+    }
+}
+
+#menu-config.menu-config-form-open .menu-config-master-wrapper {
+    order: 2;
+    position: sticky;
+    top: 1rem;
+    margin-bottom: 0;
+}
+
+@media (max-width: 960px) {
+    #menu-config.menu-config-form-open .menu-config-master-wrapper {
+        position: static;
+    }
+}
+
+#menu-config:not(.menu-config-form-open) .menu-config-master-toolbar {
+    display: none;
+}
+
+.menu-config-master-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem 1rem;
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+}
+
+.menu-config-master-toolbar-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.menu-config-scope-toggle {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.menu-config-scope-btn {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: inherit;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.menu-config-scope-btn:hover {
+    border-color: #F27B21;
+    color: var(--text-primary);
+}
+
+.menu-config-scope-btn.active {
+    background: linear-gradient(135deg, #F27B21 0%, #D4A04B 100%);
+    border-color: #F27B21;
+    color: #fff;
+}
+
+.menu-config-master-search-wrap .menu-config-master-search {
+    max-width: none;
+}
+
+.menu-config-optional {
+    font-weight: 500;
+    font-size: 0.85em;
+    color: var(--text-muted, #888);
+}
+
+.menu-config-panel-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.5rem 1.75rem;
+    align-items: start;
+}
+
+@media (max-width: 768px) {
+    .menu-config-panel-columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+.menu-config-panel-col--add {
+    padding: 1rem 1.1rem;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+}
+
+.menu-config-panel-col--list .menu-preview {
+    margin-top: 0;
+}
+
+.menu-config-panel-col--list .menu-config-preview {
+    min-height: 120px;
+}
+
+.menu-config-col-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 1rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.menu-config-col-title i {
+    color: #F27B21;
+    font-size: 1rem;
+}
+
+/* Añadir ítems – choice cards (Buffet, Bebidas, Platos, Postres, Entremeses, Desayuno) */
 .menu-config-subtitle {
     margin: 0.5rem 0 1rem;
     color: var(--text-secondary);
@@ -2598,6 +2879,97 @@ body {
 .menu-config-choice-card:not(.active) .choice-card-desc {
     color: var(--text-secondary);
     opacity: 0.85;
+}
+
+.menu-config-master-wrapper {
+    margin-bottom: 28px;
+}
+
+.menu-config-master-card .menu-config-master-help {
+    margin-bottom: 12px;
+}
+
+.menu-config-master-search {
+    width: 100%;
+    max-width: 400px;
+    padding: 10px 14px;
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 1rem;
+    font-family: 'Inter', sans-serif;
+}
+
+.menu-config-master-search:focus {
+    outline: none;
+    border-color: #F27B21;
+    box-shadow: 0 0 0 3px rgba(242, 123, 33, 0.2);
+}
+
+.menu-config-master-list {
+    max-height: 440px;
+    overflow-y: auto;
+    margin-top: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-secondary);
+}
+
+.menu-master-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
+
+.menu-master-row:last-child {
+    border-bottom: none;
+}
+
+.menu-master-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 5px 9px;
+    border-radius: 6px;
+    background: #3F4B5B;
+    color: #fff;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.menu-master-info {
+    flex: 1;
+    min-width: 160px;
+}
+
+.menu-master-title {
+    font-weight: 600;
+    color: var(--text-secondary);
+    display: block;
+    line-height: 1.35;
+}
+
+.menu-master-sub {
+    font-size: 0.85rem;
+    color: var(--text-muted, #888);
+    display: block;
+    margin-top: 2px;
+}
+
+.menu-master-remove {
+    flex-shrink: 0;
+}
+
+.menu-config-master-empty {
+    padding: 16px 14px;
+    margin: 0;
+    color: var(--text-muted, #888);
+    font-size: 0.95rem;
 }
 
 #plateConfigComplementosList {

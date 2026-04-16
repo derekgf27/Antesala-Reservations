@@ -52,7 +52,7 @@
                 </li>
                 <li class="menu-item" data-section="menu-config">
                     <i class="fas fa-cog"></i>
-                    <span>Anadir Items</span>
+                    <span>Añadir ítems</span>
                 </li>
             </ul>
             <div class="dark-mode-toggle-container">
@@ -464,6 +464,9 @@
                 <div class="section-header">
                     <h1>Todas las Reservaciones</h1>
                     <div class="header-actions">
+                        <button type="button" class="btn btn-primary" onclick="showSection('new-reservation')">
+                            <i class="fas fa-plus"></i> Nueva Reservación
+                        </button>
                         <select id="reservationSort" class="sort-select" aria-label="Ordenar reservaciones">
                             <option value="eventDate">Ordenar por Fecha del Evento</option>
                             <option value="createdAt" selected>Ordenar por Recientemente Creadas</option>
@@ -498,11 +501,14 @@
                 </div>
                 <div class="calendar-container">
                     <div class="calendar-navigation">
-                        <button class="btn btn-outline" onclick="previousMonth()" id="prevMonthBtn">
+                        <button type="button" class="btn btn-outline" onclick="previousMonth()" id="prevMonthBtn">
                             <i class="fas fa-chevron-left"></i> Anterior
                         </button>
+                        <button type="button" class="btn btn-outline" id="calendarTodayBtn" title="Ir al mes actual">
+                            Hoy
+                        </button>
                         <h2 id="calendarMonthYear">Mes Actual</h2>
-                        <button class="btn btn-outline" onclick="nextMonth()" id="nextMonthBtn">
+                        <button type="button" class="btn btn-outline" onclick="nextMonth()" id="nextMonthBtn">
                             Siguiente <i class="fas fa-chevron-right"></i>
                         </button>
                     </div>
@@ -543,8 +549,8 @@
             <section id="menu-config" class="content-section">
                 <div class="section-header menu-config-header">
                     <div class="menu-config-intro">
-                        <h1>Anadir Items</h1>
-                        <p class="menu-config-subtitle">Elige dónde quieres agregar un nuevo ítem:</p>
+                        <h1>Añadir ítems</h1>
+                        <p class="menu-config-subtitle">Elige una categoría para cargar o editar opciones. Todo se guarda en este navegador y aparece al crear reservaciones.</p>
                         <div class="menu-config-cards">
                             <button type="button" class="menu-config-choice-card menu-config-tab" data-menu-tab="buffet">
                                 <span class="choice-card-icon"><i class="fas fa-utensils"></i></span>
@@ -579,6 +585,32 @@
                         </div>
                     </div>
                 </div>
+                <div class="menu-config-body">
+                <div class="menu-config-master-wrapper">
+                    <div class="form-card menu-config-master-card">
+                        <div class="card-header">
+                            <i class="fas fa-list"></i>
+                            <h3>Catálogo guardado</h3>
+                        </div>
+                        <div class="card-content">
+                            <p class="form-help menu-config-master-help">
+                                Listado de todo lo personalizado. Puedes eliminar desde aquí o desde cada categoría.
+                            </p>
+                            <div class="menu-config-master-toolbar" role="toolbar" aria-label="Alcance del listado">
+                                <span class="menu-config-master-toolbar-label">Mostrar</span>
+                                <div class="menu-config-scope-toggle" role="group" aria-label="Filtrar por alcance">
+                                    <button type="button" class="menu-config-scope-btn" data-menu-scope="current" aria-pressed="false">Solo esta categoría</button>
+                                    <button type="button" class="menu-config-scope-btn" data-menu-scope="all" aria-pressed="true">Todo el catálogo</button>
+                                </div>
+                            </div>
+                            <div class="form-group menu-config-master-search-wrap">
+                                <label for="menuConfigMasterSearch">Buscar</label>
+                                <input type="search" id="menuConfigMasterSearch" class="menu-config-master-search" placeholder="Nombre, tipo, precio…" autocomplete="off">
+                            </div>
+                            <div id="menuConfigMasterList" class="menu-config-master-list" aria-live="polite"></div>
+                        </div>
+                    </div>
+                </div>
                 <div class="form-container menu-config-grid menu-config-form-container" aria-hidden="true">
                     <!-- Buffet options card -->
                     <div class="form-card" data-menu-panel="buffet">
@@ -587,6 +619,9 @@
                             <h3>Buffet</h3>
                         </div>
                         <div class="card-content">
+                            <div class="menu-config-panel-columns">
+                            <div class="menu-config-panel-col menu-config-panel-col--add">
+                            <p class="menu-config-col-title"><i class="fas fa-plus-circle"></i> Agregar opción</p>
                             <div class="form-group">
                                 <label for="buffetConfigCategory">Tipo de opción de Buffet</label>
                                 <select id="buffetConfigCategory" name="buffetConfigCategory">
@@ -608,15 +643,19 @@
                                 </button>
                             </div>
                             <small class="form-help">
-                                Estas opciones se agregarán a los menús desplegables del Buffet.
+                                Aparecen en los desplegables del buffet al reservar.
                             </small>
+                            </div>
+                            <div class="menu-config-panel-col menu-config-panel-col--list">
+                            <p class="menu-config-col-title"><i class="fas fa-clipboard-list"></i> Opciones guardadas</p>
                             <div class="form-group">
-                                <label for="buffetConfigSearch">Buscar opciones de buffet</label>
-                                <input type="text" id="buffetConfigSearch" name="buffetConfigSearch" placeholder="Buscar por nombre">
+                                <label for="buffetConfigSearch">Filtrar</label>
+                                <input type="search" id="buffetConfigSearch" name="buffetConfigSearch" placeholder="Buscar por nombre…" autocomplete="off">
                             </div>
                             <div class="menu-preview">
-                                <h4>Opciones personalizadas de Buffet</h4>
                                 <div id="buffetConfigPreview" class="menu-config-preview"></div>
+                            </div>
+                            </div>
                             </div>
                         </div>
                     </div>
@@ -625,9 +664,12 @@
                     <div class="form-card" data-menu-panel="beverages">
                         <div class="card-header">
                             <i class="fas fa-wine-bottle"></i>
-                            <h3>Bebidas Personalizadas</h3>
+                            <h3>Bebidas personalizadas</h3>
                         </div>
                         <div class="card-content">
+                            <div class="menu-config-panel-columns">
+                            <div class="menu-config-panel-col menu-config-panel-col--add">
+                            <p class="menu-config-col-title"><i class="fas fa-plus-circle"></i> Nueva bebida</p>
                             <div class="form-group">
                                 <label for="bevConfigName">Nombre de la bebida</label>
                                 <input type="text" id="bevConfigName" name="bevConfigName" placeholder="Ej. Vino de la Casa (Botella)">
@@ -638,7 +680,7 @@
                                 <input type="number" id="bevConfigPrice" name="bevConfigPrice" min="0" step="0.01" placeholder="0.00">
                             </div>
                             <div class="form-group">
-                                <label for="bevConfigSection">Sección</label>
+                                <label for="bevConfigSection">Sección en el modal</label>
                                 <select id="bevConfigSection" name="bevConfigSection">
                                     <option value="vinos">Vinos</option>
                                     <option value="licores">Licores</option>
@@ -648,7 +690,7 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="bevConfigMeasurement">Medida / Detalle</label>
+                                <label for="bevConfigMeasurement">Medida / detalle <span class="menu-config-optional">(opcional)</span></label>
                                 <input type="text" id="bevConfigMeasurement" name="bevConfigMeasurement" placeholder="Ej. Botella, Copa, Jarrita">
                             </div>
                             <div class="form-group">
@@ -660,19 +702,23 @@
                             </div>
                             <div class="form-group">
                                 <button type="button" class="btn btn-primary" id="bevConfigAddBtn">
-                                    <i class="fas fa-plus-circle"></i> Agregar Bebida
+                                    <i class="fas fa-plus-circle"></i> Agregar bebida
                                 </button>
                             </div>
                             <small class="form-help">
-                                Las bebidas personalizadas aparecerán en la sección de bebidas al crear una reservación.
+                                Se agrupa en el modal de seleccionar bebidas según la sección elegida.
                             </small>
+                            </div>
+                            <div class="menu-config-panel-col menu-config-panel-col--list">
+                            <p class="menu-config-col-title"><i class="fas fa-wine-glass"></i> Bebidas guardadas</p>
                             <div class="form-group">
-                                <label for="bevConfigSearch">Buscar bebidas</label>
-                                <input type="text" id="bevConfigSearch" name="bevConfigSearch" placeholder="Buscar por nombre">
+                                <label for="bevConfigSearch">Filtrar</label>
+                                <input type="search" id="bevConfigSearch" name="bevConfigSearch" placeholder="Buscar por nombre…" autocomplete="off">
                             </div>
                             <div class="menu-preview">
-                                <h4>Bebidas personalizadas</h4>
                                 <div id="bevConfigPreview" class="menu-config-preview"></div>
+                            </div>
+                            </div>
                             </div>
                         </div>
                     </div>
@@ -681,9 +727,12 @@
                     <div class="form-card" data-menu-panel="plates">
                         <div class="card-header">
                             <i class="fas fa-concierge-bell"></i>
-                            <h3>Platos Individuales</h3>
+                            <h3>Platos individuales</h3>
                         </div>
                         <div class="card-content">
+                            <div class="menu-config-panel-columns">
+                            <div class="menu-config-panel-col menu-config-panel-col--add">
+                            <p class="menu-config-col-title"><i class="fas fa-plus-circle"></i> Nueva plantilla</p>
                             <div class="form-group">
                                 <label for="plateConfigName">Nombre del plato</label>
                                 <input type="text" id="plateConfigName" name="plateConfigName" placeholder="Ej. Pechuga a la Parrilla">
@@ -704,19 +753,23 @@
                             </div>
                             <div class="form-group">
                                 <button type="button" class="btn btn-primary" id="plateConfigAddBtn">
-                                    <i class="fas fa-plus-circle"></i> Guardar Plato
+                                    <i class="fas fa-plus-circle"></i> Guardar plantilla
                                 </button>
                             </div>
                             <small class="form-help">
-                                Los platos guardados aparecerán como plantillas en el modal de Platos Individuales.
+                                Disponibles como atajos en el modal de platos al reservar.
                             </small>
+                            </div>
+                            <div class="menu-config-panel-col menu-config-panel-col--list">
+                            <p class="menu-config-col-title"><i class="fas fa-clipboard-list"></i> Plantillas guardadas</p>
                             <div class="form-group">
-                                <label for="plateConfigSearch">Buscar platos guardados</label>
-                                <input type="text" id="plateConfigSearch" name="plateConfigSearch" placeholder="Buscar por nombre">
+                                <label for="plateConfigSearch">Filtrar</label>
+                                <input type="search" id="plateConfigSearch" name="plateConfigSearch" placeholder="Buscar por nombre…" autocomplete="off">
                             </div>
                             <div class="menu-preview">
-                                <h4>Platos guardados</h4>
                                 <div id="plateTemplatesPreview" class="menu-config-preview" aria-label="Platos guardados"></div>
+                            </div>
+                            </div>
                             </div>
                         </div>
                     </div>
@@ -728,6 +781,9 @@
                             <h3>Postres</h3>
                         </div>
                         <div class="card-content">
+                            <div class="menu-config-panel-columns">
+                            <div class="menu-config-panel-col menu-config-panel-col--add">
+                            <p class="menu-config-col-title"><i class="fas fa-plus-circle"></i> Nuevo postre</p>
                             <div class="form-group">
                                 <label for="postresConfigName">Nombre del postre</label>
                                 <input type="text" id="postresConfigName" name="postresConfigName" placeholder="Ej. Flan de Coco, Tres Leches">
@@ -739,19 +795,23 @@
                             </div>
                             <div class="form-group">
                                 <button type="button" class="btn btn-primary" id="postresConfigAddBtn">
-                                    <i class="fas fa-plus-circle"></i> Agregar Postre
+                                    <i class="fas fa-plus-circle"></i> Agregar postre
                                 </button>
                             </div>
                             <small class="form-help">
-                                Los postres guardados estarán disponibles para usar en reservaciones.
+                                Aparecen al cotizar postres en la reservación.
                             </small>
+                            </div>
+                            <div class="menu-config-panel-col menu-config-panel-col--list">
+                            <p class="menu-config-col-title"><i class="fas fa-clipboard-list"></i> Postres guardados</p>
                             <div class="form-group">
-                                <label for="postresConfigSearch">Buscar postres</label>
-                                <input type="text" id="postresConfigSearch" name="postresConfigSearch" placeholder="Buscar por nombre">
+                                <label for="postresConfigSearch">Filtrar</label>
+                                <input type="search" id="postresConfigSearch" name="postresConfigSearch" placeholder="Buscar por nombre…" autocomplete="off">
                             </div>
                             <div class="menu-preview">
-                                <h4>Postres guardados</h4>
                                 <div id="postresConfigPreview" class="menu-config-preview"></div>
+                            </div>
+                            </div>
                             </div>
                         </div>
                     </div>
@@ -763,6 +823,9 @@
                             <h3>Entremeses</h3>
                         </div>
                         <div class="card-content">
+                            <div class="menu-config-panel-columns">
+                            <div class="menu-config-panel-col menu-config-panel-col--add">
+                            <p class="menu-config-col-title"><i class="fas fa-plus-circle"></i> Nuevo entremés</p>
                             <div class="form-group">
                                 <label for="entremesesConfigName">Nombre del entremés</label>
                                 <input type="text" id="entremesesConfigName" name="entremesesConfigName" placeholder="Ej. Bandeja Entremeses Surtidos">
@@ -774,19 +837,23 @@
                             </div>
                             <div class="form-group">
                                 <button type="button" class="btn btn-primary" id="entremesesConfigAddBtn">
-                                    <i class="fas fa-plus-circle"></i> Agregar Entremés
+                                    <i class="fas fa-plus-circle"></i> Agregar entremés
                                 </button>
                             </div>
                             <small class="form-help">
-                                Los entremeses guardados estarán disponibles para usar en reservaciones.
+                                Disponibles en el modal de entremeses al reservar.
                             </small>
+                            </div>
+                            <div class="menu-config-panel-col menu-config-panel-col--list">
+                            <p class="menu-config-col-title"><i class="fas fa-clipboard-list"></i> Entremeses guardados</p>
                             <div class="form-group">
-                                <label for="entremesesConfigSearch">Buscar entremeses</label>
-                                <input type="text" id="entremesesConfigSearch" name="entremesesConfigSearch" placeholder="Buscar por nombre">
+                                <label for="entremesesConfigSearch">Filtrar</label>
+                                <input type="search" id="entremesesConfigSearch" name="entremesesConfigSearch" placeholder="Buscar por nombre…" autocomplete="off">
                             </div>
                             <div class="menu-preview">
-                                <h4>Entremeses guardados</h4>
                                 <div id="entremesesConfigPreview" class="menu-config-preview"></div>
+                            </div>
+                            </div>
                             </div>
                         </div>
                     </div>
@@ -798,6 +865,9 @@
                             <h3>Desayuno</h3>
                         </div>
                         <div class="card-content">
+                            <div class="menu-config-panel-columns">
+                            <div class="menu-config-panel-col menu-config-panel-col--add">
+                            <p class="menu-config-col-title"><i class="fas fa-plus-circle"></i> Nuevo ítem</p>
                             <div class="form-group">
                                 <label for="desayunoConfigName">Nombre del ítem</label>
                                 <input type="text" id="desayunoConfigName" name="desayunoConfigName" placeholder="Ej. Desayuno Continental, Huevos Benedict">
@@ -809,22 +879,27 @@
                             </div>
                             <div class="form-group">
                                 <button type="button" class="btn btn-primary" id="desayunoConfigAddBtn">
-                                    <i class="fas fa-plus-circle"></i> Agregar Ítem
+                                    <i class="fas fa-plus-circle"></i> Agregar ítem
                                 </button>
                             </div>
                             <small class="form-help">
-                                Los ítems de desayuno guardados estarán disponibles para usar en reservaciones.
+                                Se suman al desplegable de desayuno en la reservación.
                             </small>
+                            </div>
+                            <div class="menu-config-panel-col menu-config-panel-col--list">
+                            <p class="menu-config-col-title"><i class="fas fa-clipboard-list"></i> Ítems guardados</p>
                             <div class="form-group">
-                                <label for="desayunoConfigSearch">Buscar ítems</label>
-                                <input type="text" id="desayunoConfigSearch" name="desayunoConfigSearch" placeholder="Buscar por nombre">
+                                <label for="desayunoConfigSearch">Filtrar</label>
+                                <input type="search" id="desayunoConfigSearch" name="desayunoConfigSearch" placeholder="Buscar por nombre…" autocomplete="off">
                             </div>
                             <div class="menu-preview">
-                                <h4>Desayuno guardados</h4>
                                 <div id="desayunoConfigPreview" class="menu-config-preview"></div>
+                            </div>
+                            </div>
                             </div>
                         </div>
                     </div>
+                </div>
                 </div>
                 <div class="menu-config-footer">
                     <small id="menuConfigLastModified">Última modificación: Ninguna</small>
@@ -1147,8 +1222,9 @@
     </div>
 
     <!-- Beverages Modal -->
-    <div id="beverageModal" class="modal-overlay hidden">
-        <div class="modal">
+    <div id="beverageModal" class="modal-overlay modal-overlay--beverage hidden">
+        <div class="beverage-modal-shell">
+            <div class="modal beverage-modal-card">
             <div class="modal-header">
                 <h3>Seleccionar Bebidas</h3>
                 <button type="button" class="modal-close" id="beverageCloseBtn" aria-label="Cerrar">×</button>
@@ -1545,6 +1621,13 @@
                 <button type="button" class="btn btn-outline" id="beverageCancelBtn">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="beverageSaveBtn">Guardar</button>
             </div>
+            </div>
+            <aside class="beverage-sidebar" aria-label="Bebidas seleccionadas">
+                <div class="beverage-sidebar-header">
+                    <span class="beverage-sidebar-title">Seleccionados</span>
+                </div>
+                <div id="beverageSidebarList" class="beverage-sidebar-list"></div>
+            </aside>
         </div>
     </div>
 

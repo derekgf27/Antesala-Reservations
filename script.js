@@ -19,6 +19,8 @@ class ReservationManager {
         this.currentPaymentReservationId = null; // Track which reservation is being paid
         this.isInitializing = true; // Flag to prevent saves during initialization
         this.pendingChanges = false; // Track if there are unsaved changes
+        this.reservationFormDirty = false; // Unsaved edits on Nueva Reservación (nav / cerrar pestaña)
+        this._suppressReservationFormDirty = false; // While programmatically filling the form
         this.isEditingReservation = false; // Flag to prevent saves during edit operations
         this.editingReservationId = null; // Track which reservation is being edited
         this.initializeStorage();
@@ -212,8 +214,24 @@ class ReservationManager {
         }
     }
 
+    markReservationFormDirty() {
+        if (!this._suppressReservationFormDirty) {
+            this.reservationFormDirty = true;
+        }
+    }
+
     // Show specific section
     showSection(sectionId) {
+        if (
+            this.currentSection === 'new-reservation' &&
+            sectionId !== 'new-reservation' &&
+            this.reservationFormDirty
+        ) {
+            if (!confirm('Hay cambios sin guardar en la reservación. ¿Deseas salir?')) {
+                return;
+            }
+        }
+
         // Hide all sections
         document.querySelectorAll('.content-section').forEach(section => {
             section.classList.remove('active');
@@ -252,6 +270,7 @@ class ReservationManager {
                 break;
             case 'menu-config':
                 this.initMenuConfigView();
+                this.refreshMenuConfigMasterList();
                 break;
         }
     }
@@ -264,6 +283,29 @@ class ReservationManager {
         const guestCountManual = document.getElementById('guestCountManual');
         const calculateBtn = document.getElementById('calculateBtn');
         const saveBtn = document.getElementById('saveBtn');
+
+        if (form) {
+            const markFormDirty = () => this.markReservationFormDirty();
+            form.addEventListener('input', markFormDirty);
+            form.addEventListener('change', markFormDirty);
+        }
+
+        const recentReservationsEl = document.getElementById('recentReservations');
+        const activateDashboardReservationRow = (e, selector) => {
+            const row = e.target.closest(selector);
+            if (!row?.dataset.reservationId) return;
+            if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+            if (e.key === ' ') e.preventDefault();
+            this.editReservation(row.dataset.reservationId);
+        };
+        recentReservationsEl?.addEventListener('click', (e) => activateDashboardReservationRow(e, '.recent-item[data-reservation-id]'));
+        recentReservationsEl?.addEventListener('keydown', (e) => activateDashboardReservationRow(e, '.recent-item[data-reservation-id]'));
+        const upcomingEventsEl = document.getElementById('upcomingEvents');
+        upcomingEventsEl?.addEventListener('click', (e) => activateDashboardReservationRow(e, '.upcoming-item[data-reservation-id]'));
+        upcomingEventsEl?.addEventListener('keydown', (e) => activateDashboardReservationRow(e, '.upcoming-item[data-reservation-id]'));
+
+        const calendarTodayBtn = document.getElementById('calendarTodayBtn');
+        calendarTodayBtn?.addEventListener('click', () => this.goToCalendarToday());
         
         // Phone number formatting
         const clientPhone = document.getElementById('clientPhone');
@@ -375,6 +417,33 @@ class ReservationManager {
         }
         if (desayunoPreview) {
             desayunoPreview.addEventListener('click', (e) => this.handleSimpleMenuPreviewClick(e, 'desayuno'));
+        }
+        const menuConfigMasterSearch = document.getElementById('menuConfigMasterSearch');
+        const menuConfigMasterList = document.getElementById('menuConfigMasterList');
+        if (menuConfigMasterSearch) {
+            menuConfigMasterSearch.addEventListener('input', () => this.refreshMenuConfigMasterList());
+        }
+        if (menuConfigMasterList) {
+            menuConfigMasterList.addEventListener('click', (e) => {
+                const btn = e.target.closest('.menu-master-remove');
+                if (!btn) return;
+                const row = btn.closest('.menu-master-row');
+                if (!row) return;
+                this.removeMenuConfigMasterListItem(row);
+            });
+        }
+        const menuConfigSection = document.getElementById('menu-config');
+        if (menuConfigSection) {
+            menuConfigSection.addEventListener('click', (e) => {
+                const scopeBtn = e.target.closest('[data-menu-scope]');
+                if (!scopeBtn) return;
+                if (!menuConfigSection.classList.contains('menu-config-form-open')) return;
+                const scope = scopeBtn.dataset.menuScope;
+                if (scope !== 'all' && scope !== 'current') return;
+                menuConfigSection.dataset.menuMasterScope = scope;
+                this.updateMenuConfigMasterScopeUI();
+                this.refreshMenuConfigMasterList();
+            });
         }
         if (menuConfigTabs && menuConfigTabs.length > 0) {
             menuConfigTabs.forEach(tab => {
@@ -490,6 +559,7 @@ class ReservationManager {
             this.calculatePrice();
         });
         buffetSaveBtn?.addEventListener('click', () => {
+            this.markReservationFormDirty();
             this.closeBuffetModal();
             this.calculatePrice();
             this.updateFoodServiceSummary();
@@ -518,6 +588,7 @@ class ReservationManager {
             this.calculatePrice();
         });
         breakfastSaveBtn?.addEventListener('click', () => {
+            this.markReservationFormDirty();
             this.closeBreakfastModal();
             this.calculatePrice();
             this.updateBreakfastServiceSummary();
@@ -561,6 +632,7 @@ class ReservationManager {
                     }
                 });
             }
+            this.markReservationFormDirty();
             this.closeDessertModal();
             this.calculatePrice();
             this.updateDessertServiceSummary();
@@ -605,6 +677,7 @@ class ReservationManager {
             this.saveBeverageSelectionsFromModal();
             this.updateBeverageSummary();
             this.calculatePrice();
+            this.markReservationFormDirty();
             this.closeBeverageModal();
         });
         
@@ -617,6 +690,7 @@ class ReservationManager {
             this.saveEntremesesSelectionsFromModal();
             this.updateEntremesesSummary();
             this.calculatePrice();
+            this.markReservationFormDirty();
             this.closeEntremesesModal();
         });
         entremesesClearBtn?.addEventListener('click', () => this.clearEntremesesSelectionsInModal());
@@ -638,6 +712,7 @@ class ReservationManager {
         individualPlatesSaveBtn?.addEventListener('click', () => {
             this.updateIndividualPlatesSummary();
             this.calculatePrice();
+            this.markReservationFormDirty();
             this.closeIndividualPlatesModal();
         });
         individualPlatesClearBtn?.addEventListener('click', () => this.clearIndividualPlatesSelections());
@@ -985,6 +1060,7 @@ class ReservationManager {
         
         // Clear the selections object
         this.beverageSelections = {};
+        this.refreshBeverageSelectionSidebar();
     }
 
     // Clear all buffet selections in the modal
@@ -1540,22 +1616,43 @@ class ReservationManager {
         const panels = document.querySelectorAll('[data-menu-panel]');
         tabs.forEach(t => t.classList.remove('active'));
         panels.forEach(p => p.classList.add('hidden'));
-        if (section) section.classList.remove('menu-config-form-open');
+        if (section) {
+            section.classList.remove('menu-config-form-open');
+            section.dataset.menuMasterScope = 'all';
+            delete section.dataset.menuActiveTab;
+        }
         if (formContainer) {
             formContainer.style.display = 'none';
             formContainer.setAttribute('aria-hidden', 'true');
         }
         this.currentSimpleEdit = null;
+        this.updateMenuConfigMasterScopeUI();
+    }
+
+    updateMenuConfigMasterScopeUI() {
+        const section = document.getElementById('menu-config');
+        if (!section) return;
+        const scope = section.dataset.menuMasterScope || 'all';
+        section.querySelectorAll('[data-menu-scope]').forEach(btn => {
+            const active = btn.dataset.menuScope === scope;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
     }
 
     handleMenuConfigTabClick(tabId) {
         const section = document.getElementById('menu-config');
         const formContainer = section?.querySelector('.menu-config-form-container');
-        if (section) section.classList.add('menu-config-form-open');
+        if (section) {
+            section.classList.add('menu-config-form-open');
+            section.dataset.menuActiveTab = tabId;
+            section.dataset.menuMasterScope = 'current';
+        }
         if (formContainer) {
             formContainer.style.display = '';
             formContainer.setAttribute('aria-hidden', 'false');
         }
+        this.updateMenuConfigMasterScopeUI();
         const tabs = document.querySelectorAll('.menu-config-tab');
         tabs.forEach(tab => {
             if (!tab.dataset.menuTab) return;
@@ -1573,6 +1670,12 @@ class ReservationManager {
                 panel.classList.add('hidden');
             }
         });
+        this.refreshMenuConfigMasterList();
+        if (window.matchMedia('(max-width: 960px)').matches && formContainer) {
+            requestAnimationFrame(() => {
+                formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        }
     }
     handleAddBuffetMenuItem() {
         const categoryEl = document.getElementById('buffetConfigCategory');
@@ -1625,10 +1728,10 @@ class ReservationManager {
         }
 
         this.saveCustomMenuOptions();
-        this.populateDynamicMenuOptions();
         this.updateFoodServiceSummary();
         this.refreshBuffetConfigPreview();
         this.updateMenuConfigLastModified();
+        this.onMenuConfigDataChanged();
         this.showNotification('Opción de buffet guardada.', 'success');
 
         this.currentBuffetEdit = null;
@@ -1677,6 +1780,7 @@ class ReservationManager {
         this.updateBeverageSummary();
         this.refreshBeverageConfigPreview();
         this.updateMenuConfigLastModified();
+        this.onMenuConfigDataChanged();
         this.showNotification('Bebida personalizada guardada.', 'success');
 
         this.currentBeverageEditId = null;
@@ -1764,6 +1868,7 @@ class ReservationManager {
         this.populateIndividualPlateTemplatesDropdown();
         this.refreshPlateConfigPreview();
         this.updateMenuConfigLastModified();
+        this.onMenuConfigDataChanged();
         this.showNotification('Plato individual guardado.', 'success');
 
         nameEl.value = '';
@@ -2064,11 +2169,14 @@ class ReservationManager {
         
         // Attach change handlers for selection animation
         this.attachBeverageInputHandlers();
+        this.refreshBeverageSelectionSidebar();
         // Show with entrance animation
         modal.classList.remove('hidden');
         // Force reflow so the next class triggers transition
         void modal.offsetWidth;
         modal.classList.add('visible');
+        // Sidebar after custom beverage inputs are filled
+        setTimeout(() => this.refreshBeverageSelectionSidebar(), 120);
     }
 
     closeBeverageModal() {
@@ -2186,27 +2294,20 @@ class ReservationManager {
             }
         });
         
-        // Also preserve any custom beverages from existing reservation that aren't in current custom beverages list
-        // (in case they were deleted from localStorage but still exist in reservation)
+        // Preserve only orphaned custom rows (still on the reservation but removed from Anadir Items catalog).
+        // Items that are still in customBeverages are fully driven by modal inputs above — do not re-merge old qty.
         Object.entries(this.beverageSelections).forEach(([id, selection]) => {
-            // Check if this is a custom beverage (either by checking customBeverages array or custom property)
-            const isCustomBeverage = this.customBeverages.some(b => b.id === id) || 
-                                    (typeof selection === 'object' && selection !== null && selection.custom === true);
-            
-            if (isCustomBeverage && !selections.hasOwnProperty(id)) {
-                // This is a custom beverage that exists in the reservation but not in current custom beverages
-                // Check if it's still selected (qty > 0)
-                let qty = 0;
-                if (typeof selection === 'object' && selection !== null && selection.qty) {
-                    qty = selection.qty;
-                } else if (typeof selection === 'number') {
-                    qty = selection;
-                }
-                // If quantity is 0, don't preserve it (it was removed)
-                // If quantity > 0, preserve it with its stored data
-                if (qty > 0 && typeof selection === 'object' && selection !== null && selection.name) {
-                    selections[id] = selection; // Preserve the entire object with name, price, etc.
-                }
+            if (this.customBeverages.some(b => b.id === id)) return;
+            const isOrphanCustom = typeof selection === 'object' && selection !== null && selection.custom === true;
+            if (!isOrphanCustom || selections.hasOwnProperty(id)) return;
+            let qty = 0;
+            if (typeof selection === 'object' && selection !== null && selection.qty) {
+                qty = selection.qty;
+            } else if (typeof selection === 'number') {
+                qty = selection;
+            }
+            if (qty > 0 && selection.name) {
+                selections[id] = selection;
             }
         });
         
@@ -2904,8 +3005,33 @@ class ReservationManager {
         // Check if handlers are already attached
         if (modal.dataset.handlersAttached === 'true') return;
         
-        // Use event delegation on the modal for plus/minus buttons
+        // Use event delegation on the modal for plus/minus buttons and sidebar remove
         modal.addEventListener('click', (e) => {
+            const removeBtn = e.target.closest('.beverage-sidebar-remove');
+            if (removeBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const mimId = removeBtn.getAttribute('data-target-mimosa');
+                if (mimId) {
+                    const cb = document.getElementById(mimId);
+                    if (cb) cb.checked = false;
+                } else {
+                    const inputId = removeBtn.getAttribute('data-target-input');
+                    if (inputId) {
+                        const inp = document.getElementById(inputId);
+                        if (inp) {
+                            inp.value = 0;
+                            this.updateBeverageSelectionState(inp);
+                        }
+                    }
+                }
+                this.saveBeverageSelectionsFromModal();
+                this.updateBeverageSummary();
+                this.calculatePrice();
+                this.refreshBeverageSelectionSidebar();
+                this.markReservationFormDirty();
+                return;
+            }
             const target = e.target;
             if (target.classList.contains('quantity-plus') && target.hasAttribute('data-beverage')) {
                 e.preventDefault();
@@ -2941,6 +3067,17 @@ class ReservationManager {
                 this.updateBeverageSelectionState(input);
             };
         });
+
+        const mimosaCb = document.getElementById('bev-mimosa');
+        const mimosa395Cb = document.getElementById('bev-mimosa-395');
+        if (mimosaCb && !mimosaCb.dataset.sidebarSync) {
+            mimosaCb.dataset.sidebarSync = 'true';
+            mimosaCb.addEventListener('change', () => this.refreshBeverageSelectionSidebar());
+        }
+        if (mimosa395Cb && !mimosa395Cb.dataset.sidebarSync) {
+            mimosa395Cb.dataset.sidebarSync = 'true';
+            mimosa395Cb.addEventListener('change', () => this.refreshBeverageSelectionSidebar());
+        }
         
         // Mark handlers as attached
         modal.dataset.handlersAttached = 'true';
@@ -2975,6 +3112,61 @@ class ReservationManager {
                 notesEl.value = '';
             }
         }
+        this.refreshBeverageSelectionSidebar();
+    }
+
+    /** Sidebar next to beverage modal: list all items with qty &gt; 0 (and Mimosas) with remove. */
+    refreshBeverageSelectionSidebar() {
+        const listEl = document.getElementById('beverageSidebarList');
+        const modal = document.getElementById('beverageModal');
+        if (!listEl || !modal) return;
+
+        const esc = (s) => this.escapeMenuConfigHtml(s);
+        const rows = [];
+
+        const mimosa = document.getElementById('bev-mimosa');
+        if (mimosa?.checked) {
+            rows.push({
+                html: `<div class="beverage-sidebar-row">
+                    <div class="beverage-sidebar-row-text">${esc('Mimosa ($3.00 por persona)')}</div>
+                    <button type="button" class="btn btn-outline btn-sm beverage-sidebar-remove" data-target-mimosa="bev-mimosa" title="Quitar">Quitar</button>
+                </div>`
+            });
+        }
+        const mimosa395 = document.getElementById('bev-mimosa-395');
+        if (mimosa395?.checked) {
+            rows.push({
+                html: `<div class="beverage-sidebar-row">
+                    <div class="beverage-sidebar-row-text">${esc('Mimosa ($3.95 por persona)')}</div>
+                    <button type="button" class="btn btn-outline btn-sm beverage-sidebar-remove" data-target-mimosa="bev-mimosa-395" title="Quitar">Quitar</button>
+                </div>`
+            });
+        }
+
+        modal.querySelectorAll('input[type="number"][id^="bev-"]').forEach(input => {
+            const qty = parseInt(input.value, 10) || 0;
+            if (qty <= 0) return;
+            const inputId = input.id;
+            let labelEl = modal.querySelector(`label[for="${inputId}"]`);
+            if (!labelEl) {
+                modal.querySelectorAll('label[for]').forEach(l => {
+                    if (l.getAttribute('for') === inputId) labelEl = l;
+                });
+            }
+            const name = (labelEl?.textContent || '').trim() || inputId;
+            rows.push({
+                html: `<div class="beverage-sidebar-row">
+                    <div class="beverage-sidebar-row-text"><span class="beverage-sidebar-row-qty">${qty}×</span> ${esc(name)}</div>
+                    <button type="button" class="btn btn-outline btn-sm beverage-sidebar-remove" data-target-input="${inputId.replace(/"/g, '&quot;')}" title="Quitar">Quitar</button>
+                </div>`
+            });
+        });
+
+        if (rows.length === 0) {
+            listEl.innerHTML = '<p class="beverage-sidebar-empty">Nada seleccionado. Use + en la lista o elija Mimosa.</p>';
+            return;
+        }
+        listEl.innerHTML = rows.map(r => r.html).join('');
     }
 
     // Stable accordion animation (height transition with JS)
@@ -3774,6 +3966,7 @@ class ReservationManager {
         this.updateEntremesesSummary();
         this.individualPlatesSelections = [];
         this.updateIndividualPlatesSummary();
+        this.reservationFormDirty = false;
     }
 
     // Update dashboard statistics
@@ -3818,10 +4011,10 @@ class ReservationManager {
             const year = eventDate.getFullYear();
             const formattedDate = `${month}/${day}/${year}`;
             return `
-            <div class="recent-item">
+            <div class="recent-item recent-item--action" data-reservation-id="${this.escapeMenuConfigHtml(reservation.id)}" role="button" tabindex="0" title="Editar reservación">
                 <div class="recent-item-info">
                     <strong>${reservation.clientName}</strong>
-                    <span>${formattedDate} at ${this.formatTime12Hour(reservation.eventTime)}</span>
+                    <span>${formattedDate} · ${this.formatTime12Hour(reservation.eventTime)}</span>
                 </div>
                 <div class="recent-item-price">$${reservation.pricing.totalCost.toFixed(2)}</div>
             </div>
@@ -3850,10 +4043,10 @@ class ReservationManager {
             const year = eventDate.getFullYear();
             const formattedDate = `${month}/${day}/${year}`;
             return `
-            <div class="upcoming-item">
+            <div class="upcoming-item upcoming-item--action" data-reservation-id="${this.escapeMenuConfigHtml(reservation.id)}" role="button" tabindex="0" title="Editar reservación">
                 <div class="upcoming-item-info">
                     <strong>${reservation.clientName}</strong>
-                    <span>${formattedDate} at ${this.formatTime12Hour(reservation.eventTime)}</span>
+                    <span>${formattedDate} · ${this.formatTime12Hour(reservation.eventTime)}</span>
                 </div>
                 <div class="upcoming-item-room">${this.getRoomDisplayName(reservation.roomType)}</div>
             </div>
@@ -4026,6 +4219,13 @@ class ReservationManager {
             this.currentCalendarMonth = 11;
             this.currentCalendarYear--;
         }
+        this.displayCalendar();
+    }
+
+    goToCalendarToday() {
+        const now = new Date();
+        this.currentCalendarMonth = now.getMonth();
+        this.currentCalendarYear = now.getFullYear();
         this.displayCalendar();
     }
 
@@ -4534,6 +4734,214 @@ class ReservationManager {
         }
     }
 
+    /** After any menu-config save/delete: refresh dropdowns and modals so new items appear without reloading the page. */
+    onMenuConfigDataChanged() {
+        try {
+            this.ensureCustomMenuOptionsStructure();
+            this.populateDynamicMenuOptions();
+            this.populateBreakfastTypeOptions();
+            this.refreshBeverageModal();
+            this.populateIndividualPlateTemplatesDropdown();
+            this.refreshMenuConfigMasterList();
+        } catch (e) {
+            console.warn('onMenuConfigDataChanged', e);
+        }
+    }
+
+    escapeMenuConfigHtml(str) {
+        if (str == null) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    refreshMenuConfigMasterList() {
+        const container = document.getElementById('menuConfigMasterList');
+        if (!container) return;
+        const q = (document.getElementById('menuConfigMasterSearch')?.value || '').trim().toLowerCase();
+        this.ensureCustomMenuOptionsStructure();
+        this.loadCustomBeverages();
+
+        const rows = [];
+
+        const buffetSections = [
+            { key: 'buffetRice', label: 'Arroz' },
+            { key: 'buffetProtein', label: 'Proteína' },
+            { key: 'buffetSide', label: 'Complemento' },
+            { key: 'buffetSalad', label: 'Ensalada' }
+        ];
+        buffetSections.forEach(({ key, label }) => {
+            (this.customMenuOptions[key] || []).forEach(item => {
+                const title = item.label || item.id;
+                const hay = `buffet ${label} ${title}`.toLowerCase();
+                rows.push({
+                    hay,
+                    tabMatch: 'buffet',
+                    html: `<div class="menu-master-row" data-master-type="buffet" data-buffet-key="${this.escapeMenuConfigHtml(key)}" data-master-id="${this.escapeMenuConfigHtml(item.id)}">
+                        <span class="menu-master-badge">Buffet</span>
+                        <div class="menu-master-info">
+                            <span class="menu-master-title">${this.escapeMenuConfigHtml(title)}</span>
+                            <span class="menu-master-sub">${this.escapeMenuConfigHtml(label)}</span>
+                        </div>
+                        <button type="button" class="btn btn-outline btn-sm menu-master-remove" title="Eliminar"><i class="fas fa-trash"></i></button>
+                    </div>`
+                });
+            });
+        });
+
+        const bevLabels = { vinos: 'Vinos', licores: 'Licores', cervezas: 'Cervezas', 'no-alcoholicas': 'No alcohólicas', otros: 'Otros' };
+        (this.customBeverages || []).forEach(b => {
+            const cat = bevLabels[b.category] || b.category || 'Bebida';
+            const title = b.name || b.id;
+            const hay = `bebida ${cat} ${title}`.toLowerCase();
+            rows.push({
+                hay,
+                tabMatch: 'beverages',
+                html: `<div class="menu-master-row" data-master-type="beverage" data-master-id="${this.escapeMenuConfigHtml(b.id)}">
+                    <span class="menu-master-badge">Bebida</span>
+                    <div class="menu-master-info">
+                        <span class="menu-master-title">${this.escapeMenuConfigHtml(title)}</span>
+                        <span class="menu-master-sub">${this.escapeMenuConfigHtml(cat)} — $${(Number(b.price) || 0).toFixed(2)}</span>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-sm menu-master-remove" title="Eliminar"><i class="fas fa-trash"></i></button>
+                </div>`
+            });
+        });
+
+        (this.customIndividualPlateTemplates || []).forEach(plate => {
+            const title = plate.name || plate.id;
+            const hay = `plato ${title}`.toLowerCase();
+            rows.push({
+                hay,
+                tabMatch: 'plates',
+                html: `<div class="menu-master-row" data-master-type="plate" data-master-id="${this.escapeMenuConfigHtml(plate.id)}">
+                    <span class="menu-master-badge">Plato</span>
+                    <div class="menu-master-info">
+                        <span class="menu-master-title">${this.escapeMenuConfigHtml(title)}</span>
+                        <span class="menu-master-sub">$${(Number(plate.price) || 0).toFixed(2)}</span>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-sm menu-master-remove" title="Eliminar"><i class="fas fa-trash"></i></button>
+                </div>`
+            });
+        });
+
+        ['postres', 'entremeses', 'desayuno'].forEach(category => {
+            const badge = category === 'postres' ? 'Postre' : category === 'entremeses' ? 'Entremés' : 'Desayuno';
+            (this.customMenuOptions[category] || []).forEach(item => {
+                const title = item.name || item.id;
+                const price = Number(item.price) || 0;
+                const hay = `${badge} ${title}`.toLowerCase();
+                rows.push({
+                    hay,
+                    tabMatch: category,
+                    html: `<div class="menu-master-row" data-master-type="simple" data-simple-category="${category}" data-master-id="${this.escapeMenuConfigHtml(item.id)}">
+                        <span class="menu-master-badge">${this.escapeMenuConfigHtml(badge)}</span>
+                        <div class="menu-master-info">
+                            <span class="menu-master-title">${this.escapeMenuConfigHtml(title)}</span>
+                            <span class="menu-master-sub">$${price.toFixed(2)}</span>
+                        </div>
+                        <button type="button" class="btn btn-outline btn-sm menu-master-remove" title="Eliminar"><i class="fas fa-trash"></i></button>
+                    </div>`
+                });
+            });
+        });
+
+        const sectionEl = document.getElementById('menu-config');
+        const textFiltered = q ? rows.filter(r => r.hay.includes(q)) : rows;
+        const formOpen = sectionEl?.classList.contains('menu-config-form-open');
+        const scope = sectionEl?.dataset.menuMasterScope || 'all';
+        const activeTab = sectionEl?.dataset.menuActiveTab || '';
+        let filtered = textFiltered;
+        if (formOpen && scope === 'current' && activeTab) {
+            filtered = textFiltered.filter(r => r.tabMatch === activeTab);
+        }
+        if (filtered.length === 0) {
+            const scopeNote = formOpen && scope === 'current' && activeTab
+                ? ' En esta categoría no hay coincidencias; probá «Todo el catálogo» o cambiá el texto de búsqueda.'
+                : '';
+            container.innerHTML = '<p class="menu-config-master-empty">No hay ítems guardados' + (q || (formOpen && scope === 'current') ? ' que coincidan con el filtro' : '') + '.' + scopeNote + '</p>';
+            return;
+        }
+        container.innerHTML = filtered.map(r => r.html).join('');
+    }
+
+    removeMenuConfigMasterListItem(row) {
+        const type = row.dataset.masterType;
+        const id = row.dataset.masterId;
+        if (!type || !id) return;
+
+        if (type === 'buffet') {
+            const key = row.dataset.buffetKey;
+            if (!key) return;
+            const usageCount = this.countBuffetUsage(key, id);
+            if (usageCount > 0) {
+                this.showNotification(`No se puede eliminar: está en uso en ${usageCount} reservaciones.`, 'error');
+                return;
+            }
+            const list = (this.customMenuOptions && this.customMenuOptions[key]) || [];
+            const index = list.findIndex(i => i.id === id);
+            if (index === -1) return;
+            if (!confirm('¿Eliminar esta opción de buffet?')) return;
+            list.splice(index, 1);
+            this.saveCustomMenuOptions();
+            this.refreshBuffetConfigPreview();
+            this.onMenuConfigDataChanged();
+            this.showNotification('Opción eliminada.', 'success');
+            return;
+        }
+
+        if (type === 'beverage') {
+            const usage = this.countBeverageUsage(id);
+            if (usage > 0) {
+                this.showNotification(`No se puede eliminar: está en uso en ${usage} reservaciones.`, 'error');
+                return;
+            }
+            const index = (this.customBeverages || []).findIndex(b => b.id === id);
+            if (index === -1) return;
+            if (!confirm('¿Eliminar esta bebida personalizada?')) return;
+            this.customBeverages.splice(index, 1);
+            this.saveCustomBeverages();
+            this.refreshBeverageConfigPreview();
+            this.onMenuConfigDataChanged();
+            this.updateBeverageSummary();
+            this.showNotification('Bebida eliminada.', 'success');
+            return;
+        }
+
+        if (type === 'plate') {
+            if (!confirm('¿Eliminar esta plantilla de plato?')) return;
+            const index = (this.customIndividualPlateTemplates || []).findIndex(p => p.id === id);
+            if (index === -1) return;
+            this.customIndividualPlateTemplates.splice(index, 1);
+            this.saveCustomIndividualPlateTemplates();
+            this.refreshPlateConfigPreview();
+            this.onMenuConfigDataChanged();
+            this.showNotification('Plato eliminado.', 'success');
+            return;
+        }
+
+        if (type === 'simple') {
+            const category = row.dataset.simpleCategory;
+            if (!category || !['postres', 'entremeses', 'desayuno'].includes(category)) return;
+            const usageCount = this.countSimpleMenuUsage(category, id);
+            if (usageCount > 0) {
+                this.showNotification(`No se puede eliminar: está en uso en ${usageCount} reservaciones.`, 'error');
+                return;
+            }
+            const list = (this.customMenuOptions && this.customMenuOptions[category]) || [];
+            const index = list.findIndex(i => i.id === id);
+            if (index === -1) return;
+            if (!confirm('¿Eliminar este ítem?')) return;
+            list.splice(index, 1);
+            this.saveCustomMenuOptions();
+            this.refreshSimpleMenuPreview(category);
+            this.onMenuConfigDataChanged();
+            this.showNotification('Ítem eliminado.', 'success');
+        }
+    }
+
     refreshBuffetConfigPreview() {
         this.ensureCustomMenuOptionsStructure();
         const container = document.getElementById('buffetConfigPreview');
@@ -4606,9 +5014,9 @@ class ReservationManager {
             if (index !== -1) {
                 list.splice(index, 1);
                 this.saveCustomMenuOptions();
-                this.populateDynamicMenuOptions();
                 this.refreshBuffetConfigPreview();
                 this.updateMenuConfigLastModified();
+                this.onMenuConfigDataChanged();
                 this.showNotification('Opción eliminada.', 'success');
             }
         }
@@ -4687,7 +5095,7 @@ class ReservationManager {
         this.saveCustomMenuOptions();
         this.refreshSimpleMenuPreview(category);
         this.updateMenuConfigLastModified();
-        if (category === 'desayuno') this.populateBreakfastTypeOptions();
+        this.onMenuConfigDataChanged();
         this.showNotification(category === 'postres' ? 'Postre guardado.' : category === 'entremeses' ? 'Entremés guardado.' : 'Ítem de desayuno guardado.', 'success');
 
         nameEl.value = '';
@@ -4757,6 +5165,7 @@ class ReservationManager {
                 this.saveCustomMenuOptions();
                 this.refreshSimpleMenuPreview(category);
                 this.updateMenuConfigLastModified();
+                this.onMenuConfigDataChanged();
                 this.showNotification('Ítem eliminado.', 'success');
             }
         }
@@ -4861,9 +5270,10 @@ class ReservationManager {
             if (index !== -1) {
                 this.customBeverages.splice(index, 1);
                 this.saveCustomBeverages();
-                this.refreshBeverageModal();
                 this.refreshBeverageConfigPreview();
                 this.updateMenuConfigLastModified();
+                this.onMenuConfigDataChanged();
+                this.updateBeverageSummary();
                 this.showNotification('Bebida eliminada.', 'success');
             }
         }
@@ -4962,6 +5372,7 @@ class ReservationManager {
                 this.populateIndividualPlateTemplatesDropdown();
                 this.refreshPlateConfigPreview();
                 this.updateMenuConfigLastModified();
+                this.onMenuConfigDataChanged();
                 this.showNotification('Plato eliminado.', 'success');
             }
         }
@@ -5885,6 +6296,8 @@ class ReservationManager {
         const reservation = this.reservations.find(r => r.id === id);
         if (!reservation) return;
 
+        this._suppressReservationFormDirty = true;
+        try {
         // Navigate to the reservation form section for editing
         this.showSection('new-reservation');
 
@@ -6097,9 +6510,12 @@ class ReservationManager {
         // Don't save here - wait for form submission
         // The saveReservation() function will handle updating the existing reservation
         this.displayReservations();
+        } finally {
+            this._suppressReservationFormDirty = false;
+            this.reservationFormDirty = false;
+        }
 
-        // Scroll to form
-        document.querySelector('.reservation-form').scrollIntoView({ behavior: 'smooth' });
+        document.querySelector('.reservation-form')?.scrollIntoView({ behavior: 'smooth' });
     }
 
     // Delete reservation
@@ -7565,6 +7981,13 @@ document.addEventListener('DOMContentLoaded', () => {
     reservationManager = new ReservationManager();
     // Make reservationManager globally accessible for debugging
     window.reservationManager = reservationManager;
+
+    window.addEventListener('beforeunload', (e) => {
+        if (reservationManager?.reservationFormDirty) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
     
     // Initialize dark mode
     initializeDarkMode();
