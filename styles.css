@@ -241,12 +241,29 @@ body {
 
 .section-header {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
+    gap: 12px;
     margin-bottom: 30px;
     padding-bottom: 20px;
     border-bottom: 2px solid var(--border-color);
     transition: border-color 0.3s ease;
+}
+
+.section-header-text {
+    flex: 1 1 240px;
+}
+
+.form-page-subtitle {
+    margin: 6px 0 0;
+    font-size: 0.95rem;
+    color: var(--text-muted, #888);
+    font-weight: 500;
+}
+
+.form-page-subtitle.hidden {
+    display: none;
 }
 
 .section-header h1 {
@@ -324,12 +341,57 @@ body {
 }
 
 .reservations-toolbar {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 10px;
     margin-bottom: 20px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+}
+
+.reservations-filters {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+}
+
+.reservations-filter-select,
+.reservations-filter-date {
+    padding: 8px 10px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.reservations-filter-select {
+    min-width: 140px;
+    max-width: 200px;
+}
+
+.reservations-filter-date {
+    min-width: 130px;
+    max-width: 160px;
+}
+
+.reservations-toolbar #reservationFilterClear {
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .reservations-search-wrap {
     position: relative;
-    max-width: 480px;
+    flex: 1 1 200px;
+    min-width: 160px;
+    max-width: none;
 }
 
 .reservations-search-icon {
@@ -3000,4 +3062,194 @@ body {
     border: 1px solid var(--border-color);
     border-radius: 6px;
     font-size: 0.95rem;
+}
+
+/* —— Global UX: sync banner, confirm modal, form jump nav, filters —— */
+.sync-status-banner {
+    margin: 0 0 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(242, 123, 33, 0.15);
+    border: 1px solid rgba(242, 123, 33, 0.45);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.sync-status-banner.hidden {
+    display: none;
+}
+
+.modal-confirm {
+    max-width: 420px;
+}
+
+.app-confirm-message {
+    margin: 0;
+    white-space: pre-wrap;
+    line-height: 1.45;
+    color: var(--text-secondary);
+}
+
+.form-jump-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    margin: 0 0 16px;
+    padding: 10px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+
+.form-jump-nav a {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #F27B21;
+    text-decoration: none;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+.form-jump-nav a:hover,
+.form-jump-nav a:focus-visible {
+    background: rgba(242, 123, 33, 0.12);
+    outline: none;
+}
+
+#section-cliente,
+#section-evento,
+#section-espacio,
+#section-comida,
+#section-servicios,
+#section-resumen {
+    scroll-margin-top: 88px;
+}
+
+.pricing-flow-help {
+    margin-bottom: 14px;
+}
+
+.menu-config-back-btn {
+    display: none;
+    margin-bottom: 12px;
+}
+
+#menu-config.menu-config-form-open .menu-config-back-btn {
+    display: inline-flex;
+}
+
+.beverage-notes-container--hidden {
+    display: none !important;
+}
+
+.beverage-notes-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.9em;
+    color: var(--text-muted, #666);
+    font-weight: 500;
+}
+
+.beverage-notes-textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.9em;
+    resize: vertical;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+}
+
+.analytics-revenue-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.analytics-revenue-table th,
+.analytics-revenue-table td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.analytics-revenue-table th {
+    font-weight: 700;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+}
+
+.analytics-empty {
+    margin: 0;
+    color: var(--text-muted, #888);
+    font-size: 0.95rem;
+}
+
+.today-event-item .today-event-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+    gap: 12px;
+}
+
+.today-event-meta {
+    margin-top: 4px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.today-event-meta i {
+    margin-right: 4px;
+}
+
+.today-event-price {
+    font-weight: 600;
+    color: #F27B21;
+    text-align: right;
+}
+
+.today-event-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+}
+
+.today-event-grid-label {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.today-event-grid-value {
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+.today-event-client {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+.today-event-meta-clock {
+    margin-left: 12px;
+}
+
+.today-events-empty {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+
+.today-event-phone {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
 }

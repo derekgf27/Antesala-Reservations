@@ -61,8 +61,8 @@
                     <span>Modo Oscuro</span>
                 </button>
             </div>
-            <div class="sidebar-footer">
-                Te Amo Mami <3
+                       <div class="sidebar-footer">
+                Antesala Reservaciones
             </div>
         </nav>
 
@@ -76,6 +76,7 @@
 
         <!-- Main Content Area -->
         <main class="main-content">
+            <div id="syncStatusBanner" class="sync-status-banner hidden" role="status" aria-live="polite">Sincronizando con la nube…</div>
             <!-- Dashboard Section -->
             <section id="dashboard" class="content-section active">
                 <div class="section-header">
@@ -145,19 +146,34 @@
             <!-- New Reservation Section -->
             <section id="new-reservation" class="content-section">
                 <div class="section-header">
-                    <h1>Crear Nueva Reservación</h1>
+                    <div class="section-header-text">
+                        <h1 id="reservationFormTitle">Crear nueva reservación</h1>
+                        <p id="reservationFormSubtitle" class="form-page-subtitle hidden" aria-live="polite"></p>
+                    </div>
                     <div class="header-actions">
-                        <button class="btn btn-outline" onclick="clearForm()">
-                            <i class="fas fa-eraser"></i> Limpiar Formulario
+                        <button type="button" class="btn btn-outline hidden" id="discardEditBtn" title="Salir del modo edición y limpiar el formulario">
+                            <i class="fas fa-times"></i> Descartar edición
+                        </button>
+                        <button type="button" class="btn btn-outline" onclick="clearForm()">
+                            <i class="fas fa-eraser"></i> Limpiar formulario
                         </button>
                     </div>
                 </div>
+
+                <nav class="form-jump-nav" aria-label="Ir a sección del formulario">
+                    <a href="#section-cliente">Cliente</a>
+                    <a href="#section-evento">Evento</a>
+                    <a href="#section-espacio">Espacio</a>
+                    <a href="#section-comida">Comida</a>
+                    <a href="#section-servicios">Servicios</a>
+                    <a href="#section-resumen">Precios</a>
+                </nav>
 
                 <div class="form-container">
                     <form id="reservationForm" class="reservation-form" novalidate>
                         <div class="form-grid">
                             <!-- Client Information Card -->
-                            <div class="form-card">
+                            <div class="form-card" id="section-cliente">
                                 <div class="card-header">
                                     <i class="fas fa-user"></i>
                                     <h3>Información del Cliente</h3>
@@ -179,7 +195,7 @@
                             </div>
 
                             <!-- Event Details Card -->
-                            <div class="form-card">
+                            <div class="form-card" id="section-evento">
                                 <div class="card-header">
                                     <i class="fas fa-calendar-alt"></i>
                                     <h3>Detalles del Evento</h3>
@@ -223,14 +239,14 @@
                                         </select>
                                     </div>
                                     <div class="form-group">
-                                        <label for="companyName">Nombre de Compania</label>
+                                        <label for="companyName">Nombre de compañía</label>
                                         <input type="text" id="companyName" name="companyName" placeholder="Nombre de la compañía">
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Room & Guests Card -->
-                            <div class="form-card">
+                            <div class="form-card" id="section-espacio">
                                 <div class="card-header">
                                     <i class="fas fa-building"></i>
                                     <h3>Espacio e Invitados</h3>
@@ -266,7 +282,7 @@
                             </div>
 
                             <!-- Food & Beverage Card -->
-                            <div class="form-card">
+                            <div class="form-card" id="section-comida">
                                 <div class="card-header">
                                     <i class="fas fa-utensils"></i>
                                     <h3>Comida y Bebidas</h3>
@@ -326,7 +342,7 @@
                             </div>
 
                             <!-- Additional Services Card -->
-                            <div class="form-card">
+                            <div class="form-card" id="section-servicios">
                                 <div class="card-header">
                                     <i class="fas fa-plus-circle"></i>
                                     <h3>Servicios Adicionales</h3>
@@ -357,12 +373,13 @@
                             </div>
 
                             <!-- Pricing Summary Card -->
-                            <div class="form-card pricing-card">
+                            <div class="form-card pricing-card" id="section-resumen">
                                 <div class="card-header">
                                     <i class="fas fa-calculator"></i>
                                     <h3>Resumen de Precios</h3>
                                 </div>
                                 <div class="card-content">
+                                    <p class="form-help pricing-flow-help">Los montos se actualizan al cambiar el formulario. Use <strong>Calcular precio</strong> para refrescar el desglose; <strong>Guardar reservación</strong> almacena el evento.</p>
                                     <div class="pricing-breakdown">
                                         <div class="pricing-item">
                                             <span>Espacio del Evento:</span>
@@ -437,7 +454,7 @@
                                                     <option value="25">25%</option>
                                                     <option value="30">30%</option>
                                                     <option value="50">50%</option>
-                                                    <option value="custom">Custom</option>
+                                                    <option value="custom">Personalizado</option>
                                                 </select>
                                                 <input type="number" id="depositCustomAmount" name="depositCustomAmount" class="deposit-custom-input hidden" placeholder="$0.00" min="0" step="0.01">
                                             </div>
@@ -482,6 +499,25 @@
                     <div class="reservations-search-wrap">
                         <i class="fas fa-search reservations-search-icon" aria-hidden="true"></i>
                         <input type="search" id="reservationSearch" class="reservations-search-input" placeholder="Buscar por nombre, teléfono, correo, salón, fecha..." autocomplete="off">
+                    </div>
+                    <div class="reservations-filters">
+                        <label for="reservationFilterRoom" class="sr-only">Filtrar por salón</label>
+                        <select id="reservationFilterRoom" class="reservations-filter-select" aria-label="Filtrar por salón">
+                            <option value="">Todos los salones</option>
+                            <option value="grand-hall">Salón 1</option>
+                            <option value="intimate-room">Salón 2</option>
+                            <option value="outdoor-terrace">Salón 3</option>
+                        </select>
+                        <label for="reservationFilterDeposit" class="sr-only">Filtrar por depósito</label>
+                        <select id="reservationFilterDeposit" class="reservations-filter-select" aria-label="Filtrar por depósito">
+                            <option value="">Todos los depósitos</option>
+                            <option value="paid">Depósito pagado</option>
+                            <option value="unpaid">Depósito pendiente</option>
+                            <option value="none">Sin depósito</option>
+                        </select>
+                        <label for="reservationFilterDate" class="sr-only">Filtrar por fecha del evento</label>
+                        <input type="date" id="reservationFilterDate" class="reservations-filter-date" title="Fecha exacta del evento">
+                        <button type="button" class="btn btn-outline btn-sm" id="reservationFilterClear">Limpiar filtros</button>
                     </div>
                 </div>
                 <div id="reservationsContainer" class="reservations-grid">
@@ -533,7 +569,7 @@
                     <div class="analytics-card">
                         <h3>Espacios Populares</h3>
                         <div id="roomStats" class="stats-list">
-                            <!-- Room statistics will be poblulated here -->
+                            <!-- Room statistics -->
                         </div>
                     </div>
                     <div class="analytics-card">
@@ -550,7 +586,8 @@
                 <div class="section-header menu-config-header">
                     <div class="menu-config-intro">
                         <h1>Añadir ítems</h1>
-                        <p class="menu-config-subtitle">Elige una categoría para cargar o editar opciones. Todo se guarda en este navegador y aparece al crear reservaciones.</p>
+                        <p class="menu-config-subtitle">Elige una categoría para cargar o editar opciones. Los ítems personalizados se guardan en este navegador (no en la nube) y aparecen al crear reservaciones.</p>
+                        <button type="button" class="btn btn-outline menu-config-back-btn" id="menuConfigBackToCategoriesBtn">← Volver a categorías</button>
                         <div class="menu-config-cards">
                             <button type="button" class="menu-config-choice-card menu-config-tab" data-menu-tab="buffet">
                                 <span class="choice-card-icon"><i class="fas fa-utensils"></i></span>
@@ -914,7 +951,7 @@
     <div id="buffetModal" class="modal-overlay hidden">
         <div class="modal">
             <div class="modal-header">
-                <h3>Buffet Options</h3>
+                <h3>Opciones de buffet</h3>
                 <button type="button" class="modal-close" id="buffetCloseBtn" aria-label="Cerrar">×</button>
             </div>
             <div class="modal-body">
@@ -1594,9 +1631,9 @@
                                     <input type="number" id="bev-caja-refrescos-surtidos" min="0" value="0" readonly>
                                     <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-caja-refrescos-surtidos">+</button>
                                 </div>
-                                <div id="bev-caja-refrescos-surtidos-notes-container" class="beverage-notes-container" style="display: none; margin-top: 15px;">
-                                    <label for="bev-caja-refrescos-surtidos-notes" style="display: block; margin-bottom: 8px; font-size: 0.9em; color: #666; font-weight: 500;">Especificar bebidas incluidas:</label>
-                                    <textarea id="bev-caja-refrescos-surtidos-notes" placeholder="Ej: 8 Coca-Cola, 8 Sprite, 4 Fanta, 4 Mountain Dew" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; font-size: 0.9em; resize: vertical;"></textarea>
+                                <div id="bev-caja-refrescos-surtidos-notes-container" class="beverage-notes-container beverage-notes-container--hidden">
+                                    <label for="bev-caja-refrescos-surtidos-notes" class="beverage-notes-label">Especificar bebidas incluidas:</label>
+                                    <textarea id="bev-caja-refrescos-surtidos-notes" class="beverage-notes-textarea" placeholder="Ej: 8 Coca-Cola, 8 Sprite, 4 Fanta, 4 Mountain Dew" rows="3"></textarea>
                                 </div>
                             </div>
                         </div>
@@ -1869,6 +1906,21 @@
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-primary" id="todayEventsCloseBtn2">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="appConfirmModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="appConfirmTitle">
+        <div class="modal modal-confirm" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 id="appConfirmTitle">Confirmar</h3>
+            </div>
+            <div class="modal-body">
+                <p id="appConfirmMessage" class="app-confirm-message"></p>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" id="appConfirmCancel">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="appConfirmOk">Aceptar</button>
             </div>
         </div>
     </div>

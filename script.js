@@ -1,4 +1,9 @@
 // Reservation Management System
+const APP_DEBUG = false;
+function appDebug(...args) {
+    if (APP_DEBUG) console.log(...args);
+}
+
 class ReservationManager {
     constructor() {
         this.reservations = [];
@@ -38,6 +43,7 @@ class ReservationManager {
         this.updateEntremesesSummary();
         this.updateDashboard();
         this.displayReservations();
+        this.syncReservationFormHeader();
     }
 
     // Initialize storage (Firebase or localStorage)
@@ -114,6 +120,9 @@ class ReservationManager {
                 this.displayReservations();
             }
             this.updateDashboard();
+            if (this.currentSection === 'analytics') {
+                this.updateAnalytics();
+            }
             console.log(`Reservations synced from Firestore: ${reservations.length} (was ${previousCount})`);
         }, (error) => {
             console.error('Firestore sync error:', error);
@@ -128,11 +137,10 @@ class ReservationManager {
             return;
         }
         menuItems.forEach(item => {
-            item.addEventListener('click', () => {
+            item.addEventListener('click', async () => {
                 const section = item.dataset.section;
                 if (section) {
-                    this.showSection(section);
-                    // Close mobile menu after selection
+                    await this.showSection(section);
                     this.closeMobileMenu();
                 } else {
                     console.warn('Menu item clicked but no section specified:', item);
@@ -220,16 +228,86 @@ class ReservationManager {
         }
     }
 
+    appConfirm(message, options = {}) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('appConfirmModal');
+            const msgEl = document.getElementById('appConfirmMessage');
+            const titleEl = document.getElementById('appConfirmTitle');
+            const okBtn = document.getElementById('appConfirmOk');
+            const cancelBtn = document.getElementById('appConfirmCancel');
+            if (!modal || !msgEl || !okBtn || !cancelBtn) {
+                resolve(false);
+                return;
+            }
+            titleEl.textContent = options.title || 'Confirmar';
+            msgEl.textContent = message;
+            okBtn.textContent = options.okText || 'Aceptar';
+            cancelBtn.textContent = options.cancelText || 'Cancelar';
+            cancelBtn.classList.toggle('hidden', !!options.hideCancel);
+
+            const cleanup = () => {
+                okBtn.onclick = null;
+                cancelBtn.onclick = null;
+                modal.removeEventListener('keydown', onKey);
+                modal.classList.remove('visible');
+                setTimeout(() => modal.classList.add('hidden'), 200);
+            };
+            const finish = (val) => {
+                cleanup();
+                resolve(val);
+            };
+            okBtn.onclick = () => finish(true);
+            cancelBtn.onclick = () => finish(false);
+            const onKey = (e) => {
+                if (e.key === 'Escape') finish(false);
+            };
+            modal.addEventListener('keydown', onKey);
+            modal.classList.remove('hidden');
+            void modal.offsetWidth;
+            modal.classList.add('visible');
+            setTimeout(() => okBtn.focus(), 50);
+        });
+    }
+
+    syncReservationFormHeader() {
+        const h1 = document.getElementById('reservationFormTitle');
+        const sub = document.getElementById('reservationFormSubtitle');
+        const discard = document.getElementById('discardEditBtn');
+        if (!h1) return;
+        if (this.isEditingReservation && this.editingReservationId) {
+            const res = this.reservations.find(r => r.id === this.editingReservationId);
+            const nameInput = document.getElementById('clientName');
+            const name = (nameInput?.value || res?.clientName || '').trim();
+            h1.textContent = 'Editar reservación';
+            if (sub) {
+                sub.classList.remove('hidden');
+                sub.textContent = name ? `Cliente: ${name}` : 'Modo edición';
+            }
+            discard?.classList.remove('hidden');
+        } else {
+            h1.textContent = 'Crear nueva reservación';
+            sub?.classList.add('hidden');
+            discard?.classList.add('hidden');
+        }
+    }
+
+    setCajaRefrescosNotesVisibility(show) {
+        const el = document.getElementById('bev-caja-refrescos-surtidos-notes-container');
+        if (el) el.classList.toggle('beverage-notes-container--hidden', !show);
+    }
+
     // Show specific section
-    showSection(sectionId) {
+    async showSection(sectionId) {
         if (
             this.currentSection === 'new-reservation' &&
             sectionId !== 'new-reservation' &&
             this.reservationFormDirty
         ) {
-            if (!confirm('Hay cambios sin guardar en la reservación. ¿Deseas salir?')) {
-                return;
-            }
+            const ok = await this.appConfirm(
+                'Hay cambios sin guardar en la reservación. ¿Deseas salir?',
+                { title: 'Cambios sin guardar' }
+            );
+            if (!ok) return;
         }
 
         // Hide all sections
@@ -272,6 +350,9 @@ class ReservationManager {
                 this.initMenuConfigView();
                 this.refreshMenuConfigMasterList();
                 break;
+            case 'new-reservation':
+                this.syncReservationFormHeader();
+                break;
         }
     }
 
@@ -296,7 +377,7 @@ class ReservationManager {
             if (!row?.dataset.reservationId) return;
             if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
             if (e.key === ' ') e.preventDefault();
-            this.editReservation(row.dataset.reservationId);
+            void this.editReservation(row.dataset.reservationId);
         };
         recentReservationsEl?.addEventListener('click', (e) => activateDashboardReservationRow(e, '.recent-item[data-reservation-id]'));
         recentReservationsEl?.addEventListener('keydown', (e) => activateDashboardReservationRow(e, '.recent-item[data-reservation-id]'));
@@ -306,6 +387,27 @@ class ReservationManager {
 
         const calendarTodayBtn = document.getElementById('calendarTodayBtn');
         calendarTodayBtn?.addEventListener('click', () => this.goToCalendarToday());
+
+        document.getElementById('discardEditBtn')?.addEventListener('click', () => this.clearForm());
+        document.getElementById('menuConfigBackToCategoriesBtn')?.addEventListener('click', () => {
+            this.initMenuConfigView();
+            this.refreshMenuConfigMasterList();
+        });
+        document.getElementById('reservationFilterRoom')?.addEventListener('change', () => this.displayReservations());
+        document.getElementById('reservationFilterDeposit')?.addEventListener('change', () => this.displayReservations());
+        document.getElementById('reservationFilterDate')?.addEventListener('change', () => this.displayReservations());
+        document.getElementById('reservationFilterClear')?.addEventListener('click', () => {
+            const r = document.getElementById('reservationFilterRoom');
+            const d = document.getElementById('reservationFilterDeposit');
+            const dt = document.getElementById('reservationFilterDate');
+            if (r) r.value = '';
+            if (d) d.value = '';
+            if (dt) dt.value = '';
+            this.displayReservations();
+        });
+        document.getElementById('clientName')?.addEventListener('input', () => {
+            if (this.isEditingReservation) this.syncReservationFormHeader();
+        });
         
         // Phone number formatting
         const clientPhone = document.getElementById('clientPhone');
@@ -424,12 +526,12 @@ class ReservationManager {
             menuConfigMasterSearch.addEventListener('input', () => this.refreshMenuConfigMasterList());
         }
         if (menuConfigMasterList) {
-            menuConfigMasterList.addEventListener('click', (e) => {
+            menuConfigMasterList.addEventListener('click', async (e) => {
                 const btn = e.target.closest('.menu-master-remove');
                 if (!btn) return;
                 const row = btn.closest('.menu-master-row');
                 if (!row) return;
-                this.removeMenuConfigMasterListItem(row);
+                await this.removeMenuConfigMasterListItem(row);
             });
         }
         const menuConfigSection = document.getElementById('menu-config');
@@ -1020,10 +1122,7 @@ class ReservationManager {
         if (notesEl) {
             notesEl.value = '';
         }
-        const notesContainer = document.getElementById('bev-caja-refrescos-surtidos-notes-container');
-        if (notesContainer) {
-            notesContainer.style.display = 'none';
-        }
+        this.setCajaRefrescosNotesVisibility(false);
         
         // Clear all custom beverages
         this.loadCustomBeverages();
@@ -2122,10 +2221,7 @@ class ReservationManager {
                 }
                 // Show/hide notes field for caja-refrescos-surtidos
                 if (key === 'caja-refrescos-surtidos') {
-                    const notesContainer = document.getElementById('bev-caja-refrescos-surtidos-notes-container');
-                    if (notesContainer) {
-                        notesContainer.style.display = qty > 0 ? 'block' : 'none';
-                    }
+                    this.setCajaRefrescosNotesVisibility(qty > 0);
                 }
             }
         });
@@ -2365,16 +2461,21 @@ class ReservationManager {
             items.push(`<li>Mimosa ($3.95 por persona)</li>`);
         }
         
+        const itemCount = items.length;
         if (items.length === 0) {
             container.classList.add('hidden');
             container.innerHTML = '';
             editBtn?.classList.add('hidden');
             selectBtn?.classList.remove('hidden');
+            if (editBtn) editBtn.textContent = 'Editar bebidas';
+            if (selectBtn) selectBtn.textContent = 'Seleccionar bebidas';
             return;
         }
         container.classList.remove('hidden');
         editBtn?.classList.remove('hidden');
         selectBtn?.classList.add('hidden');
+        if (editBtn) editBtn.textContent = `Editar bebidas (${itemCount})`;
+        if (selectBtn) selectBtn.textContent = 'Seleccionar bebidas';
         container.innerHTML = `<ul>${items.join('')}</ul>`;
     }
 
@@ -3102,11 +3203,8 @@ class ReservationManager {
         
         // Handle notes field for caja-refrescos-surtidos
         if (input.id === 'bev-caja-refrescos-surtidos') {
-            const notesContainer = document.getElementById('bev-caja-refrescos-surtidos-notes-container');
             const notesEl = document.getElementById('bev-caja-refrescos-surtidos-notes');
-            if (notesContainer) {
-                notesContainer.style.display = qty > 0 ? 'block' : 'none';
-            }
+            this.setCajaRefrescosNotesVisibility(qty > 0);
             // Clear notes when quantity is set to 0
             if (qty === 0 && notesEl) {
                 notesEl.value = '';
@@ -3529,7 +3627,7 @@ class ReservationManager {
             // Use custom amount
             const customAmount = parseFloat(document.getElementById('depositCustomAmount')?.value || 0);
             depositAmount = Math.min(customAmount, totalCost); // Don't allow deposit to exceed total
-            depositDisplayText = `$${depositAmount.toFixed(2)} (Custom)`;
+            depositDisplayText = `$${depositAmount.toFixed(2)} (Personalizado)`;
         } else {
             // Use percentage
             const percentage = parseFloat(depositPercentage);
@@ -4000,7 +4098,7 @@ class ReservationManager {
             .slice(0, 5);
 
         if (recent.length === 0) {
-            container.innerHTML = '<p class="empty-state">No reservations yet</p>';
+            container.innerHTML = '<p class="empty-state">No hay reservaciones aún</p>';
             return;
         }
 
@@ -4032,7 +4130,7 @@ class ReservationManager {
             .slice(0, 5);
 
         if (upcoming.length === 0) {
-            container.innerHTML = '<p class="empty-state">No upcoming events</p>';
+            container.innerHTML = '<p class="empty-state">No hay eventos próximos</p>';
             return;
         }
 
@@ -4095,7 +4193,7 @@ class ReservationManager {
             });
 
         if (todayEvents.length === 0) {
-            container.innerHTML = '<p class="empty-state" style="text-align: center; padding: 40px; color: var(--text-secondary);">No hay eventos programados para hoy</p>';
+            container.innerHTML = '<p class="empty-state today-events-empty">No hay eventos programados para hoy</p>';
             return;
         }
 
@@ -4108,36 +4206,32 @@ class ReservationManager {
             
             return `
             <div class="today-event-item">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                <div class="today-event-head">
                     <div>
-                        <strong style="font-size: 1.1rem; color: var(--text-primary);">${reservation.clientName}</strong>
-                        <div style="margin-top: 4px; color: var(--text-secondary); font-size: 0.9rem;">
-                            <i class="fas fa-calendar"></i> ${formattedDate} 
-                            <i class="fas fa-clock" style="margin-left: 12px;"></i> ${this.formatTime12Hour(reservation.eventTime)}
+                        <strong class="today-event-client">${reservation.clientName}</strong>
+                        <div class="today-event-meta">
+                            <i class="fas fa-calendar"></i> ${formattedDate}
+                            <i class="fas fa-clock today-event-meta-clock"></i> ${this.formatTime12Hour(reservation.eventTime)}
                         </div>
                     </div>
-                    <div style="text-align: right;">
-                        <div style="font-weight: 600; color: var(--accent-color);">$${reservation.pricing.totalCost.toFixed(2)}</div>
-                    </div>
+                    <div class="today-event-price">$${reservation.pricing.totalCost.toFixed(2)}</div>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color);">
+                <div class="today-event-grid">
                     <div>
-                        <span style="color: var(--text-secondary); font-size: 0.85rem;">Espacio:</span>
-                        <div style="font-weight: 500; margin-top: 2px;">${this.getRoomDisplayName(reservation.roomType)}</div>
+                        <span class="today-event-grid-label">Espacio:</span>
+                        <div class="today-event-grid-value">${this.getRoomDisplayName(reservation.roomType)}</div>
                     </div>
                     <div>
-                        <span style="color: var(--text-secondary); font-size: 0.85rem;">Invitados:</span>
-                        <div style="font-weight: 500; margin-top: 2px;">${reservation.guestCount}</div>
+                        <span class="today-event-grid-label">Invitados:</span>
+                        <div class="today-event-grid-value">${reservation.guestCount}</div>
                     </div>
                     <div>
-                        <span style="color: var(--text-secondary); font-size: 0.85rem;">Tipo de Evento:</span>
-                        <div style="font-weight: 500; margin-top: 2px;">${this.getEventTypeDisplayName(reservation.eventType)}</div>
+                        <span class="today-event-grid-label">Tipo de Evento:</span>
+                        <div class="today-event-grid-value">${this.getEventTypeDisplayName(reservation.eventType)}</div>
                     </div>
                 </div>
                 ${reservation.clientPhone ? `
-                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color);">
-                    <span style="color: var(--text-secondary); font-size: 0.85rem;"><i class="fas fa-phone"></i> ${reservation.clientPhone}</span>
-                </div>
+                <div class="today-event-phone"><i class="fas fa-phone"></i> ${reservation.clientPhone}</div>
                 ` : ''}
             </div>
             `;
@@ -4166,13 +4260,15 @@ class ReservationManager {
         const daysInMonth = lastDay.getDate();
         const startDay = firstDay.getDay();
 
-        // Create calendar header
-        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                           'July', 'August', 'September', 'October', 'November', 'December'];
-        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const monthNames = [
+            'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+            'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+        ];
+        const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
         // Update month/year display
-        monthYearElement.textContent = `${monthNames[this.currentCalendarMonth]} ${this.currentCalendarYear}`;
+        monthYearElement.textContent = `${monthNames[this.currentCalendarMonth]} ${this.currentCalendarYear}`
+            .replace(/^./, (c) => c.toUpperCase());
 
         let calendarHTML = `
             <div class="calendar-days-header">
@@ -4241,8 +4337,44 @@ class ReservationManager {
 
     // Update analytics
     updateAnalytics() {
+        this.updateRevenueByMonthTable();
         this.updateRoomStats();
         this.updateGuestStats();
+    }
+
+    updateRevenueByMonthTable() {
+        const el = document.getElementById('revenueChart');
+        if (!el) return;
+        const byMonth = new Map();
+        this.reservations.forEach((res) => {
+            if (!res.eventDate || !res.pricing) return;
+            const key = res.eventDate.slice(0, 7);
+            const add = typeof res.pricing.totalCost === 'number' ? res.pricing.totalCost : 0;
+            byMonth.set(key, (byMonth.get(key) || 0) + add);
+        });
+        const rows = [...byMonth.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+        if (rows.length === 0) {
+            el.innerHTML = '<p class="analytics-empty">No hay datos de ingresos por mes todavía.</p>';
+            return;
+        }
+        const monthLabel = (ym) => {
+            const [y, m] = ym.split('-').map(Number);
+            const d = new Date(y, m - 1, 1);
+            const s = d.toLocaleDateString('es', { month: 'long', year: 'numeric' });
+            return s.charAt(0).toUpperCase() + s.slice(1);
+        };
+        el.innerHTML = `
+            <table class="analytics-revenue-table">
+                <thead><tr><th>Mes</th><th>Ingresos</th></tr></thead>
+                <tbody>
+                    ${rows
+                        .map(
+                            ([ym, total]) =>
+                                `<tr><td>${monthLabel(ym)}</td><td>$${total.toFixed(2)}</td></tr>`
+                        )
+                        .join('')}
+                </tbody>
+            </table>`;
     }
 
     // Update room statistics
@@ -4260,12 +4392,17 @@ class ReservationManager {
             'outdoor-terrace': 'Salon 3'
         };
 
+        if (Object.keys(roomCounts).length === 0) {
+            container.innerHTML = '<p class="analytics-empty">No hay datos de espacios todavía.</p>';
+            return;
+        }
+
         container.innerHTML = Object.entries(roomCounts)
             .sort(([,a], [,b]) => b - a)
             .map(([room, count]) => `
                 <div class="stat-item">
                     <span>${roomNames[room] || room}</span>
-                    <strong>${count} events</strong>
+                    <strong>${count} ${count === 1 ? 'evento' : 'eventos'}</strong>
                 </div>
             `).join('');
     }
@@ -4275,29 +4412,29 @@ class ReservationManager {
         const container = document.getElementById('guestStats');
         const totalGuests = this.reservations.reduce((sum, res) => sum + res.guestCount, 0);
         const avgGuests = this.reservations.length > 0 ? totalGuests / this.reservations.length : 0;
-        const maxGuests = Math.max(...this.reservations.map(res => res.guestCount), 0);
-        const minGuests = Math.min(...this.reservations.map(res => res.guestCount), 0);
+        const guestCounts = this.reservations.map((res) => res.guestCount);
+        const maxGuests = guestCounts.length > 0 ? Math.max(...guestCounts) : 0;
+        const minGuests = guestCounts.length > 0 ? Math.min(...guestCounts) : 0;
 
         container.innerHTML = `
             <h4>${avgGuests.toFixed(1)}</h4>
-            <p>Average guests per event</p>
+            <p>Promedio de invitados por evento</p>
             <div class="stats-details">
-                <div>Max: ${maxGuests} guests</div>
-                <div>Min: ${minGuests} guests</div>
-                <div>Total: ${totalGuests} guests</div>
+                <div>Máximo: ${maxGuests} invitados</div>
+                <div>Mínimo: ${minGuests} invitados</div>
+                <div>Total: ${totalGuests} invitados</div>
             </div>
         `;
     }
 
     // Select date from calendar and navigate to reservation form
-    selectDateFromCalendar(dateStr, clickEvent) {
+    async selectDateFromCalendar(dateStr, clickEvent) {
         // If clicking on a reservation event, don't select the date
         if (clickEvent && clickEvent.target.closest('.calendar-event')) {
             return;
         }
         
-        // Navigate to new reservation form
-        this.showSection('new-reservation');
+        await this.showSection('new-reservation');
         
         // Pre-fill the date field
         const eventDateInput = document.getElementById('eventDate');
@@ -4366,7 +4503,7 @@ class ReservationManager {
                         </div>
                         ${reservation.companyName ? `
                         <div class="detail-item">
-                            <span class="detail-label">Nombre de Compania:</span>
+                            <span class="detail-label">Nombre de compañía:</span>
                             <span class="detail-value">${reservation.companyName}</span>
                         </div>
                         ` : ''}
@@ -4494,19 +4631,43 @@ class ReservationManager {
                     <div class="pricing-breakdown-modal">
                         <div class="pricing-row">
                             <span>Espacio del Evento:</span>
-                            <span>$${reservation.pricing.roomCost.toFixed(2)}</span>
+                            <span>$${(reservation.pricing.roomCost || 0).toFixed(2)}</span>
                         </div>
                         <div class="pricing-row">
                             <span>Servicio de Comida:</span>
-                            <span>$${reservation.pricing.foodCost.toFixed(2)}</span>
+                            <span>$${(reservation.pricing.foodCost || 0).toFixed(2)}</span>
                         </div>
+                        ${(reservation.pricing.breakfastCost || 0) > 0 ? `
+                        <div class="pricing-row">
+                            <span>Desayuno:</span>
+                            <span>$${reservation.pricing.breakfastCost.toFixed(2)}</span>
+                        </div>
+                        ` : ''}
                         <div class="pricing-row">
                             <span>Servicio de Bebidas:</span>
-                            <span>$${reservation.pricing.drinkCost.toFixed(2)}</span>
+                            <span>$${(reservation.pricing.drinkCost || 0).toFixed(2)}</span>
                         </div>
+                        ${(reservation.pricing.entremesesCost || 0) > 0 ? `
+                        <div class="pricing-row">
+                            <span>Entremeses:</span>
+                            <span>$${reservation.pricing.entremesesCost.toFixed(2)}</span>
+                        </div>
+                        ` : ''}
+                        ${(reservation.pricing.postresCost || 0) > 0 ? `
+                        <div class="pricing-row">
+                            <span>Postres:</span>
+                            <span>$${reservation.pricing.postresCost.toFixed(2)}</span>
+                        </div>
+                        ` : ''}
+                        ${(reservation.pricing.additionalCost || 0) > 0 ? `
+                        <div class="pricing-row">
+                            <span>Servicios Adicionales:</span>
+                            <span>$${reservation.pricing.additionalCost.toFixed(2)}</span>
+                        </div>
+                        ` : ''}
                         <div class="pricing-row">
                             <span>Impuestos:</span>
-                            <span>$${reservation.pricing.taxes.totalTaxes.toFixed(2)}</span>
+                            <span>$${(reservation.pricing.taxes?.totalTaxes || 0).toFixed(2)}</span>
                         </div>
                         ${reservation.pricing.tip && reservation.pricing.tip.amount > 0 ? `
                         <div class="pricing-row">
@@ -4520,7 +4681,7 @@ class ReservationManager {
                         </div>
                         ${reservation.pricing.depositAmount > 0 ? `
                         <div class="pricing-row deposit-row">
-                            <span>Depósito ${reservation.depositPercentage === 'custom' || reservation.pricing.depositPercentage === 'custom' ? '(Custom)' : `(${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%)`}:</span>
+                            <span>Depósito ${reservation.depositPercentage === 'custom' || reservation.pricing.depositPercentage === 'custom' ? '(Personalizado)' : `(${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%)`}:</span>
                             <span>
                                 $${reservation.pricing.depositAmount.toFixed(2)}
                                 ${(() => {
@@ -4867,7 +5028,7 @@ class ReservationManager {
         container.innerHTML = filtered.map(r => r.html).join('');
     }
 
-    removeMenuConfigMasterListItem(row) {
+    async removeMenuConfigMasterListItem(row) {
         const type = row.dataset.masterType;
         const id = row.dataset.masterId;
         if (!type || !id) return;
@@ -4883,7 +5044,8 @@ class ReservationManager {
             const list = (this.customMenuOptions && this.customMenuOptions[key]) || [];
             const index = list.findIndex(i => i.id === id);
             if (index === -1) return;
-            if (!confirm('¿Eliminar esta opción de buffet?')) return;
+            const ok = await this.appConfirm('¿Eliminar esta opción de buffet?', { title: 'Eliminar' });
+            if (!ok) return;
             list.splice(index, 1);
             this.saveCustomMenuOptions();
             this.refreshBuffetConfigPreview();
@@ -4900,7 +5062,8 @@ class ReservationManager {
             }
             const index = (this.customBeverages || []).findIndex(b => b.id === id);
             if (index === -1) return;
-            if (!confirm('¿Eliminar esta bebida personalizada?')) return;
+            const okBev = await this.appConfirm('¿Eliminar esta bebida personalizada?', { title: 'Eliminar' });
+            if (!okBev) return;
             this.customBeverages.splice(index, 1);
             this.saveCustomBeverages();
             this.refreshBeverageConfigPreview();
@@ -4911,7 +5074,8 @@ class ReservationManager {
         }
 
         if (type === 'plate') {
-            if (!confirm('¿Eliminar esta plantilla de plato?')) return;
+            const okPlate = await this.appConfirm('¿Eliminar esta plantilla de plato?', { title: 'Eliminar' });
+            if (!okPlate) return;
             const index = (this.customIndividualPlateTemplates || []).findIndex(p => p.id === id);
             if (index === -1) return;
             this.customIndividualPlateTemplates.splice(index, 1);
@@ -4933,7 +5097,8 @@ class ReservationManager {
             const list = (this.customMenuOptions && this.customMenuOptions[category]) || [];
             const index = list.findIndex(i => i.id === id);
             if (index === -1) return;
-            if (!confirm('¿Eliminar este ítem?')) return;
+            const okSimple = await this.appConfirm('¿Eliminar este ítem?', { title: 'Eliminar' });
+            if (!okSimple) return;
             list.splice(index, 1);
             this.saveCustomMenuOptions();
             this.refreshSimpleMenuPreview(category);
@@ -5865,23 +6030,22 @@ class ReservationManager {
     }
 
     // Delete payment
-    deletePayment(reservationId, paymentIndex) {
+    async deletePayment(reservationId, paymentIndex) {
         const reservation = this.reservations.find(r => r.id === reservationId);
         if (!reservation || !reservation.additionalPayments) return;
 
-        if (confirm('¿Está seguro de que desea eliminar este pago?')) {
-            reservation.additionalPayments.splice(paymentIndex, 1);
-            this.saveReservations();
-            this.displayReservations();
-            this.updatePaymentSummary();
-            this.displayPaymentHistory(reservation);
-            this.showNotification('Pago eliminado exitosamente', 'success');
+        const ok = await this.appConfirm('¿Eliminar este pago del historial?', { title: 'Eliminar pago' });
+        if (!ok) return;
+        reservation.additionalPayments.splice(paymentIndex, 1);
+        await this.saveReservations();
+        this.displayReservations();
+        this.updatePaymentSummary();
+        this.displayPaymentHistory(reservation);
+        this.showNotification('Pago eliminado correctamente', 'success');
 
-            // Refresh reservation details modal if open
-            const reservationDetailsModal = document.getElementById('reservationDetailsModal');
-            if (reservationDetailsModal && !reservationDetailsModal.classList.contains('hidden')) {
-                this.showReservationDetails(reservationId);
-            }
+        const reservationDetailsModal = document.getElementById('reservationDetailsModal');
+        if (reservationDetailsModal && !reservationDetailsModal.classList.contains('hidden')) {
+            this.showReservationDetails(reservationId);
         }
     }
 
@@ -6079,7 +6243,7 @@ class ReservationManager {
                     <div class="reservation-detail">
                         <strong>Depósito:</strong>
                         <span>
-                            $${reservation.pricing.depositAmount.toFixed(2)} ${reservation.depositPercentage === 'custom' || reservation.pricing.depositPercentage === 'custom' ? '(Custom)' : `(${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%)`}
+                            $${reservation.pricing.depositAmount.toFixed(2)} ${reservation.depositPercentage === 'custom' || reservation.pricing.depositPercentage === 'custom' ? '(Personalizado)' : `(${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%)`}
                             ${(() => {
                                 const remainingBalance = this.calculateRemainingBalance(reservation);
                                 const isFullyPaid = remainingBalance <= 0.01; // Allow small tolerance
@@ -6274,9 +6438,9 @@ class ReservationManager {
                     'audioVisual': 'Manteles',
                     'sillas': 'Sillas',
                     'mesas': 'Mesas',
-                    'decorations': 'Basic Decorations',
-                    'waitstaff': 'Additional Waitstaff',
-                    'valet': 'Valet Parking'
+                    'decorations': 'Decoración básica',
+                    'waitstaff': 'Personal de servicio adicional',
+                    'valet': 'Estacionamiento valet'
                 };
                 return serviceNames[key] || key;
             });
@@ -6292,14 +6456,13 @@ class ReservationManager {
     }
 
     // Edit reservation
-    editReservation(id) {
+    async editReservation(id) {
         const reservation = this.reservations.find(r => r.id === id);
         if (!reservation) return;
 
         this._suppressReservationFormDirty = true;
         try {
-        // Navigate to the reservation form section for editing
-        this.showSection('new-reservation');
+        await this.showSection('new-reservation');
 
         // Populate form with reservation data
         document.getElementById('clientName').value = reservation.clientName;
@@ -6515,48 +6678,47 @@ class ReservationManager {
             this.reservationFormDirty = false;
         }
 
+        this.syncReservationFormHeader();
         document.querySelector('.reservation-form')?.scrollIntoView({ behavior: 'smooth' });
     }
 
     // Delete reservation
-    deleteReservation(id) {
+    async deleteReservation(id) {
         const reservation = this.reservations.find(r => r.id === id);
         if (!reservation) {
             this.showNotification('Reservación no encontrada', 'error');
             return;
         }
         
-        // Enhanced confirmation with reservation details
         const clientName = reservation.clientName || 'Sin nombre';
         const eventDate = reservation.eventDate || 'Sin fecha';
-        const confirmMessage = `¿Está seguro de que desea eliminar esta reservación?\n\n` +
-                              `Cliente: ${clientName}\n` +
-                              `Fecha: ${eventDate}\n\n` +
-                              `Esta acción no se puede deshacer.`;
+        const confirmMessage = `¿Eliminar esta reservación?\n\nCliente: ${clientName}\nFecha: ${eventDate}\n\nEsta acción no se puede deshacer.`;
         
-        if (confirm(confirmMessage)) {
-            // Double confirmation for important reservations
-            if (confirm('⚠️ ÚLTIMA CONFIRMACIÓN\n\n¿Realmente desea eliminar esta reservación?')) {
-                const beforeCount = this.reservations.length;
-                this.reservations = this.reservations.filter(r => r.id !== id);
-                
-                // Safety check: Verify deletion was successful
-                if (this.reservations.length === beforeCount - 1) {
-                    this.saveReservations();
-                    this.displayReservations();
-                    this.showNotification('¡Reservación eliminada exitosamente!', 'success');
-                    console.log('Reservation deleted:', id, 'Total reservations:', this.reservations.length);
-                } else {
-                    this.showNotification('Error al eliminar la reservación', 'error');
-                    console.error('Deletion failed - count mismatch');
-                }
-            }
+        const ok1 = await this.appConfirm(confirmMessage, { title: 'Eliminar reservación' });
+        if (!ok1) return;
+        const ok2 = await this.appConfirm('Última confirmación: ¿eliminar definitivamente esta reservación?', {
+            title: 'Confirmar eliminación',
+            okText: 'Sí, eliminar'
+        });
+        if (!ok2) return;
+
+        const beforeCount = this.reservations.length;
+        this.reservations = this.reservations.filter(r => r.id !== id);
+
+        if (this.reservations.length === beforeCount - 1) {
+            await this.saveReservations();
+            this.displayReservations();
+            this.showNotification('Reservación eliminada correctamente.', 'success');
+            appDebug('Reservation deleted:', id, 'Total reservations:', this.reservations.length);
+        } else {
+            this.showNotification('Error al eliminar la reservación', 'error');
+            console.error('Deletion failed - count mismatch');
         }
     }
 
     // Show validation error modal
     showValidationError(missingFields) {
-        console.log('showValidationError called with:', missingFields); // Debug log
+        appDebug('showValidationError called with:', missingFields);
         const modal = document.getElementById('validationErrorModal');
         const listContainer = document.getElementById('missingFieldsList');
         if (!modal) {
@@ -6620,6 +6782,13 @@ class ReservationManager {
         modal.classList.remove('hidden');
         void modal.offsetWidth; // Force reflow
         modal.classList.add('visible');
+
+        const firstId = missingFields[0];
+        if (firstId) {
+            setTimeout(() => {
+                document.getElementById(firstId)?.focus({ preventScroll: false });
+            }, 150);
+        }
     }
 
     // Close validation error modal
@@ -6693,15 +6862,17 @@ class ReservationManager {
         // Safety check: Don't save empty array (prevents accidental deletion)
         if (this.reservations.length === 0) {
             console.warn('Save blocked: Reservations array is empty - this would delete all data');
-            if (confirm('⚠️ ADVERTENCIA: No hay reservaciones para guardar. Esto eliminaría todos los datos.\n\n¿Está seguro de que desea continuar?')) {
-                // User confirmed, proceed with save
-            } else {
-                return; // User cancelled, don't save
-            }
+            const okEmpty = await this.appConfirm(
+                'No hay reservaciones para guardar. Continuar podría borrar los datos en la nube. ¿Desea continuar?',
+                { title: 'Advertencia', okText: 'Sí, continuar' }
+            );
+            if (!okEmpty) return;
         }
-        
+
         this.pendingChanges = true;
-        
+        const syncBanner = document.getElementById('syncStatusBanner');
+        syncBanner?.classList.remove('hidden');
+
         try {
             if (window.FIREBASE_LOADED && window.firestore) {
                 await this.saveReservationsToFirestore();
@@ -6709,11 +6880,10 @@ class ReservationManager {
                 this.saveReservationsToLocalStorage();
             }
         } finally {
-            // Reset pending changes flag after a longer delay to prevent sync overwrites
-            // Increased from 1000ms to 3000ms to give more time for save to complete
             setTimeout(() => {
                 this.pendingChanges = false;
-                console.log('Pending changes flag reset - sync will resume');
+                syncBanner?.classList.add('hidden');
+                appDebug('Pending changes flag reset - sync will resume');
             }, 3000);
         }
     }
@@ -6914,7 +7084,23 @@ class ReservationManager {
         const hasBuffet = this.isBuffet(reservation.foodType) && reservation.buffet;
         const individualPlatesWithQty = (reservation.individualPlates || []).filter(p => (p.quantity || 0) > 0);
         const hasIndividualPlates = individualPlatesWithQty.length > 0;
-        
+
+        // Buffet-only cost: when individual plates are also present, foodCost includes BOTH,
+        // so we must compute the buffet-only amount from pricePerPerson * guestCount to avoid
+        // double-counting individual plates in the buffet row.
+        const buffetLineTotal = hasBuffet
+            ? (typeof reservation.buffet.pricePerPerson === 'number'
+                ? reservation.buffet.pricePerPerson * (reservation.guestCount || 0)
+                : (hasIndividualPlates
+                    ? Math.max(0, (reservation.pricing.foodCost || 0) - individualPlatesWithQty.reduce((sum, p) => {
+                        const complementos = Array.isArray(p.complementos) ? p.complementos :
+                            (p.complementos ? [{ name: p.complementos, price: p.complementosPrice || 0 }] : []);
+                        const compTotal = complementos.reduce((s, c) => s + ((c.price || 0) * p.quantity), 0);
+                        return sum + (p.price * p.quantity) + compTotal;
+                    }, 0))
+                    : (reservation.pricing.foodCost || 0)))
+            : 0;
+
         // Show buffet if present
         if (hasBuffet) {
             // Check if plato mexicano is selected - check explicitly for true
@@ -6933,7 +7119,7 @@ class ReservationManager {
                     <tr>
                         <td><strong>Plato Mexicano</strong></td>
                         <td>${reservation.guestCount}</td>
-                        <td>$${reservation.pricing.foodCost.toFixed(2)}</td>
+                        <td>$${buffetLineTotal.toFixed(2)}</td>
                     </tr>
                 `;
             } else {
@@ -6964,7 +7150,7 @@ class ReservationManager {
                             </ul>
                         </td>
                         <td>${reservation.guestCount}</td>
-                        <td>$${reservation.pricing.foodCost.toFixed(2)}</td>
+                        <td>$${buffetLineTotal.toFixed(2)}</td>
                     </tr>
                 `;
             }
@@ -7265,7 +7451,22 @@ class ReservationManager {
         const hasBuffetPDF = this.isBuffet(reservation.foodType) && reservation.buffet;
         const individualPlatesWithQtyPDF = (reservation.individualPlates || []).filter(p => (p.quantity || 0) > 0);
         const hasIndividualPlatesPDF = individualPlatesWithQtyPDF.length > 0;
-        
+
+        // Buffet-only total: foodCost includes BOTH buffet and individual plates, so when both are
+        // present we have to derive the buffet-only amount to avoid double-counting plates in the row.
+        const buffetLineTotalPDF = hasBuffetPDF
+            ? (typeof reservation.buffet.pricePerPerson === 'number'
+                ? reservation.buffet.pricePerPerson * (reservation.guestCount || 0)
+                : (hasIndividualPlatesPDF
+                    ? Math.max(0, (reservation.pricing.foodCost || 0) - individualPlatesWithQtyPDF.reduce((sum, p) => {
+                        const complementos = Array.isArray(p.complementos) ? p.complementos :
+                            (p.complementos ? [{ name: p.complementos, price: p.complementosPrice || 0 }] : []);
+                        const compTotal = complementos.reduce((s, c) => s + ((c.price || 0) * p.quantity), 0);
+                        return sum + (p.price * p.quantity) + compTotal;
+                    }, 0))
+                    : (reservation.pricing.foodCost || 0)))
+            : 0;
+
         // Show buffet if present
         if (hasBuffetPDF) {
             // Check if plato mexicano is selected - check explicitly for true
@@ -7282,7 +7483,7 @@ class ReservationManager {
                 itemsData.push({
                     description: 'Plato Mexicano',
                     qty: reservation.guestCount.toString(),
-                    total: `$${reservation.pricing.foodCost.toFixed(2)}`
+                    total: `$${buffetLineTotalPDF.toFixed(2)}`
                 });
             } else {
                 // Regular buffet
@@ -7304,7 +7505,7 @@ class ReservationManager {
                 itemsData.push({
                     description: buffetDesc,
                     qty: reservation.guestCount.toString(),
-                    total: `$${reservation.pricing.foodCost.toFixed(2)}`,
+                    total: `$${buffetLineTotalPDF.toFixed(2)}`,
                     isBuffet: true
                 });
             }
@@ -7982,6 +8183,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Make reservationManager globally accessible for debugging
     window.reservationManager = reservationManager;
 
+    document.getElementById('appConfirmModal')?.addEventListener('click', (e) => {
+        if (e.target?.id === 'appConfirmModal') {
+            document.getElementById('appConfirmCancel')?.click();
+        }
+    });
+
     window.addEventListener('beforeunload', (e) => {
         if (reservationManager?.reservationFormDirty) {
             e.preventDefault();
@@ -8010,9 +8217,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Global functions for HTML onclick handlers
-function showSection(sectionId) {
+async function showSection(sectionId) {
     if (reservationManager) {
-        reservationManager.showSection(sectionId);
+        await reservationManager.showSection(sectionId);
     }
 }
 
