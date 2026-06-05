@@ -7988,7 +7988,11 @@ No se permite clavar, pegar o perforar paredes, techos o mobiliario. El cliente 
 
 6. Catering y Bebidas
 
-El salón ofrece servicio de alimentos y bebidas, por lo tanto, queda prohibido introducir servicios externos de ninguna índole. Puede aplicarse cargo si lleva bebidas o comida externa eso incluye, candy bar, mesas de postres, charcuterías. Botellas de vinos o champagne tendrán un cargo por descorche según la marca.
+No se le permite traer NADA de afuera excepto el bizcocho. Debe traer platos y cucharas para el mismo; el restaurante no está obligado a proveerlos, aunque se pueden proporcionar por costo adicional.
+
+Si trae algún vino o champagne de afuera, debe notificarlo con anticipación y se le cobrará descorche según la marca del vino. Debe traer las copas del mismo; se le pueden proveer por costo adicional.
+
+Queda prohibido introducir otros servicios externos de ninguna índole, incluyendo candy bar, mesas de postres y charcuterías.
 
 7. Seguridad y Daños
 
@@ -8008,7 +8012,11 @@ El cliente reconoce haber leído y aceptado estos términos y condiciones al fir
 
 11. Confeti y Pirotecnia
 
-Queda estrictamente prohibido el uso de confeti, serpentinas, pirotecnia, fuegos artificiales o cualquier material similar dentro o fuera del salón. El uso de estos elementos puede causar daños al salón, representar un riesgo de seguridad y generar costos adicionales de limpieza. El cliente será responsable de cualquier daño o costo adicional resultante del uso no autorizado de estos materiales. En caso de incumplimiento, el salón se reserva el derecho de aplicar cargos adicionales y/o terminar el evento inmediatamente.`;
+Queda estrictamente prohibido el uso de confeti, serpentinas, pirotecnia, fuegos artificiales o cualquier material similar dentro o fuera del salón. El uso de estos elementos puede causar daños al salón, representar un riesgo de seguridad y generar costos adicionales de limpieza. El cliente será responsable de cualquier daño o costo adicional resultante del uso no autorizado de estos materiales. En caso de incumplimiento, el salón se reserva el derecho de aplicar cargos adicionales y/o terminar el evento inmediatamente.
+
+12. Métodos de Pago
+
+Hay varios métodos de pago disponibles. Todo pago que sea cobrado en el terminal de tarjetas tendrá automáticamente los cargos por tarjeta aplicados por el sistema.`;
 
         // Split text into lines and format
         const termsLines = doc.splitTextToSize(termsText, 170);
