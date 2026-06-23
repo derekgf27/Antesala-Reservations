@@ -22,6 +22,12 @@ service cloud.firestore {
       allow delete: if true;
     }
     
+    // Menu config (custom items added via Añadir ítems)
+    match /menuConfig/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+    
     // Deny all other collections
     match /{document=**} {
       allow read, write: if false;

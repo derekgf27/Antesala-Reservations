@@ -18,6 +18,8 @@ class ReservationManager {
         this.currentCalendarMonth = new Date().getMonth();
         this.currentCalendarYear = new Date().getFullYear();
         this.firebaseUnsubscribe = null;
+        this.menuConfigUnsubscribe = null;
+        this.menuConfigPendingChanges = false;
         this.sortOption = 'createdAt'; // Default sort by recently created
         this.sortDirection = 'desc'; // 'desc' for descending (most recent first)
         this.isUpdatingDeposit = false; // Flag to prevent re-sorting when toggling deposit
@@ -39,6 +41,7 @@ class ReservationManager {
         this.populateDynamicMenuOptions(); // Apply custom options to dropdowns
         this.populateBreakfastTypeOptions(); // Add custom desayuno items to dropdown
         this.loadCustomIndividualPlateTemplates(); // Load plate templates for individual plates
+        this.loadMenuConfigLastModified();
         this.updateBeverageSummary();
         this.updateEntremesesSummary();
         this.updateDashboard();
@@ -57,6 +60,8 @@ class ReservationManager {
             console.log('Using Firebase Firestore for data storage');
             await this.loadReservationsFromFirestore();
             this.setupFirestoreListener();
+            await this.loadMenuConfigFromFirestore();
+            this.setupMenuConfigFirestoreListener();
         } else {
             console.log('Using localStorage for data storage');
             this.reservations = this.loadReservationsFromLocalStorage();
@@ -1575,13 +1580,10 @@ class ReservationManager {
         }
     }
     
-    // Save custom beverages to localStorage
+    // Save custom beverages (local cache + cloud when available)
     saveCustomBeverages() {
-        try {
-            localStorage.setItem('customBeverages', JSON.stringify(this.customBeverages));
-        } catch (error) {
-            console.error('Error saving custom beverages:', error);
-        }
+        this.cacheMenuConfigLocally();
+        this.persistMenuConfigToCloud();
     }
 
     // Load / save reusable individual plate templates
@@ -1607,11 +1609,141 @@ class ReservationManager {
     }
 
     saveCustomIndividualPlateTemplates() {
-        try {
-            localStorage.setItem('customIndividualPlateTemplates', JSON.stringify(this.customIndividualPlateTemplates));
-        } catch (error) {
-            console.error('Error saving individual plate templates:', error);
+        this.cacheMenuConfigLocally();
+        this.persistMenuConfigToCloud();
+    }
+
+    normalizeCustomIndividualPlateTemplates() {
+        if (!Array.isArray(this.customIndividualPlateTemplates)) {
+            this.customIndividualPlateTemplates = [];
+            return;
         }
+        this.customIndividualPlateTemplates.forEach(plate => {
+            if (!Array.isArray(plate.defaultComplementos)) return;
+            plate.defaultComplementos = plate.defaultComplementos.map(c =>
+                typeof c === 'object' && c != null && 'name' in c ? { name: c.name, price: Number(c.price) || 0 } : { name: String(c), price: 0 }
+            );
+        });
+    }
+
+    hasLocalMenuConfig() {
+        this.ensureCustomMenuOptionsStructure();
+        const hasMenuOptions = Object.values(this.customMenuOptions).some(list => Array.isArray(list) && list.length > 0);
+        const hasBeverages = Array.isArray(this.customBeverages) && this.customBeverages.length > 0;
+        const hasPlates = Array.isArray(this.customIndividualPlateTemplates) && this.customIndividualPlateTemplates.length > 0;
+        return hasMenuOptions || hasBeverages || hasPlates;
+    }
+
+    cacheMenuConfigLocally() {
+        try {
+            this.ensureCustomMenuOptionsStructure();
+            localStorage.setItem('customMenuOptions', JSON.stringify(this.customMenuOptions));
+            localStorage.setItem('customBeverages', JSON.stringify(this.customBeverages || []));
+            localStorage.setItem('customIndividualPlateTemplates', JSON.stringify(this.customIndividualPlateTemplates || []));
+            if (this.menuConfigLastModified) {
+                localStorage.setItem('menuConfigLastModified', this.menuConfigLastModified);
+            }
+        } catch (error) {
+            console.error('Error caching menu config locally:', error);
+        }
+    }
+
+    applyMenuConfigData(data) {
+        if (!data || typeof data !== 'object') return;
+
+        if (data.customMenuOptions && typeof data.customMenuOptions === 'object') {
+            this.customMenuOptions = data.customMenuOptions;
+            this.ensureCustomMenuOptionsStructure();
+        }
+        if (Array.isArray(data.customBeverages)) {
+            this.customBeverages = data.customBeverages;
+        }
+        if (Array.isArray(data.customIndividualPlateTemplates)) {
+            this.customIndividualPlateTemplates = data.customIndividualPlateTemplates;
+            this.normalizeCustomIndividualPlateTemplates();
+        }
+        if (data.menuConfigLastModified) {
+            this.menuConfigLastModified = data.menuConfigLastModified;
+        }
+
+        this.cacheMenuConfigLocally();
+        this.loadMenuConfigLastModified();
+        this.onMenuConfigDataChanged();
+    }
+
+    async loadMenuConfigFromFirestore() {
+        if (!window.FIREBASE_LOADED || !window.firestore) return false;
+
+        try {
+            const docRef = window.firestore.collection('menuConfig').doc('shared');
+            const doc = await docRef.get();
+
+            if (doc.exists) {
+                this.applyMenuConfigData(doc.data());
+                console.log('Menu config loaded from Firestore');
+                return true;
+            }
+
+            if (this.hasLocalMenuConfig()) {
+                console.log('No cloud menu config found — uploading local items to Firestore');
+                await this.persistMenuConfigToCloud();
+            }
+            return false;
+        } catch (error) {
+            console.error('Error loading menu config from Firestore:', error);
+            return false;
+        }
+    }
+
+    async persistMenuConfigToCloud() {
+        if (!window.FIREBASE_LOADED || !window.firestore) return;
+
+        this.menuConfigPendingChanges = true;
+        const syncBanner = document.getElementById('syncStatusBanner');
+        syncBanner?.classList.remove('hidden');
+
+        try {
+            this.ensureCustomMenuOptionsStructure();
+            await window.firestore.collection('menuConfig').doc('shared').set({
+                customMenuOptions: this.customMenuOptions,
+                customBeverages: this.customBeverages || [],
+                customIndividualPlateTemplates: this.customIndividualPlateTemplates || [],
+                menuConfigLastModified: this.menuConfigLastModified || null,
+                updatedAt: new Date().toISOString()
+            }, { merge: true });
+            console.log('Menu config saved to Firestore');
+        } catch (error) {
+            console.error('Error saving menu config to Firestore:', error);
+            this.showNotification('No se pudo guardar en la nube. Los cambios quedaron en este dispositivo.', 'error');
+        } finally {
+            setTimeout(() => {
+                this.menuConfigPendingChanges = false;
+                syncBanner?.classList.add('hidden');
+            }, 2000);
+        }
+    }
+
+    setupMenuConfigFirestoreListener() {
+        if (!window.FIREBASE_LOADED || !window.firestore) return;
+
+        if (this.menuConfigUnsubscribe) {
+            this.menuConfigUnsubscribe();
+            this.menuConfigUnsubscribe = null;
+        }
+
+        this.menuConfigUnsubscribe = window.firestore.collection('menuConfig').doc('shared')
+            .onSnapshot((doc) => {
+                if (this.menuConfigPendingChanges) {
+                    console.log('Skipping menu config sync - pending local changes');
+                    return;
+                }
+                if (!doc.exists) return;
+
+                this.applyMenuConfigData(doc.data());
+                console.log('Menu config synced from Firestore');
+            }, (error) => {
+                console.error('Menu config Firestore sync error:', error);
+            });
     }
 
     // ----- Custom menu options (buffet dropdowns) -----
@@ -1652,12 +1784,8 @@ class ReservationManager {
     }
 
     saveCustomMenuOptions() {
-        try {
-            this.ensureCustomMenuOptionsStructure();
-            localStorage.setItem('customMenuOptions', JSON.stringify(this.customMenuOptions));
-        } catch (error) {
-            console.error('Error saving custom menu options:', error);
-        }
+        this.cacheMenuConfigLocally();
+        this.persistMenuConfigToCloud();
     }
 
     populateDynamicMenuOptions() {
@@ -4870,6 +4998,7 @@ class ReservationManager {
             });
             el.textContent = `Última modificación: ${formatted}`;
         }
+        this.persistMenuConfigToCloud();
     }
 
     loadMenuConfigLastModified() {
