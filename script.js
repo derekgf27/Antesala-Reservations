@@ -4799,7 +4799,7 @@ class ReservationManager {
                         </div>
                         ${reservation.pricing.tip && reservation.pricing.tip.amount > 0 ? `
                         <div class="pricing-row">
-                            <span>Propina (${reservation.pricing.tip.percentage}%):</span>
+                            <span>Servicio (${reservation.pricing.tip.percentage}%):</span>
                             <span>$${reservation.pricing.tip.amount.toFixed(2)}</span>
                         </div>
                         ` : ''}
@@ -8037,7 +8037,7 @@ class ReservationManager {
         yPos += 5;
 
         if (reservation.pricing.tip && reservation.pricing.tip.amount > 0) {
-            doc.text(`PROPINA ${reservation.pricing.tip.percentage}%`, 20, yPos);
+            doc.text(`SERVICIO ${reservation.pricing.tip.percentage}%`, 20, yPos);
             doc.text(`$${reservation.pricing.tip.amount.toFixed(2)}`, 190, yPos, { align: 'right' });
             yPos += 5;
         }
