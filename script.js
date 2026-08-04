@@ -22,6 +22,7 @@ class ReservationManager {
         this.menuConfigPendingChanges = false;
         this.sortOption = 'createdAt'; // Default sort by recently created
         this.sortDirection = 'desc'; // 'desc' for descending (most recent first)
+        this.reservationsListView = 'upcoming'; // 'upcoming' | 'archive'
         this.isUpdatingDeposit = false; // Flag to prevent re-sorting when toggling deposit
         this.currentPaymentReservationId = null; // Track which reservation is being paid
         this.isInitializing = true; // Flag to prevent saves during initialization
@@ -409,6 +410,14 @@ class ReservationManager {
             if (d) d.value = '';
             if (dt) dt.value = '';
             this.displayReservations();
+        });
+        document.querySelectorAll('[data-reservations-view]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const view = btn.getAttribute('data-reservations-view');
+                if (view !== 'upcoming' && view !== 'archive') return;
+                this.reservationsListView = view;
+                this.displayReservations();
+            });
         });
         document.getElementById('clientName')?.addEventListener('input', () => {
             if (this.isEditingReservation) this.syncReservationFormHeader();
@@ -6220,9 +6229,56 @@ class ReservationManager {
     }
 
     // Display reservations
+    getTodayDateString() {
+        const d = new Date();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${d.getFullYear()}-${month}-${day}`;
+    }
+
+    isPastReservation(reservation) {
+        const eventDate = reservation?.eventDate || '';
+        return eventDate < this.getTodayDateString();
+    }
+
+    updateReservationsViewTabs() {
+        const today = this.getTodayDateString();
+        const upcomingCount = this.reservations.filter(r => (r.eventDate || '') >= today).length;
+        const archiveCount = this.reservations.filter(r => (r.eventDate || '') < today).length;
+
+        const upcomingCountEl = document.getElementById('upcomingReservationsCount');
+        const archiveCountEl = document.getElementById('archiveReservationsCount');
+        if (upcomingCountEl) upcomingCountEl.textContent = String(upcomingCount);
+        if (archiveCountEl) archiveCountEl.textContent = String(archiveCount);
+
+        document.querySelectorAll('[data-reservations-view]').forEach(btn => {
+            const isActive = btn.getAttribute('data-reservations-view') === this.reservationsListView;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+
+        const titleEl = document.getElementById('reservationsSectionTitle');
+        if (titleEl) {
+            titleEl.textContent = this.reservationsListView === 'archive'
+                ? 'Archivo de reservaciones'
+                : 'Reservaciones próximas';
+        }
+    }
+
     displayReservations() {
         const container = document.getElementById('reservationsContainer');
-        
+        if (!container) return;
+
+        this.updateReservationsViewTabs();
+
+        const today = this.getTodayDateString();
+        const viewReservations = this.reservations.filter(r => {
+            const eventDate = r.eventDate || '';
+            return this.reservationsListView === 'archive'
+                ? eventDate < today
+                : eventDate >= today;
+        });
+
         if (this.reservations.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
@@ -6233,11 +6289,31 @@ class ReservationManager {
             return;
         }
 
+        if (viewReservations.length === 0) {
+            container.innerHTML = this.reservationsListView === 'archive'
+                ? `
+                <div class="empty-state">
+                    <h3>No hay reservaciones en el archivo</h3>
+                    <p>Las reservaciones pasan automáticamente aquí cuando su fecha ya ocurrió.</p>
+                </div>
+            `
+                : `
+                <div class="empty-state">
+                    <h3>No hay reservaciones próximas</h3>
+                    <p>Las reservaciones pasadas están en el archivo. Cree una nueva para verla aquí.</p>
+                </div>
+            `;
+            return;
+        }
+
         const searchInput = document.getElementById('reservationSearch');
         const queryLower = (searchInput?.value || '').trim().toLowerCase();
+        const filterRoom = document.getElementById('reservationFilterRoom')?.value || '';
+        const filterDeposit = document.getElementById('reservationFilterDeposit')?.value || '';
+        const filterDate = document.getElementById('reservationFilterDate')?.value || '';
 
         // Sort reservations based on selected option
-        const sortedReservations = [...this.reservations].sort((a, b) => {
+        const sortedReservations = [...viewReservations].sort((a, b) => {
             let result = 0;
             
             if (this.sortOption === 'eventDate') {
@@ -6276,9 +6352,18 @@ class ReservationManager {
             return this.sortDirection === 'desc' ? -result : result;
         });
 
-        const filteredReservations = queryLower
-            ? sortedReservations.filter(r => this.reservationMatchesSearchQuery(r, queryLower))
-            : sortedReservations;
+        const filteredReservations = sortedReservations.filter(r => {
+            if (queryLower && !this.reservationMatchesSearchQuery(r, queryLower)) return false;
+            if (filterRoom && r.roomType !== filterRoom) return false;
+            if (filterDate && r.eventDate !== filterDate) return false;
+            if (filterDeposit) {
+                const depositAmount = r.pricing?.depositAmount || 0;
+                if (filterDeposit === 'none' && depositAmount > 0) return false;
+                if (filterDeposit === 'paid' && !(depositAmount > 0 && r.depositPaid)) return false;
+                if (filterDeposit === 'unpaid' && !(depositAmount > 0 && !r.depositPaid)) return false;
+            }
+            return true;
+        });
 
         if (filteredReservations.length === 0) {
             container.innerHTML = `
@@ -6291,7 +6376,7 @@ class ReservationManager {
         }
 
         container.innerHTML = filteredReservations.map(reservation => `
-            <div class="reservation-card">
+            <div class="reservation-card${this.isPastReservation(reservation) ? ' reservation-card--archived' : ''}">
                 <div class="reservation-header">
                     <div class="reservation-client">${reservation.clientName}</div>
                     <div class="reservation-total">$${reservation.pricing.totalCost.toFixed(2)}</div>
@@ -6813,35 +6898,57 @@ class ReservationManager {
 
     // Delete reservation
     async deleteReservation(id) {
-        const reservation = this.reservations.find(r => r.id === id);
+        const reservation = this.reservations.find(r => String(r.id) === String(id));
         if (!reservation) {
             this.showNotification('Reservación no encontrada', 'error');
             return;
         }
         
         const clientName = reservation.clientName || 'Sin nombre';
-        const eventDate = reservation.eventDate || 'Sin fecha';
+        const eventDate = reservation.eventDate
+            ? (() => {
+                const d = new Date(reservation.eventDate + 'T00:00:00');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${month}/${day}/${d.getFullYear()}`;
+            })()
+            : 'Sin fecha';
         const confirmMessage = `¿Eliminar esta reservación?\n\nCliente: ${clientName}\nFecha: ${eventDate}\n\nEsta acción no se puede deshacer.`;
         
-        const ok1 = await this.appConfirm(confirmMessage, { title: 'Eliminar reservación' });
-        if (!ok1) return;
-        const ok2 = await this.appConfirm('Última confirmación: ¿eliminar definitivamente esta reservación?', {
-            title: 'Confirmar eliminación',
+        const ok = await this.appConfirm(confirmMessage, {
+            title: 'Eliminar reservación',
             okText: 'Sí, eliminar'
         });
-        if (!ok2) return;
+        if (!ok) return;
 
-        const beforeCount = this.reservations.length;
-        this.reservations = this.reservations.filter(r => r.id !== id);
+        const previousReservations = this.reservations;
+        const reservationId = String(reservation.id);
+        this.reservations = this.reservations.filter(r => String(r.id) !== reservationId);
 
-        if (this.reservations.length === beforeCount - 1) {
-            await this.saveReservations();
+        this.pendingChanges = true;
+        const syncBanner = document.getElementById('syncStatusBanner');
+        syncBanner?.classList.remove('hidden');
+
+        try {
+            if (window.FIREBASE_LOADED && window.firestore) {
+                await window.firestore.collection('reservations').doc(reservationId).delete();
+            }
+            this.saveReservationsToLocalStorage();
             this.displayReservations();
-            this.showNotification('Reservación eliminada correctamente.', 'success');
-            appDebug('Reservation deleted:', id, 'Total reservations:', this.reservations.length);
-        } else {
-            this.showNotification('Error al eliminar la reservación', 'error');
-            console.error('Deletion failed - count mismatch');
+            this.updateDashboard();
+            this.showNotification('Reservación eliminada correctamente.', 'error', 5500);
+            appDebug('Reservation deleted:', reservationId, 'Total reservations:', this.reservations.length);
+        } catch (error) {
+            console.error('Error deleting reservation:', error);
+            this.reservations = previousReservations;
+            this.displayReservations();
+            this.showNotification('Error al eliminar la reservación. Intente de nuevo.', 'error');
+        } finally {
+            setTimeout(() => {
+                this.pendingChanges = false;
+                syncBanner?.classList.add('hidden');
+                appDebug('Pending changes flag reset - sync will resume');
+            }, 3000);
         }
     }
 
@@ -6931,7 +7038,7 @@ class ReservationManager {
     }
 
     // Show notification
-    showNotification(message, type = 'info') {
+    showNotification(message, type = 'info', duration = 3000) {
         // Create notification element
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
@@ -6970,13 +7077,14 @@ class ReservationManager {
 
         document.body.appendChild(notification);
 
-        // Remove after 3 seconds
         setTimeout(() => {
             notification.style.animation = 'slideOut 0.3s ease-in';
             setTimeout(() => {
-                document.body.removeChild(notification);
+                if (notification.parentNode) {
+                    document.body.removeChild(notification);
+                }
             }, 300);
-        }, 3000);
+        }, duration);
     }
 
     // Local storage methods
@@ -7029,50 +7137,41 @@ class ReservationManager {
             const snapshot = await reservationsRef.get();
             const existingIds = new Set();
             snapshot.forEach((doc) => {
-                existingIds.add(doc.id);
+                existingIds.add(String(doc.id));
             });
 
             // Update or create each reservation
             const currentIds = new Set();
             this.reservations.forEach((reservation) => {
-                const docRef = reservationsRef.doc(reservation.id);
+                const docRef = reservationsRef.doc(String(reservation.id));
                 batch.set(docRef, reservation, { merge: true });
-                currentIds.add(reservation.id);
+                currentIds.add(String(reservation.id));
             });
 
-            // Only delete reservations that no longer exist in current data
-            // This prevents accidental deletion if reservations array is empty during initialization
-            if (this.reservations.length > 0) {
-                const toDelete = [];
-                existingIds.forEach((id) => {
-                    if (!currentIds.has(id)) {
-                        toDelete.push(id);
-                    }
-                });
-                
-                // Enhanced safety checks for deletions
-                if (toDelete.length > 0) {
-                    // Safety check 1: If trying to delete more than 50% of reservations, prevent it
-                    if (toDelete.length > existingIds.size * 0.5) {
-                        console.error(`Bulk deletion BLOCKED: Attempting to delete ${toDelete.length} out of ${existingIds.size} reservations`);
-                        throw new Error('Bulk deletion prevented: Too many reservations would be deleted');
-                    }
-                    
-                    // Safety check 2: If trying to delete more than 1 reservation at once, log warning
-                    if (toDelete.length > 1) {
-                        console.warn(`⚠️ WARNING: Attempting to delete ${toDelete.length} reservations:`, toDelete);
-                        console.warn('Current reservations count:', this.reservations.length);
-                        console.warn('Existing Firestore count:', existingIds.size);
-                        // Still allow it, but log extensively for debugging
-                    }
-                    
-                    // Safety check 3: Log each deletion with details
-                    toDelete.forEach((id) => {
-                        console.warn(`⚠️ DELETING reservation from Firestore: ${id}`);
-                        console.warn('This reservation was not found in local reservations array');
-                        batch.delete(reservationsRef.doc(id));
-                    });
+            // Delete reservations that no longer exist locally (including when local list is empty)
+            const toDelete = [];
+            existingIds.forEach((id) => {
+                if (!currentIds.has(String(id))) {
+                    toDelete.push(String(id));
                 }
+            });
+
+            if (toDelete.length > 0) {
+                // Allow deleting a single reservation always; only block large accidental bulk deletes
+                const isBulkDelete = toDelete.length > 1 && toDelete.length > existingIds.size * 0.5;
+                if (isBulkDelete) {
+                    console.error(`Bulk deletion BLOCKED: Attempting to delete ${toDelete.length} out of ${existingIds.size} reservations`);
+                    throw new Error('Bulk deletion prevented: Too many reservations would be deleted');
+                }
+
+                if (toDelete.length > 1) {
+                    console.warn(`⚠️ WARNING: Attempting to delete ${toDelete.length} reservations:`, toDelete);
+                }
+
+                toDelete.forEach((id) => {
+                    console.warn(`⚠️ DELETING reservation from Firestore: ${id}`);
+                    batch.delete(reservationsRef.doc(id));
+                });
             }
 
             await batch.commit();

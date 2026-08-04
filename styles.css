@@ -352,6 +352,63 @@ body {
     padding-bottom: 2px;
 }
 
+.reservations-view-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.reservations-view-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.reservations-view-tab:hover {
+    border-color: #F27B21;
+    color: var(--text-primary);
+}
+
+.reservations-view-tab.active {
+    border-color: #F27B21;
+    background: rgba(242, 123, 33, 0.12);
+    color: var(--text-primary);
+}
+
+.reservations-view-tab i {
+    color: #F27B21;
+}
+
+.reservations-view-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(242, 123, 33, 0.18);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.reservation-card--archived {
+    border-left-color: #9aa0a6;
+    opacity: 0.92;
+}
+
 .reservations-filters {
     display: flex;
     flex-wrap: nowrap;

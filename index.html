@@ -479,7 +479,7 @@
             <!-- All Reservations Section -->
             <section id="reservations" class="content-section">
                 <div class="section-header">
-                    <h1>Todas las Reservaciones</h1>
+                    <h1 id="reservationsSectionTitle">Reservaciones próximas</h1>
                     <div class="header-actions">
                         <button type="button" class="btn btn-primary" onclick="showSection('new-reservation')">
                             <i class="fas fa-plus"></i> Nueva Reservación
@@ -493,6 +493,18 @@
                             <i class="fas fa-sort-amount-down" id="sortDirectionIcon"></i>
                         </button>
                     </div>
+                </div>
+                <div class="reservations-view-tabs" role="tablist" aria-label="Vista de reservaciones">
+                    <button type="button" class="reservations-view-tab active" role="tab" aria-selected="true" data-reservations-view="upcoming" id="reservationsTabUpcoming">
+                        <i class="fas fa-calendar-check" aria-hidden="true"></i>
+                        Próximas
+                        <span class="reservations-view-count" id="upcomingReservationsCount">0</span>
+                    </button>
+                    <button type="button" class="reservations-view-tab" role="tab" aria-selected="false" data-reservations-view="archive" id="reservationsTabArchive">
+                        <i class="fas fa-archive" aria-hidden="true"></i>
+                        Archivo
+                        <span class="reservations-view-count" id="archiveReservationsCount">0</span>
+                    </button>
                 </div>
                 <div class="reservations-toolbar">
                     <label for="reservationSearch" class="sr-only">Buscar reservaciones</label>
