@@ -22,7 +22,8 @@ const FIREBASE_ENABLED = true;
  * If empty, ANY Google account that can sign in is allowed (not recommended for production).
  */
 const ALLOWED_STAFF_EMAILS = [
-     'kaleferr@gmail.com',
+    'kaleferr@gmail.com',
+    'derekgf27@gmail.com',
 ];
 
 // Initialize Firebase if enabled
