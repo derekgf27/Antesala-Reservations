@@ -2732,6 +2732,29 @@ class ReservationManager {
         // Attach handlers for custom beverage inputs
         this.attachBeverageInputHandlers();
     }
+
+    /** Prefill custom catalog qty inputs from beverageSelections (must be sync before sidebar refresh). */
+    prefillCustomBeverageInputs() {
+        if (!Array.isArray(this.customBeverages)) return;
+        this.customBeverages.forEach(beverage => {
+            const inputId = this.getCustomBeverageInputId(beverage.id);
+            const el = document.getElementById(inputId);
+            if (!el) return;
+            const selection = this.beverageSelections[beverage.id];
+            let qty = 0;
+            if (typeof selection === 'object' && selection !== null && selection.qty != null) {
+                qty = parseInt(selection.qty, 10) || 0;
+            } else if (typeof selection === 'number') {
+                qty = selection;
+            }
+            el.value = qty;
+            const wrapper = el.parentElement;
+            if (wrapper) {
+                if (qty > 0) wrapper.classList.add('selected');
+                else wrapper.classList.remove('selected');
+            }
+        });
+    }
     
     openBeverageModal() {
         const modal = document.getElementById('beverageModal');
@@ -2809,7 +2832,7 @@ class ReservationManager {
                 }
             }
         });
-        // Handle Mimosa checkboxes
+        // Handle Mimosa checkboxes (built-in per-person options only)
         const mimosaCheckbox = document.getElementById('bev-mimosa');
         if (mimosaCheckbox) {
             mimosaCheckbox.checked = this.beverageSelections['mimosa'] === true;
@@ -2819,32 +2842,10 @@ class ReservationManager {
             mimosa395Checkbox.checked = this.beverageSelections['mimosa-395'] === true;
         }
         
-        // Add custom beverages to modal
+        // Inject custom catalog rows, then prefill synchronously so Seleccionados
+        // matches the form summary (avoids empty sidebar / wiping Mimosa on Guardar).
         this.addCustomBeveragesToModal();
-        
-        // Prefill custom beverage values after they're added to the modal
-        setTimeout(() => {
-            this.customBeverages.forEach(beverage => {
-                const inputId = this.getCustomBeverageInputId(beverage.id);
-                const el = document.getElementById(inputId);
-                if (el) {
-                    const selection = this.beverageSelections[beverage.id];
-                    // Handle custom beverages stored as objects (with qty, name, price)
-                    let qty = 0;
-                    if (typeof selection === 'object' && selection !== null && selection.qty) {
-                        qty = selection.qty;
-                    } else {
-                        qty = selection || 0;
-                    }
-                    el.value = qty;
-                    const wrapper = el.parentElement;
-                    if (wrapper) {
-                        if (qty > 0) wrapper.classList.add('selected');
-                        else wrapper.classList.remove('selected');
-                    }
-                }
-            });
-        }, 100);
+        this.prefillCustomBeverageInputs();
         
         // Attach change handlers for selection animation
         this.attachBeverageInputHandlers();
@@ -3682,9 +3683,17 @@ class ReservationManager {
                 e.preventDefault();
                 e.stopPropagation();
                 const mimId = removeBtn.getAttribute('data-target-mimosa');
+                const selectionId = removeBtn.getAttribute('data-target-selection');
                 if (mimId) {
                     const cb = document.getElementById(mimId);
                     if (cb) cb.checked = false;
+                } else if (selectionId) {
+                    delete this.beverageSelections[selectionId];
+                    const orphanInput = document.getElementById(this.getCustomBeverageInputId(selectionId));
+                    if (orphanInput) {
+                        orphanInput.value = 0;
+                        this.updateBeverageSelectionState(orphanInput);
+                    }
                 } else {
                     const inputId = removeBtn.getAttribute('data-target-input');
                     if (inputId) {
@@ -3813,10 +3822,12 @@ class ReservationManager {
             });
         }
 
+        const listedInputIds = new Set();
         modal.querySelectorAll('input[type="number"][id^="bev-"]').forEach(input => {
             const qty = parseInt(input.value, 10) || 0;
             if (qty <= 0) return;
             const inputId = input.id;
+            listedInputIds.add(inputId);
             let labelEl = modal.querySelector(`label[for="${inputId}"]`);
             if (!labelEl) {
                 modal.querySelectorAll('label[for]').forEach(l => {
@@ -3828,6 +3839,25 @@ class ReservationManager {
                 html: `<div class="beverage-sidebar-row">
                     <div class="beverage-sidebar-row-text"><span class="beverage-sidebar-row-qty">${qty}×</span> ${esc(name)}</div>
                     <button type="button" class="btn btn-outline btn-sm beverage-sidebar-remove" data-target-input="${inputId.replace(/"/g, '&quot;')}" title="Quitar">Quitar</button>
+                </div>`
+            });
+        });
+
+        // Fallback: custom/orphan selections on the reservation that have no live input yet
+        Object.entries(this.beverageSelections || {}).forEach(([id, selection]) => {
+            if (id === 'mimosa' || id === 'mimosa-395') return;
+            if (typeof selection !== 'object' || selection === null) return;
+            const qty = parseInt(selection.qty, 10) || 0;
+            if (qty <= 0) return;
+            const inputId = this.getCustomBeverageInputId(id);
+            if (listedInputIds.has(inputId)) return;
+            const inputEl = document.getElementById(inputId);
+            if (inputEl && (parseInt(inputEl.value, 10) || 0) > 0) return;
+            const name = selection.name || id;
+            rows.push({
+                html: `<div class="beverage-sidebar-row">
+                    <div class="beverage-sidebar-row-text"><span class="beverage-sidebar-row-qty">${qty}×</span> ${esc(name)}</div>
+                    <button type="button" class="btn btn-outline btn-sm beverage-sidebar-remove" data-target-selection="${esc(id)}" title="Quitar">Quitar</button>
                 </div>`
             });
         });

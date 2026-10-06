@@ -2138,7 +2138,14 @@ textarea:focus-visible,
 .beverage-section {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
+}
+
+.beverage-section #editBeveragesBtn,
+.beverage-section #openBeverageModalBtn {
+    margin-top: 4px;
+    margin-bottom: 0;
+    z-index: 1;
 }
 
 .detail-bullet-list {
