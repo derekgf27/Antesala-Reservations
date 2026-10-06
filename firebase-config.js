@@ -5,7 +5,7 @@
 // 4. Deploy firestore.rules (auth required)
 
 const firebaseConfig = {
-    apiKey: "AIzaZyCnZZ9VerU9xWAyZmlyRaKnV6HTg6gt1Uo",
+    apiKey: "AIzaSyAdTEPaNnvNYeAQxqUXodTWgbIQAWScAHg",
     authDomain: "antesalareservations.firebaseapp.com",
     projectId: "antesalareservations",
     storageBucket: "antesalareservations.firebasestorage.app",
