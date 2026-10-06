@@ -2316,6 +2316,7 @@ class ReservationManager {
     resolveBeverageInvoiceLine(id, qty, guestCount = 0) {
         if (qty === false || qty === null || qty === undefined) return null;
 
+        // Built-in Mimosa checkboxes (per person) — only when qty is strictly true
         if (id === 'mimosa' && qty === true) {
             const total = 3.0 * guestCount;
             return { description: 'Mimosa ($3.00)', qty: guestCount, total };
@@ -2324,13 +2325,14 @@ class ReservationManager {
             const total = 3.95 * guestCount;
             return { description: 'Mimosa ($3.95)', qty: guestCount, total };
         }
-        if (id === 'mimosa' || id === 'mimosa-395') return null;
 
         let numQty = 0;
         let notesText = '';
         let displayName = null;
         let price = null;
 
+        // Custom catalog "Mimosa" (or any drink) stored as { qty, name, price } —
+        // must NOT be dropped just because the key is mimosa / mimosa-395
         if (typeof qty === 'object' && qty !== null) {
             numQty = parseInt(qty.qty, 10) || 0;
             if (qty.notes) notesText = ` (${qty.notes})`;
@@ -2430,6 +2432,7 @@ class ReservationManager {
     migrateCustomBeverageSelectionsOnReservations() {
         if (!Array.isArray(this.reservations) || !Array.isArray(this.customBeverages)) return false;
         let changed = false;
+        const reserved = this.getStandardBeverageIds();
 
         const findCatalogId = (key, val) => {
             if ((this.customBeverages || []).some(b => b.id === key)) return key;
@@ -2450,12 +2453,14 @@ class ReservationManager {
         const migrateMap = (map) => {
             if (!map || typeof map !== 'object') return;
             Object.entries({ ...map }).forEach(([key, val]) => {
-                const isCustomSelection = typeof val === 'object' && val !== null && (val.custom === true || !!val.name);
+                // Object qty on a reserved id (e.g. custom "Mimosa" saved as mimosa: {qty,name,price})
+                const isCustomSelection = typeof val === 'object' && val !== null &&
+                    (val.custom === true || !!val.name || (reserved.has(key) && 'qty' in val));
                 if (!isCustomSelection) return;
                 const newId = findCatalogId(key, val);
                 if (!newId || newId === key) return;
                 if (!Object.prototype.hasOwnProperty.call(map, newId)) {
-                    map[newId] = val;
+                    map[newId] = { ...val, custom: true };
                 }
                 delete map[key];
                 changed = true;
