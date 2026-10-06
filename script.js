@@ -2363,6 +2363,40 @@ class ReservationManager {
         };
     }
 
+    /** Collect active beverage invoice lines for a reservation (custom + built-in). */
+    getReservationBeverageInvoiceLines(reservation) {
+        if (!reservation?.beverages || typeof reservation.beverages !== 'object') return [];
+        const guestCount = reservation.guestCount || 0;
+        const lines = [];
+        Object.entries(reservation.beverages).forEach(([id, qty]) => {
+            const line = this.resolveBeverageInvoiceLine(id, qty, guestCount);
+            if (line) lines.push(line);
+        });
+        return lines;
+    }
+
+    /**
+     * Group all bebidas under one "Bebidas" subcategory (Buffet-style header + bullets).
+     * Returns null when there are no beverage lines.
+     */
+    buildBebidasInvoiceGroup(reservation) {
+        const lines = this.getReservationBeverageInvoiceLines(reservation);
+        if (lines.length === 0) return null;
+
+        const total = lines.reduce((sum, line) => sum + (line.total || 0), 0);
+        const bullets = lines.map((line) => {
+            const label = line.description || 'Bebida';
+            return `${line.qty} × ${label}`;
+        });
+
+        return {
+            title: 'Bebidas',
+            bullets,
+            total,
+            lines
+        };
+    }
+
     /** Ensure custom beverage ids never collide with built-in ones (e.g. corona). */
     normalizeCustomBeverageIds() {
         if (!Array.isArray(this.customBeverages) || this.customBeverages.length === 0) return false;
@@ -7892,19 +7926,24 @@ class ReservationManager {
             }
         }
 
-        // Beverages (including custom catalog items from Añadir ítems)
-        if (reservation.beverages && Object.keys(reservation.beverages).length > 0) {
-            Object.entries(reservation.beverages).forEach(([id, qty]) => {
-                const line = this.resolveBeverageInvoiceLine(id, qty, reservation.guestCount || 0);
-                if (!line) return;
-                itemsHTML += `
-                    <tr>
-                        <td><strong>${line.description}</strong></td>
-                        <td>${line.qty}</td>
-                        <td>$${line.total.toFixed(2)}</td>
-                    </tr>
-                `;
-            });
+        // Bebidas subcategory — all drink items grouped under one header
+        const bebidasGroupHtml = this.buildBebidasInvoiceGroup(reservation);
+        if (bebidasGroupHtml) {
+            const bebidasOptionsList = bebidasGroupHtml.bullets
+                .map(item => `<li style="margin-left: 20px; padding: 2px 0; list-style: disc;">${item}</li>`)
+                .join('');
+            itemsHTML += `
+                <tr>
+                    <td>
+                        <strong>Bebidas</strong>
+                        <ul style="margin: 8px 0 0 20px; padding-left: 0; list-style-type: disc;">
+                            ${bebidasOptionsList}
+                        </ul>
+                    </td>
+                    <td>-</td>
+                    <td>$${bebidasGroupHtml.total.toFixed(2)}</td>
+                </tr>
+            `;
         }
 
         // Entremeses
@@ -8204,16 +8243,15 @@ class ReservationManager {
             }
         }
 
-        // Beverages (including custom catalog items from Añadir ítems)
-        if (reservation.beverages && Object.keys(reservation.beverages).length > 0) {
-            Object.entries(reservation.beverages).forEach(([id, qty]) => {
-                const line = this.resolveBeverageInvoiceLine(id, qty, reservation.guestCount || 0);
-                if (!line) return;
-                itemsData.push({
-                    description: line.description,
-                    qty: String(line.qty),
-                    total: `$${line.total.toFixed(2)}`
-                });
+        // Bebidas subcategory — all drink items grouped under one header (Buffet-style)
+        const bebidasGroupPdf = this.buildBebidasInvoiceGroup(reservation);
+        if (bebidasGroupPdf) {
+            const bebidasDesc = 'Bebidas\n' + bebidasGroupPdf.bullets.map(item => '• ' + item).join('\n');
+            itemsData.push({
+                description: bebidasDesc,
+                qty: '-',
+                total: `$${bebidasGroupPdf.total.toFixed(2)}`,
+                isBuffet: true
             });
         }
 
