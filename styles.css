@@ -162,23 +162,40 @@ textarea:focus-visible,
     display: none;
 }
 
-.sidebar-user {
-    padding: 12px 16px 8px;
-    border-top: 1px solid var(--border-color);
+.sidebar-bottom {
     margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 20px 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+.sidebar-user {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0;
+    border-top: none;
+    margin-top: 0;
 }
 
 .sidebar-user-email {
     font-size: 0.8rem;
-    color: var(--text-muted);
+    color: rgba(255, 255, 255, 0.7);
     word-break: break-all;
-    margin-bottom: 8px;
+    line-height: 1.35;
+    margin-bottom: 0;
 }
 
 .sidebar-signout-btn {
     width: 100%;
     font-size: 0.85rem;
     padding: 8px 10px;
+    margin-bottom: 0;
+    z-index: 1;
+    justify-content: center;
 }
 
 /* Mobile Menu Toggle Button */
@@ -247,23 +264,17 @@ textarea:focus-visible,
 }
 
 .sidebar-footer {
-    position: absolute;
-    bottom: 140px;
-    left: 0;
-    right: 0;
+    position: static;
     text-align: center;
     color: rgba(255, 255, 255, 0.8);
-    font-size: 0.9rem;
-    padding: 0 25px;
+    font-size: 0.85rem;
+    padding: 4px 0 0;
 }
 
 /* Dark Mode Toggle */
 .dark-mode-toggle-container {
-    position: absolute;
-    bottom: 20px;
-    left: 0;
-    right: 0;
-    padding: 0 25px;
+    position: static;
+    padding: 0;
 }
 
 .dark-mode-toggle {
