@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Sistema interno de reservaciones de La Antesala">
     <title>Antesala Reservaciones - Sistema de Reservación de Espacios</title>
     <!-- Updated: Added Desayuno Continental option and improved dropdown styling -->
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" 
-            onerror="console.error('Failed to load jsPDF library from CDN'); window.jspdfLoadError = true;"
-            onload="console.log('jsPDF library loaded successfully'); window.jspdfLoadSuccess = true;"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"
-            onerror="console.error('Failed to load jsPDF-autotable plugin from CDN'); window.jspdfAutotableLoadError = true;"
-            onload="console.log('jsPDF-autotable plugin loaded successfully'); window.jspdfAutotableLoadSuccess = true;"></script>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -25,7 +24,7 @@
         <nav class="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <img src="Logo_Antesala-removebg-preview.png" alt="LA ANTESALA" class="logo-image">
+                    <img src="Logo_Antesala-compact.png" alt="LA ANTESALA" class="logo-image" width="180" height="60" decoding="async">
                 </div>
             </div>
             
@@ -484,12 +483,15 @@
                         <button type="button" class="btn btn-primary" onclick="showSection('new-reservation')">
                             <i class="fas fa-plus"></i> Nueva Reservación
                         </button>
+                        <button type="button" class="btn btn-outline" id="exportReservationsBtn" onclick="exportReservations()" title="Descargar respaldo JSON">
+                            <i class="fas fa-download"></i> Exportar respaldo
+                        </button>
                         <select id="reservationSort" class="sort-select" aria-label="Ordenar reservaciones">
                             <option value="eventDate">Ordenar por Fecha del Evento</option>
                             <option value="createdAt" selected>Ordenar por Recientemente Creadas</option>
                             <option value="depositPaid">Ordenar por Depósito Pagado</option>
                         </select>
-                        <button id="sortDirectionToggle" class="btn btn-outline sort-direction-btn" aria-label="Toggle sort direction" title="Cambiar dirección de ordenamiento">
+                        <button id="sortDirectionToggle" class="btn btn-outline sort-direction-btn" aria-label="Cambiar dirección de ordenamiento" title="Cambiar dirección de ordenamiento">
                             <i class="fas fa-sort-amount-down" id="sortDirectionIcon"></i>
                         </button>
                     </div>
@@ -576,6 +578,18 @@
                         <h3>Ingresos por Mes</h3>
                         <div id="revenueChart" class="chart-placeholder">
                             <p>El gráfico de ingresos se mostrará aquí</p>
+                        </div>
+                    </div>
+                    <div class="analytics-card">
+                        <h3>Depósitos pendientes</h3>
+                        <div id="pendingDepositsStats" class="stats-list">
+                            <!-- Pending deposits -->
+                        </div>
+                    </div>
+                    <div class="analytics-card">
+                        <h3>Uso de salones este mes</h3>
+                        <div id="roomUtilizationStats" class="stats-list">
+                            <!-- Room utilization -->
                         </div>
                     </div>
                     <div class="analytics-card">
@@ -1628,6 +1642,15 @@
                                     <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-water">+</button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="accordion">
+                    <summary class="accordion-summary">Otros</summary>
+                    <div class="accordion-content">
+                        <div class="protein-grid" id="otrosBeveragesContainer">
+                            <!-- Custom beverages with section "Otros" are injected here -->
                         </div>
                     </div>
                 </details>

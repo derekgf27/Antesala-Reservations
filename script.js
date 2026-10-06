@@ -31,108 +31,131 @@ class ReservationManager {
         this._suppressReservationFormDirty = false; // While programmatically filling the form
         this.isEditingReservation = false; // Flag to prevent saves during edit operations
         this.editingReservationId = null; // Track which reservation is being edited
-        this.initializeStorage();
         this.initializeEventListeners();
         this.initializeNavigation();
         this.updateGuestCountDisplay();
         this.calculatePrice();
         this.updateFoodServiceSummary();
-        this.loadCustomBeverages(); // Load custom beverages on init
-        this.loadCustomMenuOptions(); // Load custom buffet options on init
-        this.populateDynamicMenuOptions(); // Apply custom options to dropdowns
-        this.populateBreakfastTypeOptions(); // Add custom desayuno items to dropdown
-        this.loadCustomIndividualPlateTemplates(); // Load plate templates for individual plates
+        this.loadCustomBeverages();
+        this.normalizeCustomBeverageIds();
+        this.loadCustomMenuOptions();
+        this.populateDynamicMenuOptions();
+        this.populateBreakfastTypeOptions();
+        this.loadCustomIndividualPlateTemplates();
         this.loadMenuConfigLastModified();
         this.updateBeverageSummary();
         this.updateEntremesesSummary();
-        this.updateDashboard();
-        this.displayReservations();
         this.syncReservationFormHeader();
+        // Load storage first, then paint lists (avoids empty flash + double work)
+        this.initializeStorage();
     }
 
     // Initialize storage (Firebase or localStorage)
     async initializeStorage() {
-        this.isInitializing = true; // Prevent saves during initialization
+        this.isInitializing = true;
         
-        // Wait a bit for Firebase to initialize
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 50));
         
         if (window.FIREBASE_LOADED && window.firestore) {
-            console.log('Using Firebase Firestore for data storage');
-            await this.loadReservationsFromFirestore();
-            this.setupFirestoreListener();
+            appDebug('Using Firebase Firestore for data storage');
+            // Single source of truth: wait for first snapshot (no separate .get() + listener double fetch)
+            await this.setupFirestoreListener({ waitForFirst: true });
             await this.loadMenuConfigFromFirestore();
             this.setupMenuConfigFirestoreListener();
         } else {
-            console.log('Using localStorage for data storage');
+            appDebug('Using localStorage for data storage');
             this.reservations = this.loadReservationsFromLocalStorage();
         }
+
+        // Remap colliding custom beverage ids onto reservations after both catalogs + bookings are loaded
+        const remappedBeverages = this.normalizeCustomBeverageIds();
+        const migratedSelections = this.migrateCustomBeverageSelectionsOnReservations();
         
         this.displayReservations();
         this.updateDashboard();
         
-        // Mark initialization as complete after a short delay to ensure everything is loaded
-        setTimeout(() => {
+        setTimeout(async () => {
             this.isInitializing = false;
-        }, 500);
+            if (remappedBeverages || migratedSelections) {
+                try { await this.saveReservations(); } catch (_) { /* non-blocking */ }
+            }
+        }, 300);
     }
 
     // Setup real-time Firestore listener
-    setupFirestoreListener() {
-        if (!window.FIREBASE_LOADED || !window.firestore) return;
+    setupFirestoreListener(options = {}) {
+        if (!window.FIREBASE_LOADED || !window.firestore) {
+            return options.waitForFirst ? Promise.resolve() : undefined;
+        }
 
         const reservationsRef = window.firestore.collection('reservations');
+        let resolveFirst = null;
+        const firstPromise = options.waitForFirst
+            ? new Promise((resolve) => { resolveFirst = resolve; })
+            : null;
+        let gotFirst = false;
+
+        if (this.firebaseUnsubscribe) {
+            try { this.firebaseUnsubscribe(); } catch (_) { /* ignore */ }
+            this.firebaseUnsubscribe = null;
+        }
         
         this.firebaseUnsubscribe = reservationsRef.onSnapshot((snapshot) => {
             // Don't overwrite local changes if there are pending changes
             if (this.pendingChanges) {
-                console.log('Skipping Firestore sync - pending local changes');
+                appDebug('Skipping Firestore sync - pending local changes');
+                if (!gotFirst && resolveFirst) {
+                    gotFirst = true;
+                    resolveFirst();
+                }
                 return;
             }
             
             const reservations = [];
             snapshot.forEach((doc) => {
                 const reservation = doc.data();
-                // Migrate old reservations to include additionalPayments field
                 if (!reservation.hasOwnProperty('additionalPayments')) {
                     reservation.additionalPayments = [];
                 }
                 reservations.push(reservation);
             });
             
-            // Enhanced safety checks for sync
-            // Safety check 1: Don't overwrite with empty array if we have local data
             if (reservations.length === 0 && this.reservations.length > 0 && !this.isInitializing) {
-                console.warn('⚠️ Firestore sync returned empty array but local data exists - skipping sync');
-                console.warn('Local reservations count:', this.reservations.length);
+                console.warn('Firestore sync returned empty array but local data exists - skipping sync');
+                if (!gotFirst && resolveFirst) {
+                    gotFirst = true;
+                    resolveFirst();
+                }
                 return;
             }
             
-            // Safety check 2: If sync would reduce reservations significantly, log warning
             if (reservations.length < this.reservations.length && this.reservations.length > 0 && !this.isInitializing) {
                 const diff = this.reservations.length - reservations.length;
                 if (diff > 1) {
-                    console.warn(`⚠️ WARNING: Sync would reduce reservations from ${this.reservations.length} to ${reservations.length} (${diff} fewer)`);
-                    console.warn('Local reservation IDs:', this.reservations.map(r => r.id));
-                    console.warn('Synced reservation IDs:', reservations.map(r => r.id));
+                    console.warn(`Sync would reduce reservations from ${this.reservations.length} to ${reservations.length}`);
                 }
             }
             
             const previousCount = this.reservations.length;
             this.reservations = reservations;
-            
-            // Only re-display if we're not updating a deposit (to prevent card movement)
-            if (!this.isUpdatingDeposit) {
-                this.displayReservations();
+            if (!this.isInitializing) {
+                this.scheduleUiRefresh();
             }
-            this.updateDashboard();
-            if (this.currentSection === 'analytics') {
-                this.updateAnalytics();
+            appDebug(`Reservations synced from Firestore: ${reservations.length} (was ${previousCount})`);
+
+            if (!gotFirst && resolveFirst) {
+                gotFirst = true;
+                resolveFirst();
             }
-            console.log(`Reservations synced from Firestore: ${reservations.length} (was ${previousCount})`);
         }, (error) => {
             console.error('Firestore sync error:', error);
+            if (!gotFirst && resolveFirst) {
+                gotFirst = true;
+                resolveFirst();
+            }
         });
+
+        return firstPromise || undefined;
     }
 
     // Initialize navigation
@@ -170,6 +193,15 @@ class ReservationManager {
                 this.closeMobileMenu();
             });
         }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const sidebar = document.querySelector('.sidebar');
+                if (sidebar?.classList.contains('mobile-open')) {
+                    this.closeMobileMenu();
+                }
+            }
+        });
     }
 
     // Toggle mobile menu
@@ -245,11 +277,16 @@ class ReservationManager {
                 resolve(false);
                 return;
             }
+            const previouslyFocused = document.activeElement;
             titleEl.textContent = options.title || 'Confirmar';
             msgEl.textContent = message;
             okBtn.textContent = options.okText || 'Aceptar';
             cancelBtn.textContent = options.cancelText || 'Cancelar';
             cancelBtn.classList.toggle('hidden', !!options.hideCancel);
+
+            const focusableSelector = 'button:not([disabled]):not(.hidden), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+            const getFocusable = () => [...modal.querySelectorAll(focusableSelector)]
+                .filter(el => !el.classList.contains('hidden') && el.offsetParent !== null);
 
             const cleanup = () => {
                 okBtn.onclick = null;
@@ -257,6 +294,9 @@ class ReservationManager {
                 modal.removeEventListener('keydown', onKey);
                 modal.classList.remove('visible');
                 setTimeout(() => modal.classList.add('hidden'), 200);
+                if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+                    previouslyFocused.focus();
+                }
             };
             const finish = (val) => {
                 cleanup();
@@ -265,7 +305,23 @@ class ReservationManager {
             okBtn.onclick = () => finish(true);
             cancelBtn.onclick = () => finish(false);
             const onKey = (e) => {
-                if (e.key === 'Escape') finish(false);
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    finish(false);
+                    return;
+                }
+                if (e.key !== 'Tab') return;
+                const focusable = getFocusable();
+                if (focusable.length === 0) return;
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
             };
             modal.addEventListener('keydown', onKey);
             modal.classList.remove('hidden');
@@ -281,7 +337,7 @@ class ReservationManager {
         const discard = document.getElementById('discardEditBtn');
         if (!h1) return;
         if (this.isEditingReservation && this.editingReservationId) {
-            const res = this.reservations.find(r => r.id === this.editingReservationId);
+            const res = this.findReservationById(this.editingReservationId);
             const nameInput = document.getElementById('clientName');
             const name = (nameInput?.value || res?.clientName || '').trim();
             h1.textContent = 'Editar reservación';
@@ -815,7 +871,7 @@ class ReservationManager {
         addIndividualPlatesBtn?.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            console.log('Add individual plates button clicked');
+            appDebug('Add individual plates button clicked');
             this.openIndividualPlatesModal();
         });
         editIndividualPlatesBtn?.addEventListener('click', (e) => {
@@ -1029,23 +1085,71 @@ class ReservationManager {
         this.updateDessertServiceSummary();
     }
 
+    openOverlayWithFocusTrap(modal) {
+        if (!modal) return;
+        this._modalFocusRestores = this._modalFocusRestores || new WeakMap();
+        this._modalFocusRestores.set(modal, document.activeElement);
+        modal.classList.remove('hidden');
+        void modal.offsetWidth;
+        modal.classList.add('visible');
+
+        const focusableSelector = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+        const getFocusable = () => [...modal.querySelectorAll(focusableSelector)]
+            .filter(el => !el.classList.contains('hidden') && el.offsetParent !== null);
+
+        const onKey = (e) => {
+            if (e.key === 'Escape') {
+                const closeBtn = modal.querySelector('.modal-close, [data-close-modal]');
+                if (closeBtn) closeBtn.click();
+                return;
+            }
+            if (e.key !== 'Tab') return;
+            const focusable = getFocusable();
+            if (focusable.length === 0) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        };
+        if (modal._focusTrapHandler) {
+            modal.removeEventListener('keydown', modal._focusTrapHandler);
+        }
+        modal._focusTrapHandler = onKey;
+        modal.addEventListener('keydown', onKey);
+        setTimeout(() => {
+            const focusable = getFocusable();
+            (focusable[0] || modal).focus?.();
+        }, 50);
+    }
+
+    closeOverlayWithFocusTrap(modal, hideDelay = 220) {
+        if (!modal) return;
+        if (modal._focusTrapHandler) {
+            modal.removeEventListener('keydown', modal._focusTrapHandler);
+            modal._focusTrapHandler = null;
+        }
+        modal.classList.remove('visible');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            const prev = this._modalFocusRestores?.get(modal);
+            if (prev && typeof prev.focus === 'function') prev.focus();
+        }, hideDelay);
+    }
+
     openBuffetModal() {
         const modal = document.getElementById('buffetModal');
         if (!modal) return;
-        // Show with entrance animation
-        modal.classList.remove('hidden');
-        // Force reflow so the next class triggers transition
-        void modal.offsetWidth;
-        modal.classList.add('visible');
+        this.openOverlayWithFocusTrap(modal);
     }
 
     closeBuffetModal() {
         const modal = document.getElementById('buffetModal');
-        if (!modal) return;
-        modal.classList.remove('visible');
-        setTimeout(() => {
-            modal.classList.add('hidden');
-        }, 220);
+        this.closeOverlayWithFocusTrap(modal);
     }
 
     clearBuffetSelections() {
@@ -1141,7 +1245,7 @@ class ReservationManager {
         // Clear all custom beverages
         this.loadCustomBeverages();
         this.customBeverages.forEach(beverage => {
-            const inputId = `bev-${beverage.id}`;
+            const inputId = this.getCustomBeverageInputId(beverage.id);
             const el = document.getElementById(inputId);
             if (el) {
                 el.value = 0;
@@ -1515,11 +1619,8 @@ class ReservationManager {
     }
 
     // ----- Beverages modal helpers -----
-    getBeverageItems() {
-        // Load custom beverages from localStorage
-        this.loadCustomBeverages();
-        
-        const standardBeverages = [
+    getStandardBeverageList() {
+        return [
             // Non-alcoholic
             { id: 'soft-drinks', name: 'Refrescos Caja (24)', price: 35, alcohol: false },
             { id: 'caja-refrescos-surtidos', name: 'Caja de Refrescos Surtidos', price: 24, alcohol: false, hasNotes: true },
@@ -1569,23 +1670,32 @@ class ReservationManager {
             { id: 'mimosa', name: 'Mimosa', price: 3.00, alcohol: true },
             { id: 'mimosa-395', name: 'Mimosa', price: 3.95, alcohol: true },
         ];
-        
-        // Combine standard beverages with custom beverages
-        return [...standardBeverages, ...this.customBeverages];
+    }
+
+    getBeverageItems() {
+        // Prefer in-memory catalog (Firestore sync); refresh from local cache when empty
+        if (!Array.isArray(this.customBeverages) || this.customBeverages.length === 0) {
+            this.loadCustomBeverages();
+        }
+        // Custom items last so UI lists stay familiar; lookups use findBeverageById (custom first)
+        return [...this.getStandardBeverageList(), ...(this.customBeverages || [])];
     }
     
-    // Load custom beverages from localStorage
+    // Load custom beverages from localStorage (do not wipe in-memory cloud catalog)
     loadCustomBeverages() {
         try {
             const saved = localStorage.getItem('customBeverages');
             if (saved) {
                 this.customBeverages = JSON.parse(saved);
-            } else {
+            } else if (!Array.isArray(this.customBeverages)) {
                 this.customBeverages = [];
             }
+            // Keep empty array if local is empty but leave existing in-memory list alone when local missing
         } catch (error) {
             console.error('Error loading custom beverages:', error);
-            this.customBeverages = [];
+            if (!Array.isArray(this.customBeverages)) {
+                this.customBeverages = [];
+            }
         }
     }
     
@@ -1675,6 +1785,7 @@ class ReservationManager {
             this.menuConfigLastModified = data.menuConfigLastModified;
         }
 
+        this.normalizeCustomBeverageIds();
         this.cacheMenuConfigLocally();
         this.loadMenuConfigLastModified();
         this.onMenuConfigDataChanged();
@@ -1689,12 +1800,12 @@ class ReservationManager {
 
             if (doc.exists) {
                 this.applyMenuConfigData(doc.data());
-                console.log('Menu config loaded from Firestore');
+                appDebug('Menu config loaded from Firestore');
                 return true;
             }
 
             if (this.hasLocalMenuConfig()) {
-                console.log('No cloud menu config found — uploading local items to Firestore');
+                appDebug('No cloud menu config found — uploading local items to Firestore');
                 await this.persistMenuConfigToCloud();
             }
             return false;
@@ -1720,7 +1831,7 @@ class ReservationManager {
                 menuConfigLastModified: this.menuConfigLastModified || null,
                 updatedAt: new Date().toISOString()
             }, { merge: true });
-            console.log('Menu config saved to Firestore');
+            appDebug('Menu config saved to Firestore');
         } catch (error) {
             console.error('Error saving menu config to Firestore:', error);
             this.showNotification('No se pudo guardar en la nube. Los cambios quedaron en este dispositivo.', 'error');
@@ -1743,13 +1854,13 @@ class ReservationManager {
         this.menuConfigUnsubscribe = window.firestore.collection('menuConfig').doc('shared')
             .onSnapshot((doc) => {
                 if (this.menuConfigPendingChanges) {
-                    console.log('Skipping menu config sync - pending local changes');
+                    appDebug('Skipping menu config sync - pending local changes');
                     return;
                 }
                 if (!doc.exists) return;
 
                 this.applyMenuConfigData(doc.data());
-                console.log('Menu config synced from Firestore');
+                appDebug('Menu config synced from Firestore');
             }, (error) => {
                 console.error('Menu config Firestore sync error:', error);
             });
@@ -2152,6 +2263,210 @@ class ReservationManager {
             .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
     }
 
+    formatBeverageDisplayName(name, measurement) {
+        const base = (name || '').trim();
+        if (!base) return '';
+        const measure = (measurement || '').trim();
+        if (!measure || measure.toLowerCase() === 'otro') return base;
+        return `${base} ${measure}`;
+    }
+
+    getStandardBeverageIds() {
+        return new Set([
+            'soft-drinks', 'caja-refrescos-surtidos', 'water',
+            'michelob', 'medalla', 'heineken', 'coors', 'corona', 'modelo', 'miller-lite',
+            'black-label-1l', 'tito-1l', 'dewars-12-handle', 'pama', 'dewars-handle',
+            'donq-cristal-handle', 'donq-limon-handle', 'donq-passion-handle',
+            'donq-coco-handle', 'donq-naranja-handle', 'donq-oro-handle',
+            'tito-handle', 'sky-vodka-litro', 'sky-vodka-gancho',
+            'bravada', 'bravada-375', 'dewars-12-375', 'sangria',
+            'red-wine-25', 'red-wine-30', 'red-wine-35-1', 'red-wine-35-2', 'red-wine-40',
+            'white-wine-25', 'white-wine-30', 'white-wine-35-1', 'white-wine-35-2', 'white-wine-40',
+            'descorche-10', 'descorche-20', 'descorche-30',
+            'mimosa', 'mimosa-395'
+        ]);
+    }
+
+    /** DOM input id for a custom catalog beverage — never collides with built-in bev-* ids. */
+    getCustomBeverageInputId(beverageId) {
+        const id = String(beverageId || '');
+        if (id.startsWith('custom-')) return `bev-${id}`;
+        return `bev-custom-${id}`;
+    }
+
+    findBeverageById(id) {
+        const custom = (this.customBeverages || []).find(b => b.id === id);
+        if (custom) return custom;
+        return this.getStandardBeverageList().find(b => b.id === id) || null;
+    }
+
+    hasActiveBeverageQty(qty) {
+        if (qty === true) return true;
+        if (typeof qty === 'number') return qty > 0;
+        if (typeof qty === 'object' && qty !== null && 'qty' in qty) {
+            return (parseInt(qty.qty, 10) || 0) > 0;
+        }
+        return false;
+    }
+
+    /**
+     * Resolve a reservation beverage entry into an invoice/PDF line.
+     * Prefers name/price stored on the selection (custom bebidas) over catalog lookup.
+     */
+    resolveBeverageInvoiceLine(id, qty, guestCount = 0) {
+        if (qty === false || qty === null || qty === undefined) return null;
+
+        if (id === 'mimosa' && qty === true) {
+            const total = 3.0 * guestCount;
+            return { description: 'Mimosa ($3.00)', qty: guestCount, total };
+        }
+        if (id === 'mimosa-395' && qty === true) {
+            const total = 3.95 * guestCount;
+            return { description: 'Mimosa ($3.95)', qty: guestCount, total };
+        }
+        if (id === 'mimosa' || id === 'mimosa-395') return null;
+
+        let numQty = 0;
+        let notesText = '';
+        let displayName = null;
+        let price = null;
+
+        if (typeof qty === 'object' && qty !== null) {
+            numQty = parseInt(qty.qty, 10) || 0;
+            if (qty.notes) notesText = ` (${qty.notes})`;
+            if (qty.name) displayName = qty.name;
+            if (qty.price !== undefined && qty.price !== null && qty.price !== '') {
+                price = parseFloat(qty.price);
+            }
+        } else if (typeof qty === 'number') {
+            numQty = qty;
+        } else {
+            return null;
+        }
+
+        if (numQty <= 0) return null;
+
+        const item = this.findBeverageById(id);
+        if (displayName == null || displayName === '') {
+            displayName = item?.name || id;
+        }
+        if (price == null || Number.isNaN(price)) {
+            price = typeof item?.price === 'number' ? item.price : parseFloat(item?.price) || 0;
+        }
+
+        return {
+            description: `${displayName}${notesText}`,
+            qty: numQty,
+            total: price * numQty
+        };
+    }
+
+    /** Ensure custom beverage ids never collide with built-in ones (e.g. corona). */
+    normalizeCustomBeverageIds() {
+        if (!Array.isArray(this.customBeverages) || this.customBeverages.length === 0) return false;
+
+        const reserved = this.getStandardBeverageIds();
+        const idMap = {};
+        const used = new Set();
+        let changed = false;
+
+        this.customBeverages.forEach((beverage, index) => {
+            if (!beverage) return;
+            let id = String(beverage.id || '');
+            const baseSource = beverage.originalName || beverage.name || id.replace(/^custom-/, '') || 'item';
+            const base = this.sanitizeBeverageId(baseSource) || `item-${index}`;
+            const collides = !id || reserved.has(id) || used.has(id);
+            const needsPrefix = !id.startsWith('custom-');
+
+            if (collides || needsPrefix) {
+                let newId = id.startsWith('custom-') && !reserved.has(id) && !used.has(id)
+                    ? id
+                    : `custom-${base}`;
+                let counter = 1;
+                while (reserved.has(newId) || used.has(newId) ||
+                    this.customBeverages.some((other, i) => i !== index && other && other.id === newId)) {
+                    newId = `custom-${base}-${counter}`;
+                    counter++;
+                }
+                if (newId !== id) {
+                    if (id) idMap[id] = newId;
+                    beverage.id = newId;
+                    changed = true;
+                }
+                id = beverage.id;
+            }
+            beverage.custom = true;
+            used.add(id);
+        });
+
+        if (!changed) return false;
+
+        const remapBeverageMap = (map, { onlyCustomObjects = false } = {}) => {
+            if (!map || typeof map !== 'object') return;
+            Object.entries(idMap).forEach(([oldId, newId]) => {
+                if (!Object.prototype.hasOwnProperty.call(map, oldId)) return;
+                const val = map[oldId];
+                if (onlyCustomObjects) {
+                    const isCustomSelection = typeof val === 'object' && val !== null && (val.custom === true || !!val.name);
+                    if (!isCustomSelection) return; // keep plain qty on built-in ids (e.g. standard Corona)
+                }
+                if (!Object.prototype.hasOwnProperty.call(map, newId)) {
+                    map[newId] = val;
+                }
+                delete map[oldId];
+            });
+        };
+
+        // Form state: always remap
+        remapBeverageMap(this.beverageSelections, { onlyCustomObjects: false });
+        // Saved reservations: only remap object selections (custom catalog items)
+        (this.reservations || []).forEach(res => remapBeverageMap(res.beverages, { onlyCustomObjects: true }));
+
+        this.saveCustomBeverages();
+        return true;
+    }
+
+    /** Move custom beverage selections off colliding built-in keys onto current catalog ids. */
+    migrateCustomBeverageSelectionsOnReservations() {
+        if (!Array.isArray(this.reservations) || !Array.isArray(this.customBeverages)) return false;
+        let changed = false;
+
+        const findCatalogId = (key, val) => {
+            if ((this.customBeverages || []).some(b => b.id === key)) return key;
+            if (val?.name) {
+                const byName = this.customBeverages.find(b =>
+                    b.name === val.name || b.originalName === val.name ||
+                    (b.originalName && val.name && val.name.startsWith(b.originalName))
+                );
+                if (byName) return byName.id;
+            }
+            if (key && !key.startsWith('custom-')) {
+                const prefixed = `custom-${key}`;
+                if (this.customBeverages.some(b => b.id === prefixed)) return prefixed;
+            }
+            return null;
+        };
+
+        const migrateMap = (map) => {
+            if (!map || typeof map !== 'object') return;
+            Object.entries({ ...map }).forEach(([key, val]) => {
+                const isCustomSelection = typeof val === 'object' && val !== null && (val.custom === true || !!val.name);
+                if (!isCustomSelection) return;
+                const newId = findCatalogId(key, val);
+                if (!newId || newId === key) return;
+                if (!Object.prototype.hasOwnProperty.call(map, newId)) {
+                    map[newId] = val;
+                }
+                delete map[key];
+                changed = true;
+            });
+        };
+
+        migrateMap(this.beverageSelections);
+        this.reservations.forEach(res => migrateMap(res.beverages));
+        return changed;
+    }
+
     toTitleCase(text) {
         if (!text) return text;
         return text
@@ -2164,22 +2479,16 @@ class ReservationManager {
     
     // Add custom beverage
     addCustomBeverage(name, price, category, measurement, alcohol = true) {
-        // Use the name as the ID (sanitized)
         const baseId = this.sanitizeBeverageId(name);
-        let id = baseId;
-        
-        // Check if a custom beverage with this ID already exists
-        // If it does, append a number to make it unique
+        const reserved = this.getStandardBeverageIds();
+        let id = `custom-${baseId || Date.now()}`;
         let counter = 1;
-        while (this.customBeverages.some(b => b.id === id)) {
-            id = `${baseId}-${counter}`;
+        while (this.customBeverages.some(b => b.id === id) || reserved.has(id)) {
+            id = `custom-${baseId || 'item'}-${counter}`;
             counter++;
         }
         
-        // Format name with measurement
-        const displayName = measurement && measurement !== 'Otro' 
-            ? `${name} ${measurement}` 
-            : name;
+        const displayName = this.formatBeverageDisplayName(name, measurement);
         
         const customBeverage = {
             id: id,
@@ -2216,15 +2525,17 @@ class ReservationManager {
         const existingCustomItems = modalBody.querySelectorAll('[data-custom-beverage="true"]');
         existingCustomItems.forEach(item => item.remove());
         
-        // Load custom beverages
-        this.loadCustomBeverages();
+        if (!Array.isArray(this.customBeverages) || this.customBeverages.length === 0) {
+            this.loadCustomBeverages();
+        }
+        this.normalizeCustomBeverageIds();
         
         if (this.customBeverages.length === 0) return;
         
         // Group custom beverages by category
         const beveragesByCategory = {};
         this.customBeverages.forEach(beverage => {
-            const category = beverage.category || 'no-alcoholicas'; // Default to no-alcoholicas if no category
+            const category = beverage.category || 'otros';
             if (!beveragesByCategory[category]) {
                 beveragesByCategory[category] = [];
             }
@@ -2233,48 +2544,35 @@ class ReservationManager {
         
         // Find all details sections
         const allDetails = Array.from(modalBody.querySelectorAll('details'));
+        const findGrid = (title) => {
+            const section = allDetails.find(d => {
+                const summary = d.querySelector('summary');
+                return summary && summary.textContent.trim() === title;
+            });
+            return section?.querySelector('#liquorsContainer') || section?.querySelector('.protein-grid') || null;
+        };
         
         // Add beverages to their respective sections
         Object.entries(beveragesByCategory).forEach(([category, beverages]) => {
-            // Find the correct container for this category
             let container = null;
-            
-            if (category === 'cervezas') {
-                const cervezasSection = allDetails.find(d => {
-                    const summary = d.querySelector('summary');
-                    return summary && summary.textContent.trim() === 'Cervezas';
-                });
-                container = cervezasSection?.querySelector('.protein-grid');
-            } else if (category === 'licores') {
-                const licoresSection = allDetails.find(d => {
-                    const summary = d.querySelector('summary');
-                    return summary && summary.textContent.trim() === 'Licores';
-                });
-                container = licoresSection?.querySelector('#liquorsContainer') || licoresSection?.querySelector('.protein-grid');
-            } else if (category === 'vinos') {
-                const vinosSection = allDetails.find(d => {
-                    const summary = d.querySelector('summary');
-                    return summary && summary.textContent.trim() === 'Vinos';
-                });
-                container = vinosSection?.querySelector('.protein-grid');
-            } else if (category === 'no-alcoholicas') {
-                const noAlcoholicasSection = allDetails.find(d => {
-                    const summary = d.querySelector('summary');
-                    return summary && summary.textContent.trim() === 'No Alcohólicas';
-                });
-                container = noAlcoholicasSection?.querySelector('.protein-grid');
-            }
+            if (category === 'cervezas') container = findGrid('Cervezas');
+            else if (category === 'licores') container = findGrid('Licores');
+            else if (category === 'vinos') container = findGrid('Vinos');
+            else if (category === 'no-alcoholicas') container = findGrid('No Alcohólicas');
+            else container = findGrid('Otros') || findGrid('Cervezas');
             
             if (container) {
                 beverages.forEach(beverage => {
+                    const inputId = this.getCustomBeverageInputId(beverage.id);
                     const beverageDiv = document.createElement('div');
                     beverageDiv.setAttribute('data-custom-beverage', 'true');
+                    beverageDiv.setAttribute('data-custom-beverage-id', beverage.id);
                     beverageDiv.innerHTML = `
-                        <label for="bev-${beverage.id}">${beverage.name} ($${beverage.price.toFixed(2)})</label>
+                        <label for="${inputId}">${beverage.name} ($${Number(beverage.price || 0).toFixed(2)})</label>
                         <div class="quantity-selector">
-                            <button type="button" class="quantity-btn quantity-minus" data-beverage="bev-${beverage.id}">−</button>
-                            <input type="number" id="bev-${beverage.id}" min="0" value="0" readonly>
-                            <button type="button" class="quantity-btn quantity-plus" data-beverage="bev-${beverage.id}">+</button>
+                            <button type="button" class="quantity-btn quantity-minus" data-beverage="${inputId}">−</button>
+                            <input type="number" id="${inputId}" min="0" value="0" readonly data-custom-beverage-id="${beverage.id}">
+                            <button type="button" class="quantity-btn quantity-plus" data-beverage="${inputId}">+</button>
                         </div>
                     `;
                     container.appendChild(beverageDiv);
@@ -2377,9 +2675,8 @@ class ReservationManager {
         
         // Prefill custom beverage values after they're added to the modal
         setTimeout(() => {
-            this.loadCustomBeverages();
             this.customBeverages.forEach(beverage => {
-                const inputId = `bev-${beverage.id}`;
+                const inputId = this.getCustomBeverageInputId(beverage.id);
                 const el = document.getElementById(inputId);
                 if (el) {
                     const selection = this.beverageSelections[beverage.id];
@@ -2494,35 +2791,21 @@ class ReservationManager {
             selections['mimosa-395'] = true;
         }
         
-        // Handle custom beverages
-        this.loadCustomBeverages();
+        // Handle custom beverages (unique DOM ids — never collide with built-in bev-corona etc.)
         this.customBeverages.forEach(beverage => {
-            const inputId = `bev-${beverage.id}`;
+            const inputId = this.getCustomBeverageInputId(beverage.id);
             const el = document.getElementById(inputId);
             if (el) {
                 const qty = parseInt(el.value) || 0;
                 if (qty > 0) {
-                    // Check if we already have stored data for this custom beverage (from existing reservation)
-                    const existingSelection = this.beverageSelections[beverage.id];
-                    if (typeof existingSelection === 'object' && existingSelection !== null && existingSelection.name) {
-                        // Preserve existing stored data, just update quantity
-                        selections[beverage.id] = {
-                            qty: qty,
-                            name: existingSelection.name,
-                            price: existingSelection.price || beverage.price,
-                            alcohol: existingSelection.alcohol !== undefined ? existingSelection.alcohol : beverage.alcohol,
-                            custom: true
-                        };
-                    } else {
-                        // Store custom beverage with name for future reference
-                        selections[beverage.id] = {
-                            qty: qty,
-                            name: beverage.name,
-                            price: beverage.price,
-                            alcohol: beverage.alcohol,
-                            custom: true
-                        };
-                    }
+                    // Always persist name/price so invoices work even if catalog sync lags
+                    selections[beverage.id] = {
+                        qty: qty,
+                        name: beverage.name,
+                        price: beverage.price,
+                        alcohol: beverage.alcohol,
+                        custom: true
+                    };
                 }
             }
         });
@@ -3056,19 +3339,19 @@ class ReservationManager {
         const complementos = this.getComplementosFromFields();
 
         if (!name) {
-            alert('Por favor ingrese el nombre del plato.');
+            this.showNotification('Por favor ingrese el nombre del plato.', 'error');
             nameInput.focus();
             return;
         }
 
         if (isNaN(price) || price <= 0) {
-            alert('Por favor ingrese un precio válido mayor a 0.');
+            this.showNotification('Por favor ingrese un precio válido mayor a 0.', 'error');
             priceInput.focus();
             return;
         }
 
         if (isNaN(quantity) || quantity <= 0) {
-            alert('Por favor ingrese una cantidad válida mayor a 0.');
+            this.showNotification('Por favor ingrese una cantidad válida mayor a 0.', 'error');
             quantityInput.focus();
             return;
         }
@@ -3076,7 +3359,7 @@ class ReservationManager {
         // Validate complementos prices
         for (const comp of complementos) {
             if (isNaN(comp.price) || comp.price < 0) {
-                alert(`Por favor ingrese un precio válido para el complemento "${comp.name}" (mayor o igual a 0).`);
+                this.showNotification(`Por favor ingrese un precio válido para el complemento "${comp.name}" (mayor o igual a 0).`, 'error');
                 return;
             }
         }
@@ -3275,7 +3558,9 @@ class ReservationManager {
                 e.preventDefault();
                 e.stopPropagation();
                 const beverageId = target.getAttribute('data-beverage');
-                const input = document.getElementById(beverageId);
+                // Prefer the input next to this button so custom rows never update a colliding built-in id
+                const input = target.closest('.quantity-selector')?.querySelector('input[type="number"]')
+                    || document.getElementById(beverageId);
                 if (input) {
                     let currentValue = parseInt(input.value) || 0;
                     input.value = currentValue + 1;
@@ -3285,7 +3570,8 @@ class ReservationManager {
                 e.preventDefault();
                 e.stopPropagation();
                 const beverageId = target.getAttribute('data-beverage');
-                const input = document.getElementById(beverageId);
+                const input = target.closest('.quantity-selector')?.querySelector('input[type="number"]')
+                    || document.getElementById(beverageId);
                 if (input) {
                     let currentValue = parseInt(input.value) || 0;
                     if (currentValue > 0) {
@@ -3639,8 +3925,8 @@ class ReservationManager {
                         nonAlcoholicDrinkCost += itemCost;
                     }
                 } else {
-                    // Standard beverage - look it up
-                    const item = beverages.find(b => b.id === id);
+                    // Look up catalog item (custom first, then built-in)
+                    const item = this.findBeverageById(id) || beverages.find(b => b.id === id);
                     if (item && actualQty > 0) {
                         const itemCost = item.price * actualQty;
                         drinkCost += itemCost;
@@ -3831,7 +4117,7 @@ class ReservationManager {
                 return;
             }
             
-            // Skip email field (it's optional)
+            // Skip email field emptiness (optional) — format checked separately
             if (field.id === 'clientEmail' || field.name === 'clientEmail') {
                 return;
             }
@@ -4020,9 +4306,33 @@ class ReservationManager {
         }
 
         if (missingFields.length > 0) {
-            console.log('Missing fields detected:', missingFields); // Debug log
+            appDebug('Missing fields detected:', missingFields);
             this.showValidationError(missingFields);
             return false;
+        }
+
+        const emailValue = (formData.get('clientEmail') || '').trim();
+        if (emailValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+            this.showNotification('Ingrese un correo electrónico válido o déjelo vacío.', 'error');
+            document.getElementById('clientEmail')?.focus();
+            return false;
+        }
+
+        const roomType = formData.get('roomType');
+        const eventDate = formData.get('eventDate');
+        const eventTime = formData.get('eventTime');
+        const eventDurationValue = formData.get('eventDuration');
+        const excludeId = this.isEditingReservation ? this.editingReservationId : null;
+        const roomConflicts = this.findRoomConflicts(roomType, eventDate, eventTime, eventDurationValue, excludeId);
+        if (roomConflicts.length > 0) {
+            const conflictNames = roomConflicts
+                .map(r => `${r.clientName || 'Sin nombre'} (${this.formatTime12Hour(r.eventTime)})`)
+                .join(', ');
+            const okConflict = await this.appConfirm(
+                `El salón ya tiene una reservación que se solapa ese día/hora:\n\n${conflictNames}\n\n¿Desea guardar de todos modos?`,
+                { title: 'Conflicto de salón', okText: 'Guardar de todos modos' }
+            );
+            if (!okConflict) return false;
         }
 
         // Create reservation object
@@ -4102,10 +4412,10 @@ class ReservationManager {
         // Check if we're editing an existing reservation
         if (this.isEditingReservation && this.editingReservationId) {
             // Update existing reservation instead of creating new one
-            const existingIndex = this.reservations.findIndex(r => r.id === this.editingReservationId);
+            const existingIndex = this.findReservationIndexById(this.editingReservationId);
             if (existingIndex !== -1) {
                 // Preserve the original ID and creation date
-                reservation.id = this.editingReservationId;
+                reservation.id = String(this.editingReservationId);
                 reservation.createdAt = this.reservations[existingIndex].createdAt;
                 // Preserve payment history
                 reservation.additionalPayments = this.reservations[existingIndex].additionalPayments || [];
@@ -4113,7 +4423,7 @@ class ReservationManager {
                 
                 // Update the reservation in place
                 this.reservations[existingIndex] = reservation;
-                console.log(`✅ Updated existing reservation ${this.editingReservationId}`);
+                appDebug(`✅ Updated existing reservation ${this.editingReservationId}`);
                 
                 // Reset editing flags
                 this.isEditingReservation = false;
@@ -4126,10 +4436,10 @@ class ReservationManager {
                 // Show success message
                 this.showNotification('¡Reservación actualizada exitosamente!', 'success');
                 return;
-            } else {
-                console.error(`⚠️ ERROR: Could not find reservation ${this.editingReservationId} to update!`);
-                // Fall through to create new reservation
             }
+            console.error(`⚠️ ERROR: Could not find reservation ${this.editingReservationId} to update!`);
+            this.showNotification('No se encontró la reservación a editar. No se creó una duplicada.', 'error');
+            return false;
         }
         
         // Add new reservation (not editing)
@@ -4210,9 +4520,9 @@ class ReservationManager {
         const totalRevenue = this.reservations.reduce((sum, res) => sum + res.pricing.totalCost, 0);
         const totalGuests = this.reservations.reduce((sum, res) => sum + res.guestCount, 0);
         
-        // Today's reservations
-        const today = new Date().toISOString().split('T')[0];
-        const todayReservations = this.reservations.filter(res => res.eventDate === today).length;
+        // Today's reservations (local calendar date)
+        const today = this.getTodayDateString();
+        const todayReservations = this.reservations.filter(res => this.normalizeEventDate(res.eventDate) === today).length;
 
         // Update stats
         document.getElementById('totalReservations').textContent = totalReservations;
@@ -4230,7 +4540,7 @@ class ReservationManager {
     // Update recent reservations
     updateRecentReservations() {
         const container = document.getElementById('recentReservations');
-        const recent = this.reservations
+        const recent = [...this.reservations]
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
             .slice(0, 5);
 
@@ -4239,16 +4549,17 @@ class ReservationManager {
             return;
         }
 
+        const esc = (s) => this.escapeHtml(s);
         container.innerHTML = recent.map(reservation => {
-            const eventDate = new Date(reservation.eventDate + 'T00:00:00');
+            const eventDate = this.parseEventDateLocal(reservation.eventDate);
             const month = String(eventDate.getMonth() + 1).padStart(2, '0');
             const day = String(eventDate.getDate()).padStart(2, '0');
             const year = eventDate.getFullYear();
             const formattedDate = `${month}/${day}/${year}`;
             return `
-            <div class="recent-item recent-item--action" data-reservation-id="${this.escapeMenuConfigHtml(reservation.id)}" role="button" tabindex="0" title="Editar reservación">
+            <div class="recent-item recent-item--action" data-reservation-id="${esc(reservation.id)}" role="button" tabindex="0" title="Editar reservación">
                 <div class="recent-item-info">
-                    <strong>${reservation.clientName}</strong>
+                    <strong>${esc(reservation.clientName)}</strong>
                     <span>${formattedDate} · ${this.formatTime12Hour(reservation.eventTime)}</span>
                 </div>
                 <div class="recent-item-price">$${reservation.pricing.totalCost.toFixed(2)}</div>
@@ -4260,10 +4571,10 @@ class ReservationManager {
     // Update upcoming events
     updateUpcomingEvents() {
         const container = document.getElementById('upcomingEvents');
-        const today = new Date();
+        const today = this.getTodayDateString();
         const upcoming = this.reservations
-            .filter(res => new Date(res.eventDate) >= today)
-            .sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate))
+            .filter(res => this.normalizeEventDate(res.eventDate) >= today)
+            .sort((a, b) => this.compareEventDates(a.eventDate, b.eventDate))
             .slice(0, 5);
 
         if (upcoming.length === 0) {
@@ -4271,19 +4582,20 @@ class ReservationManager {
             return;
         }
 
+        const esc = (s) => this.escapeHtml(s);
         container.innerHTML = upcoming.map(reservation => {
-            const eventDate = new Date(reservation.eventDate + 'T00:00:00');
+            const eventDate = this.parseEventDateLocal(reservation.eventDate);
             const month = String(eventDate.getMonth() + 1).padStart(2, '0');
             const day = String(eventDate.getDate()).padStart(2, '0');
             const year = eventDate.getFullYear();
             const formattedDate = `${month}/${day}/${year}`;
             return `
-            <div class="upcoming-item upcoming-item--action" data-reservation-id="${this.escapeMenuConfigHtml(reservation.id)}" role="button" tabindex="0" title="Editar reservación">
+            <div class="upcoming-item upcoming-item--action" data-reservation-id="${esc(reservation.id)}" role="button" tabindex="0" title="Editar reservación">
                 <div class="upcoming-item-info">
-                    <strong>${reservation.clientName}</strong>
+                    <strong>${esc(reservation.clientName)}</strong>
                     <span>${formattedDate} · ${this.formatTime12Hour(reservation.eventTime)}</span>
                 </div>
-                <div class="upcoming-item-room">${this.getRoomDisplayName(reservation.roomType)}</div>
+                <div class="upcoming-item-room">${esc(this.getRoomDisplayName(reservation.roomType))}</div>
             </div>
             `;
         }).join('');
@@ -4296,22 +4608,13 @@ class ReservationManager {
         
         // Populate the modal with today's events
         this.populateTodayEventsModal();
-        
-        // Show with entrance animation
-        modal.classList.remove('hidden');
-        // Force reflow so the next class triggers transition
-        void modal.offsetWidth;
-        modal.classList.add('visible');
+        this.openOverlayWithFocusTrap(modal);
     }
 
     // Close today's events modal
     closeTodayEventsModal() {
         const modal = document.getElementById('todayEventsModal');
-        if (!modal) return;
-        modal.classList.remove('visible');
-        setTimeout(() => {
-            modal.classList.add('hidden');
-        }, 220);
+        this.closeOverlayWithFocusTrap(modal);
     }
 
     // Populate today's events modal
@@ -4319,13 +4622,13 @@ class ReservationManager {
         const container = document.getElementById('todayEventsList');
         if (!container) return;
         
-        const today = new Date().toISOString().split('T')[0];
+        const today = this.getTodayDateString();
         const todayEvents = this.reservations
-            .filter(res => res.eventDate === today)
+            .filter(res => this.normalizeEventDate(res.eventDate) === today)
             .sort((a, b) => {
                 // Sort by time
-                const timeA = this.parseTime(a.eventTime);
-                const timeB = this.parseTime(b.eventTime);
+                const timeA = this.eventTimeToMinutes(a.eventTime);
+                const timeB = this.eventTimeToMinutes(b.eventTime);
                 return timeA - timeB;
             });
 
@@ -4334,8 +4637,9 @@ class ReservationManager {
             return;
         }
 
+        const esc = (s) => this.escapeHtml(s);
         container.innerHTML = todayEvents.map(reservation => {
-            const eventDate = new Date(reservation.eventDate + 'T00:00:00');
+            const eventDate = this.parseEventDateLocal(reservation.eventDate);
             const month = String(eventDate.getMonth() + 1).padStart(2, '0');
             const day = String(eventDate.getDate()).padStart(2, '0');
             const year = eventDate.getFullYear();
@@ -4345,7 +4649,7 @@ class ReservationManager {
             <div class="today-event-item">
                 <div class="today-event-head">
                     <div>
-                        <strong class="today-event-client">${reservation.clientName}</strong>
+                        <strong class="today-event-client">${esc(reservation.clientName)}</strong>
                         <div class="today-event-meta">
                             <i class="fas fa-calendar"></i> ${formattedDate}
                             <i class="fas fa-clock today-event-meta-clock"></i> ${this.formatTime12Hour(reservation.eventTime)}
@@ -4356,19 +4660,19 @@ class ReservationManager {
                 <div class="today-event-grid">
                     <div>
                         <span class="today-event-grid-label">Espacio:</span>
-                        <div class="today-event-grid-value">${this.getRoomDisplayName(reservation.roomType)}</div>
+                        <div class="today-event-grid-value">${esc(this.getRoomDisplayName(reservation.roomType))}</div>
                     </div>
                     <div>
                         <span class="today-event-grid-label">Invitados:</span>
-                        <div class="today-event-grid-value">${reservation.guestCount}</div>
+                        <div class="today-event-grid-value">${esc(reservation.guestCount)}</div>
                     </div>
                     <div>
                         <span class="today-event-grid-label">Tipo de Evento:</span>
-                        <div class="today-event-grid-value">${this.getEventTypeDisplayName(reservation.eventType)}</div>
+                        <div class="today-event-grid-value">${esc(this.getEventTypeDisplayName(reservation.eventType))}</div>
                     </div>
                 </div>
                 ${reservation.clientPhone ? `
-                <div class="today-event-phone"><i class="fas fa-phone"></i> ${reservation.clientPhone}</div>
+                <div class="today-event-phone"><i class="fas fa-phone"></i> ${esc(reservation.clientPhone)}</div>
                 ` : ''}
             </div>
             `;
@@ -4430,9 +4734,9 @@ class ReservationManager {
                     <div class="calendar-day ${isToday ? 'today' : ''}" onclick="reservationManager.selectDateFromCalendar('${dateStr}', event)">
                         <div class="calendar-day-number">${dayNumber}</div>
                         ${dayReservations.map(res => `
-                            <div class="calendar-event" onclick="reservationManager.showReservationDetails('${res.id}', event)">
-                                ${res.clientName} - ${this.formatTime12Hour(res.eventTime)}<br>
-                                <small>${this.getRoomDisplayName(res.roomType)}</small>
+                            <div class="calendar-event" onclick="reservationManager.showReservationDetails('${this.escapeHtml(res.id)}', event)">
+                                ${this.escapeHtml(res.clientName)} - ${this.formatTime12Hour(res.eventTime)}<br>
+                                <small>${this.escapeHtml(this.getRoomDisplayName(res.roomType))}</small>
                             </div>
                         `).join('')}
                     </div>
@@ -4477,6 +4781,87 @@ class ReservationManager {
         this.updateRevenueByMonthTable();
         this.updateRoomStats();
         this.updateGuestStats();
+        this.updatePendingDepositsStats();
+        this.updateRoomUtilizationStats();
+    }
+
+    updatePendingDepositsStats() {
+        const container = document.getElementById('pendingDepositsStats');
+        if (!container) return;
+
+        const pending = this.reservations.filter(r => {
+            const deposit = r.pricing?.depositAmount || 0;
+            return deposit > 0 && !r.depositPaid;
+        });
+        const totalPending = pending.reduce((sum, r) => sum + (r.pricing?.depositAmount || 0), 0);
+        const esc = (s) => this.escapeHtml(s);
+
+        if (pending.length === 0) {
+            container.innerHTML = '<p class="analytics-empty">No hay depósitos pendientes.</p>';
+            return;
+        }
+
+        const list = pending
+            .sort((a, b) => this.compareEventDates(a.eventDate, b.eventDate))
+            .slice(0, 8)
+            .map(r => {
+                const date = this.parseEventDateLocal(r.eventDate);
+                const formatted = Number.isNaN(date.getTime())
+                    ? '—'
+                    : `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}/${date.getFullYear()}`;
+                return `<div class="stat-item">
+                    <span>${esc(r.clientName)} · ${formatted}</span>
+                    <strong>$${(r.pricing?.depositAmount || 0).toFixed(2)}</strong>
+                </div>`;
+            })
+            .join('');
+
+        container.innerHTML = `
+            <div class="stats-details" style="margin-bottom:12px;">
+                <div><strong>${pending.length}</strong> depósito${pending.length === 1 ? '' : 's'} pendiente${pending.length === 1 ? '' : 's'}</div>
+                <div>Total por cobrar: <strong>$${totalPending.toFixed(2)}</strong></div>
+            </div>
+            ${list}
+        `;
+    }
+
+    updateRoomUtilizationStats() {
+        const container = document.getElementById('roomUtilizationStats');
+        if (!container) return;
+
+        const ym = this.getTodayDateString().slice(0, 7);
+        const thisMonth = this.reservations.filter(r => this.normalizeEventDate(r.eventDate).startsWith(ym));
+        const roomNames = {
+            'grand-hall': 'Salón 1',
+            'intimate-room': 'Salón 2',
+            'outdoor-terrace': 'Salón 3'
+        };
+        const counts = { 'grand-hall': 0, 'intimate-room': 0, 'outdoor-terrace': 0 };
+        thisMonth.forEach(r => {
+            if (counts.hasOwnProperty(r.roomType)) counts[r.roomType]++;
+            else counts[r.roomType] = (counts[r.roomType] || 0) + 1;
+        });
+
+        const [y, m] = ym.split('-').map(Number);
+        const monthLabel = new Date(y, m - 1, 1).toLocaleDateString('es', { month: 'long', year: 'numeric' });
+        const title = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+
+        if (thisMonth.length === 0) {
+            container.innerHTML = `<p class="analytics-empty">No hay eventos en ${this.escapeHtml(title)}.</p>`;
+            return;
+        }
+
+        container.innerHTML = `
+            <p style="margin-bottom:10px;color:var(--text-muted);font-size:0.9rem;">${this.escapeHtml(title)} · ${thisMonth.length} evento${thisMonth.length === 1 ? '' : 's'}</p>
+            ${Object.entries(counts)
+                .sort(([, a], [, b]) => b - a)
+                .map(([room, count]) => `
+                    <div class="stat-item">
+                        <span>${this.escapeHtml(roomNames[room] || room)}</span>
+                        <strong>${count} ${count === 1 ? 'evento' : 'eventos'}</strong>
+                    </div>
+                `).join('')}
+        `;
     }
 
     updateRevenueByMonthTable() {
@@ -4597,14 +4982,15 @@ class ReservationManager {
             clickEvent.stopPropagation();
         }
         
-        const reservation = this.reservations.find(r => r.id === id);
+        const reservation = this.findReservationById(id);
         if (!reservation) return;
         
         const modal = document.getElementById('reservationDetailsModal');
         const body = document.getElementById('reservationDetailsBody');
+        const esc = (s) => this.escapeHtml(s);
         
         // Format date
-        const eventDate = new Date(reservation.eventDate + 'T00:00:00');
+        const eventDate = this.parseEventDateLocal(reservation.eventDate);
         const month = String(eventDate.getMonth() + 1).padStart(2, '0');
         const day = String(eventDate.getDate()).padStart(2, '0');
         const year = eventDate.getFullYear();
@@ -4618,17 +5004,23 @@ class ReservationManager {
                     <div class="detail-grid">
                         <div class="detail-item">
                             <span class="detail-label">Nombre:</span>
-                            <span class="detail-value">${reservation.clientName}</span>
+                            <span class="detail-value">${esc(reservation.clientName)}</span>
                         </div>
                         <div class="detail-item">
                             <span class="detail-label">Correo Electrónico:</span>
-                            <span class="detail-value">${reservation.clientEmail}</span>
+                            <span class="detail-value">${esc(reservation.clientEmail)}</span>
                         </div>
                         <div class="detail-item">
                             <span class="detail-label">Teléfono:</span>
-                            <span class="detail-value">${reservation.clientPhone}</span>
+                            <span class="detail-value">${esc(reservation.clientPhone)}</span>
                         </div>
                     </div>
+                    ${(() => {
+                        const contactBtns = this.buildContactActionButtons(reservation);
+                        return contactBtns
+                            ? `<div class="reservation-actions" style="margin-top:12px;">${contactBtns}</div>`
+                            : '';
+                    })()}
                 </div>
                 
                 <div class="detail-section">
@@ -4636,12 +5028,12 @@ class ReservationManager {
                     <div class="detail-grid">
                         <div class="detail-item">
                             <span class="detail-label">Tipo de Evento:</span>
-                            <span class="detail-value">${this.getEventTypeDisplayName(reservation.eventType)}</span>
+                            <span class="detail-value">${esc(this.getEventTypeDisplayName(reservation.eventType))}</span>
                         </div>
                         ${reservation.companyName ? `
                         <div class="detail-item">
                             <span class="detail-label">Nombre de compañía:</span>
-                            <span class="detail-value">${reservation.companyName}</span>
+                            <span class="detail-value">${esc(reservation.companyName)}</span>
                         </div>
                         ` : ''}
                         <div class="detail-item">
@@ -4664,23 +5056,23 @@ class ReservationManager {
                     <div class="detail-grid">
                         <div class="detail-item">
                             <span class="detail-label">Espacio del Evento:</span>
-                            <span class="detail-value">${this.getRoomDisplayName(reservation.roomType)}</span>
+                            <span class="detail-value">${esc(this.getRoomDisplayName(reservation.roomType))}</span>
                         </div>
                         <div class="detail-item">
                             <span class="detail-label">Número de Invitados:</span>
-                            <span class="detail-value">${reservation.guestCount}</span>
+                            <span class="detail-value">${esc(reservation.guestCount)}</span>
                         </div>
                     </div>
                 </div>
                 
-                ${(reservation.foodType && reservation.foodType !== 'no-food') || (reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) || (reservation.breakfastType && this.isBreakfast(reservation.breakfastType)) || (reservation.dessertType && this.isDessert(reservation.dessertType)) || (reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) ? `
+                ${(reservation.foodType && reservation.foodType !== 'no-food') || (reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => this.hasActiveBeverageQty(qty))) || (reservation.breakfastType && this.isBreakfast(reservation.breakfastType)) || (reservation.dessertType && this.isDessert(reservation.dessertType)) || (reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) ? `
                 <div class="detail-section">
                     <h4><i class="fas fa-utensils"></i> Comida y Bebidas</h4>
                     <div class="food-beverage-content">
                         ${reservation.foodType && reservation.foodType !== 'no-food' ? `
                         <div class="food-service-section">
                             <span class="detail-label">Servicio de Comida:</span>
-                            <span class="detail-value">${this.getFoodDisplayName(reservation.foodType, reservation)}</span>
+                            <span class="detail-value">${esc(this.getFoodDisplayName(reservation.foodType, reservation))}</span>
                             ${this.isBuffet(reservation.foodType) && reservation.buffet ? `
                             ${reservation.buffet.platoMexicano ? `
                             <ul class="detail-bullet-list">
@@ -4688,14 +5080,14 @@ class ReservationManager {
                             </ul>
                             ` : `
                             <ul class="detail-bullet-list">
-                                ${reservation.buffet.rice ? `<li>${this.getBuffetItemName('rice', reservation.buffet.rice)}</li>` : ''}
-                                ${reservation.buffet.rice2 ? `<li>${this.getBuffetItemName('rice', reservation.buffet.rice2)}</li>` : ''}
-                ${reservation.buffet.protein1 ? `<li>${this.getBuffetItemName('protein', reservation.buffet.protein1)}</li>` : ''}
-                ${reservation.buffet.protein2 ? `<li>${this.getBuffetItemName('protein', reservation.buffet.protein2)}</li>` : ''}
-                ${reservation.buffet.side ? `<li>${this.getBuffetItemName('side', reservation.buffet.side)}</li>` : ''}
-                ${reservation.buffet.side2 ? `<li>${this.getBuffetItemName('side', reservation.buffet.side2)}</li>` : ''}
-                                ${reservation.buffet.salad ? `<li>${this.getBuffetItemName('salad', reservation.buffet.salad)}</li>` : ''}
-                                ${reservation.buffet.salad2 ? `<li>${this.getBuffetItemName('salad', reservation.buffet.salad2)}</li>` : ''}
+                                ${reservation.buffet.rice ? `<li>${esc(this.getBuffetItemName('rice', reservation.buffet.rice))}</li>` : ''}
+                                ${reservation.buffet.rice2 ? `<li>${esc(this.getBuffetItemName('rice', reservation.buffet.rice2))}</li>` : ''}
+                ${reservation.buffet.protein1 ? `<li>${esc(this.getBuffetItemName('protein', reservation.buffet.protein1))}</li>` : ''}
+                ${reservation.buffet.protein2 ? `<li>${esc(this.getBuffetItemName('protein', reservation.buffet.protein2))}</li>` : ''}
+                ${reservation.buffet.side ? `<li>${esc(this.getBuffetItemName('side', reservation.buffet.side))}</li>` : ''}
+                ${reservation.buffet.side2 ? `<li>${esc(this.getBuffetItemName('side', reservation.buffet.side2))}</li>` : ''}
+                                ${reservation.buffet.salad ? `<li>${esc(this.getBuffetItemName('salad', reservation.buffet.salad))}</li>` : ''}
+                                ${reservation.buffet.salad2 ? `<li>${esc(this.getBuffetItemName('salad', reservation.buffet.salad2))}</li>` : ''}
                                 ${reservation.buffet.panecillos ? `<li>Panecillos</li>` : ''}
                                 ${reservation.buffet.aguaRefresco ? `<li>Agua y Refresco</li>` : ''}
                                 ${reservation.buffet.pasteles ? `<li>Pasteles</li>` : ''}
@@ -4707,7 +5099,7 @@ class ReservationManager {
                         ${reservation.breakfastType && this.isBreakfast(reservation.breakfastType) ? `
                         <div class="food-service-section">
                             <span class="detail-label">Desayuno:</span>
-                            <span class="detail-value">${this.getFoodDisplayName(reservation.breakfastType)}</span>
+                            <span class="detail-value">${esc(this.getFoodDisplayName(reservation.breakfastType))}</span>
                             ${reservation.breakfast ? `
                             <ul class="detail-bullet-list">
                                 ${reservation.breakfast.medianochePavo ? `<li>Medianoche de Pavo</li>` : ''}
@@ -4741,7 +5133,7 @@ class ReservationManager {
                                         .filter(([, qty]) => typeof qty === 'number' && qty > 0)
                                         .map(([id, qty]) => {
                                             const item = list.find(p => p.id === id);
-                                            return `<li>${item ? item.name : id} × ${qty}</li>`;
+                                            return `<li>${esc(item ? item.name : id)} × ${esc(qty)}</li>`;
                                         }).join('');
                                 })() : ''}
                             </ul>
@@ -4753,7 +5145,7 @@ class ReservationManager {
                             ${this.getEntremesesBulletList(reservation.entremeses)}
                         </div>
                         ` : ''}
-                        ${reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => (typeof qty === 'number' && qty > 0) || qty === true) ? `
+                        ${reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => this.hasActiveBeverageQty(qty)) ? `
                         <div class="beverage-section">
                             <span class="detail-label">Bebidas:</span>
                             ${this.getBeverageBulletList(reservation.beverages)}
@@ -4842,7 +5234,7 @@ class ReservationManager {
                             <span>$${this.calculateRemainingBalance(reservation).toFixed(2)}</span>
                         </div>
                         <div class="pricing-row payment-action-row">
-                            <button class="btn btn-success btn-small" onclick="reservationManager.openPaymentModal('${reservation.id}')">
+                            <button class="btn btn-success btn-small" onclick="reservationManager.openPaymentModal('${esc(reservation.id)}')">
                                 <i class="fas fa-money-bill-wave"></i> Registrar Pago
                             </button>
                         </div>
@@ -4856,7 +5248,7 @@ class ReservationManager {
                             
                             // Add deposit if paid
                             if (depositPaid) {
-                                const depositDate = reservation.depositPaymentDate || reservation.eventDate || reservation.createdAt || new Date().toISOString().split('T')[0];
+                                const depositDate = reservation.depositPaymentDate || reservation.eventDate || reservation.createdAt || this.getTodayDateString();
                                 paymentHistory.push({
                                     amount: depositAmount,
                                     date: depositDate,
@@ -5053,7 +5445,8 @@ class ReservationManager {
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     refreshMenuConfigMasterList() {
@@ -5685,26 +6078,20 @@ class ReservationManager {
         if (!beveragesMap || Object.keys(beveragesMap).length === 0) {
             return '<span class="detail-value">Ninguno</span>';
         }
-        const items = this.getBeverageItems();
         const beverageList = Object.entries(beveragesMap)
-            .filter(([, qty]) => {
-                if (qty === true) return true;
-                if (typeof qty === 'object' && qty !== null && 'qty' in qty) {
-                    const n = parseInt(qty.qty) || 0;
-                    return n > 0;
-                }
-                return typeof qty === 'number' && qty > 0;
-            })
+            .filter(([, qty]) => this.hasActiveBeverageQty(qty))
             .map(([id, qty]) => {
-                const item = items.find(i => i.id === id);
-                // Handle Mimosa options separately - they're per person
                 if (id === 'mimosa' && qty === true) {
                     return `<li>Mimosa ($3.00 por persona)</li>`;
-                } else if (id === 'mimosa-395' && qty === true) {
+                }
+                if (id === 'mimosa-395' && qty === true) {
                     return `<li>Mimosa ($3.95 por persona)</li>`;
                 }
-                return `<li>${qty} x ${item ? item.name : id}</li>`;
-            });
+                const line = this.resolveBeverageInvoiceLine(id, qty, 0);
+                if (!line) return '';
+                return `<li>${line.qty} x ${line.description}</li>`;
+            })
+            .filter(Boolean);
         return beverageList.length > 0 
             ? `<ul class="detail-bullet-list">${beverageList.join('')}</ul>`
             : '<span class="detail-value">Ninguno</span>';
@@ -5752,22 +6139,16 @@ class ReservationManager {
     openReservationDetailsModal() {
         const modal = document.getElementById('reservationDetailsModal');
         if (!modal) return;
-        modal.classList.remove('hidden');
-        void modal.offsetWidth;
-        modal.classList.add('visible');
+        this.openOverlayWithFocusTrap(modal);
     }
 
     closeReservationDetailsModal() {
         const modal = document.getElementById('reservationDetailsModal');
-        if (!modal) return;
-        modal.classList.remove('visible');
-        setTimeout(() => {
-            modal.classList.add('hidden');
-        }, 220);
+        this.closeOverlayWithFocusTrap(modal);
     }
 
     toggleDepositStatus(id) {
-        const reservation = this.reservations.find(r => r.id === id);
+        const reservation = this.findReservationById(id);
         if (!reservation) return;
         
         // Check if reservation is fully paid - if so, prevent any deposit toggle
@@ -5807,7 +6188,7 @@ class ReservationManager {
         
         // If marking as paid, store the payment date (use today's date)
         if (reservation.depositPaid && !wasPaid) {
-            reservation.depositPaymentDate = new Date().toISOString().split('T')[0];
+            reservation.depositPaymentDate = this.getTodayDateString();
         }
         
         // Save to localStorage
@@ -5884,7 +6265,7 @@ class ReservationManager {
 
     // Open payment modal
     openPaymentModal(reservationId) {
-        const reservation = this.reservations.find(r => r.id === reservationId);
+        const reservation = this.findReservationById(reservationId);
         if (!reservation) return;
 
         this.currentPaymentReservationId = reservationId;
@@ -5894,7 +6275,7 @@ class ReservationManager {
         // Set default payment date to today
         const paymentDate = document.getElementById('paymentDate');
         if (paymentDate) {
-            paymentDate.value = new Date().toISOString().split('T')[0];
+            paymentDate.value = this.getTodayDateString();
         }
 
         // Clear payment amount and notes
@@ -5924,18 +6305,14 @@ class ReservationManager {
         // Display payment history
         this.displayPaymentHistory(reservation);
 
-        modal.classList.remove('hidden');
-        void modal.offsetWidth;
-        modal.classList.add('visible');
+        this.openOverlayWithFocusTrap(modal);
     }
 
     // Close payment modal
     closePaymentModal() {
         const modal = document.getElementById('paymentModal');
-        if (!modal) return;
-        modal.classList.remove('visible');
+        this.closeOverlayWithFocusTrap(modal);
         setTimeout(() => {
-            modal.classList.add('hidden');
             this.currentPaymentReservationId = null;
         }, 220);
     }
@@ -5943,7 +6320,7 @@ class ReservationManager {
     // Fill payment amount with full remaining balance
     fillFullBalance() {
         if (!this.currentPaymentReservationId) return;
-        const reservation = this.reservations.find(r => r.id === this.currentPaymentReservationId);
+        const reservation = this.findReservationById(this.currentPaymentReservationId);
         if (!reservation) return;
 
         const remainingBalance = this.calculateRemainingBalance(reservation);
@@ -5960,7 +6337,7 @@ class ReservationManager {
     // Update payment summary display
     updatePaymentSummary() {
         if (!this.currentPaymentReservationId) return;
-        const reservation = this.reservations.find(r => r.id === this.currentPaymentReservationId);
+        const reservation = this.findReservationById(this.currentPaymentReservationId);
         if (!reservation) return;
 
         const totalCost = reservation.pricing?.totalCost || 0;
@@ -6021,7 +6398,7 @@ class ReservationManager {
         // Add deposit if paid
         if (depositPaid) {
             // Use event date or creation date for deposit payment date
-            const depositDate = reservation.depositPaymentDate || reservation.eventDate || reservation.createdAt || new Date().toISOString().split('T')[0];
+            const depositDate = reservation.depositPaymentDate || reservation.eventDate || reservation.createdAt || this.getTodayDateString();
             paymentHistory.push({
                 amount: depositAmount,
                 date: depositDate,
@@ -6084,7 +6461,7 @@ class ReservationManager {
     // Save payment
     savePayment() {
         if (!this.currentPaymentReservationId) return;
-        const reservation = this.reservations.find(r => r.id === this.currentPaymentReservationId);
+        const reservation = this.findReservationById(this.currentPaymentReservationId);
         if (!reservation) return;
 
         const paymentAmount = document.getElementById('paymentAmount');
@@ -6092,7 +6469,7 @@ class ReservationManager {
         const paymentNotes = document.getElementById('paymentNotes');
 
         const amount = parseFloat(paymentAmount?.value || 0);
-        const date = paymentDate?.value || new Date().toISOString().split('T')[0];
+        const date = paymentDate?.value || this.getTodayDateString();
         const notes = paymentNotes?.value?.trim() || '';
 
         if (!amount || amount <= 0) {
@@ -6154,7 +6531,7 @@ class ReservationManager {
         // Clear form
         if (paymentAmount) paymentAmount.value = '';
         if (paymentNotes) paymentNotes.value = '';
-        if (paymentDate) paymentDate.value = new Date().toISOString().split('T')[0];
+        if (paymentDate) paymentDate.value = this.getTodayDateString();
 
         // Update payment summary and history to reflect the new payment
         this.updatePaymentSummary();
@@ -6169,7 +6546,7 @@ class ReservationManager {
 
     // Delete payment
     async deletePayment(reservationId, paymentIndex) {
-        const reservation = this.reservations.find(r => r.id === reservationId);
+        const reservation = this.findReservationById(reservationId);
         if (!reservation || !reservation.additionalPayments) return;
 
         const ok = await this.appConfirm('¿Eliminar este pago del historial?', { title: 'Eliminar pago' });
@@ -6229,11 +6606,86 @@ class ReservationManager {
     }
 
     // Display reservations
+    escapeHtml(str) {
+        return this.escapeMenuConfigHtml(str);
+    }
+
     getTodayDateString() {
         const d = new Date();
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
         return `${d.getFullYear()}-${month}-${day}`;
+    }
+
+    /** Normalize event date to YYYY-MM-DD for comparisons (local calendar, no UTC shift). */
+    normalizeEventDate(dateStr) {
+        if (!dateStr) return '';
+        return String(dateStr).slice(0, 10);
+    }
+
+    /** Parse YYYY-MM-DD as local midnight. */
+    parseEventDateLocal(dateStr) {
+        const normalized = this.normalizeEventDate(dateStr);
+        if (!normalized) return new Date(NaN);
+        return new Date(`${normalized}T00:00:00`);
+    }
+
+    compareEventDates(a, b) {
+        return this.normalizeEventDate(a).localeCompare(this.normalizeEventDate(b));
+    }
+
+    findReservationById(id) {
+        const sid = String(id);
+        return this.reservations.find(r => String(r.id) === sid);
+    }
+
+    findReservationIndexById(id) {
+        const sid = String(id);
+        return this.reservations.findIndex(r => String(r.id) === sid);
+    }
+
+    eventTimeToMinutes(timeStr) {
+        if (!timeStr) return 0;
+        const raw = String(timeStr).trim();
+        if (/am|pm/i.test(raw)) return this.parseTime(raw);
+        const [h, m] = raw.split(':').map(Number);
+        return (h || 0) * 60 + (m || 0);
+    }
+
+    findRoomConflicts(roomType, eventDate, eventTime, eventDurationHours, excludeId = null) {
+        if (!roomType || !eventDate) return [];
+        const date = this.normalizeEventDate(eventDate);
+        const start = this.eventTimeToMinutes(eventTime);
+        const durationHours = parseFloat(eventDurationHours);
+        const end = start + (Number.isFinite(durationHours) && durationHours > 0 ? durationHours : 4) * 60;
+        const exclude = excludeId != null ? String(excludeId) : null;
+
+        return this.reservations.filter(r => {
+            if (exclude && String(r.id) === exclude) return false;
+            if (r.roomType !== roomType) return false;
+            if (this.normalizeEventDate(r.eventDate) !== date) return false;
+            const rStart = this.eventTimeToMinutes(r.eventTime);
+            const rDur = parseFloat(r.eventDuration);
+            const rEnd = rStart + (Number.isFinite(rDur) && rDur > 0 ? rDur : 4) * 60;
+            return start < rEnd && end > rStart;
+        });
+    }
+
+    scheduleUiRefresh() {
+        if (this._uiRefreshTimer) clearTimeout(this._uiRefreshTimer);
+        this._uiRefreshTimer = setTimeout(() => {
+            this._uiRefreshTimer = null;
+            if (!this.isUpdatingDeposit) {
+                this.displayReservations();
+            }
+            this.updateDashboard();
+            if (this.currentSection === 'analytics') {
+                this.updateAnalytics();
+            }
+            if (this.currentSection === 'calendar') {
+                this.displayCalendar();
+            }
+        }, 120);
     }
 
     isPastReservation(reservation) {
@@ -6318,7 +6770,7 @@ class ReservationManager {
             
             if (this.sortOption === 'eventDate') {
                 // Sort by event date
-                result = new Date(a.eventDate) - new Date(b.eventDate);
+                result = this.compareEventDates(a.eventDate, b.eventDate);
             } else if (this.sortOption === 'createdAt') {
                 // Sort by creation date
                 result = new Date(a.createdAt) - new Date(b.createdAt);
@@ -6329,7 +6781,7 @@ class ReservationManager {
                 
                 // If neither has a deposit, sort by event date
                 if (!aHasDeposit && !bHasDeposit) {
-                    result = new Date(a.eventDate) - new Date(b.eventDate);
+                    result = this.compareEventDates(a.eventDate, b.eventDate);
                 } else if (!aHasDeposit) {
                     // One without deposit comes first (asc) or last (desc)
                     result = this.sortDirection === 'asc' ? -1 : 1;
@@ -6343,7 +6795,7 @@ class ReservationManager {
                         result = a.depositPaid ? 1 : -1;
                     } else {
                         // Same deposit status, sort by event date
-                        result = new Date(a.eventDate) - new Date(b.eventDate);
+                        result = this.compareEventDates(a.eventDate, b.eventDate);
                     }
                 }
             }
@@ -6375,17 +6827,20 @@ class ReservationManager {
             return;
         }
 
-        container.innerHTML = filteredReservations.map(reservation => `
+        const esc = (s) => this.escapeHtml(s);
+        container.innerHTML = filteredReservations.map(reservation => {
+            const rid = esc(reservation.id);
+            return `
             <div class="reservation-card${this.isPastReservation(reservation) ? ' reservation-card--archived' : ''}">
                 <div class="reservation-header">
-                    <div class="reservation-client">${reservation.clientName}</div>
+                    <div class="reservation-client">${esc(reservation.clientName)}</div>
                     <div class="reservation-total">$${reservation.pricing.totalCost.toFixed(2)}</div>
                 </div>
                 <div class="reservation-details">
                     <div class="reservation-detail">
                         <strong>Fecha:</strong>
                         <span>${(() => {
-                            const eventDate = new Date(reservation.eventDate + 'T00:00:00');
+                            const eventDate = this.parseEventDateLocal(reservation.eventDate);
                             const month = String(eventDate.getMonth() + 1).padStart(2, '0');
                             const day = String(eventDate.getDate()).padStart(2, '0');
                             const year = eventDate.getFullYear();
@@ -6402,28 +6857,28 @@ class ReservationManager {
                     </div>
                     <div class="reservation-detail">
                         <strong>Salón:</strong>
-                        <span>${this.getRoomDisplayName(reservation.roomType)}</span>
+                        <span>${esc(this.getRoomDisplayName(reservation.roomType))}</span>
                     </div>
                     <div class="reservation-detail">
                         <strong>Invitados:</strong>
-                        <span>${reservation.guestCount}</span>
+                        <span>${esc(reservation.guestCount)}</span>
                     </div>
                     ${reservation.foodType && reservation.foodType !== 'no-food' ? `
                     <div class="reservation-detail">
                         <strong>Comida:</strong>
-                        <span>${this.getFoodDisplayName(reservation.foodType, reservation)}</span>
+                        <span>${esc(this.getFoodDisplayName(reservation.foodType, reservation))}</span>
                     </div>
                     ` : ''}
-                    ${reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => (typeof qty === 'number' && qty > 0) || qty === true) ? `
+                    ${reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => this.hasActiveBeverageQty(qty)) ? `
                     <div class="reservation-detail">
                         <strong>Bebidas:</strong>
-                        <span>${this.getBeverageSummaryString(reservation.beverages)}</span>
+                        <span>${esc(this.getBeverageSummaryString(reservation.beverages))}</span>
                     </div>
                     ` : ''}
                     ${reservation.breakfastType && this.isBreakfast(reservation.breakfastType) ? `
                     <div class="reservation-detail">
                         <strong>Desayuno:</strong>
-                        <span>${this.getFoodDisplayName(reservation.breakfastType)}</span>
+                        <span>${esc(this.getFoodDisplayName(reservation.breakfastType))}</span>
                     </div>
                     ` : ''}
                     ${reservation.dessertType && this.isDessert(reservation.dessertType) && reservation.dessert ? `
@@ -6440,18 +6895,18 @@ class ReservationManager {
                             reservation.dessert.postresSurtidos ? 'Postres Surtidos' : '',
                             reservation.dessert.tembleque ? 'Tembleque' : '',
                             reservation.dessert.tresLeches ? 'Tres Leches' : ''
-                        ].filter(Boolean).join(', ')}</span>
+                        ].filter(Boolean).map(esc).join(', ')}</span>
                     </div>
                     ` : ''}
                     ${reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => (typeof qty === 'number' && qty > 0) || qty === true) ? `
                     <div class="reservation-detail">
                         <strong>Entremeses:</strong>
-                        <span>${this.getEntremesesSummaryString(reservation.entremeses)}</span>
+                        <span>${esc(this.getEntremesesSummaryString(reservation.entremeses))}</span>
                     </div>
                     ` : ''}
                     <div class="reservation-detail">
                         <strong>Contacto:</strong>
-                        <span>${reservation.clientPhone}</span>
+                        <span>${esc(reservation.clientPhone)}</span>
                     </div>
                     ${reservation.pricing.depositAmount > 0 ? `
                     <div class="reservation-detail">
@@ -6465,7 +6920,7 @@ class ReservationManager {
                                 if (isFullyPaid) {
                                     return `<span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;" title="Reservación completamente pagada - El depósito no se puede modificar">${reservation.depositPaid ? '✓ Pagado' : 'No Pagado'}</span>`;
                                 }
-                                return `<span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" onclick="reservationManager.toggleDepositStatus('${reservation.id}')" data-reservation-id="${reservation.id}">${reservation.depositPaid ? '✓ Pagado' : 'No Pagado'}</span>`;
+                                return `<span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" onclick="reservationManager.toggleDepositStatus('${rid}')" data-reservation-id="${rid}">${reservation.depositPaid ? '✓ Pagado' : 'No Pagado'}</span>`;
                             })()}
                         </span>
                     </div>
@@ -6480,21 +6935,23 @@ class ReservationManager {
                     ` : ''}
                 </div>
                 <div class="reservation-actions">
-                    <button class="btn btn-small btn-success" onclick="reservationManager.openPaymentModal('${reservation.id}')">
+                    ${this.buildContactActionButtons(reservation)}
+                    <button class="btn btn-small btn-success" onclick="reservationManager.openPaymentModal('${rid}')">
                         <i class="fas fa-money-bill-wave"></i> Registrar Pago
                     </button>
-                    <button class="btn btn-small btn-primary" onclick="exportReservationInvoice('${reservation.id}')">
+                    <button class="btn btn-small btn-primary" onclick="exportReservationInvoice('${rid}')">
                         <i class="fas fa-file-invoice"></i> Exportar Factura
                     </button>
-                    <button class="btn btn-small btn-outline" onclick="reservationManager.editReservation('${reservation.id}')">
+                    <button class="btn btn-small btn-outline" onclick="reservationManager.editReservation('${rid}')">
                         Editar
                     </button>
-                    <button class="btn btn-small btn-danger" onclick="reservationManager.deleteReservation('${reservation.id}')">
+                    <button class="btn btn-small btn-danger" onclick="reservationManager.deleteReservation('${rid}')">
                         Eliminar
                     </button>
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
     }
 
     // Get display names for dropdown values
@@ -6556,47 +7013,15 @@ class ReservationManager {
 
     getBeverageSummaryString(beveragesMap) {
         if (!beveragesMap || Object.keys(beveragesMap).length === 0) return 'Sin Servicio de Bebidas';
-        const items = this.getBeverageItems();
         const parts = Object.entries(beveragesMap)
-            .filter(([, qty]) => {
-                if (qty === true) return true;
-                if (typeof qty === 'object' && qty !== null && qty.qty) return qty.qty > 0;
-                return typeof qty === 'number' && qty > 0;
-            })
+            .filter(([, qty]) => this.hasActiveBeverageQty(qty))
             .map(([id, qty]) => {
-                const item = items.find(i => i.id === id);
-                // Handle Mimosa options separately - they're per person
-                if (id === 'mimosa' && qty === true) {
-                    return 'Mimosa ($3.00)';
-                } else if (id === 'mimosa-395' && qty === true) {
-                    return 'Mimosa ($3.95)';
-                }
-                // Handle beverages with notes
-                if (typeof qty === 'object' && qty !== null && qty.qty) {
-                    let label;
-                    // Check if qty object has stored name (for custom beverages)
-                    if (qty.name) {
-                        label = qty.name;
-                    } else if (item) {
-                        label = item.name;
-                    } else {
-                        label = id;
-                    }
-                    const notesText = qty.notes ? ` (${qty.notes})` : '';
-                    return `${qty.qty} x ${label}${notesText}`;
-                }
-                let label;
-                // Check if qty is an object with stored name (for custom beverages)
-                if (typeof qty === 'object' && qty !== null && qty.name) {
-                    label = qty.name;
-                } else if (item) {
-                    label = item.name;
-                } else {
-                    label = id;
-                }
-                const actualQty = typeof qty === 'object' && qty !== null && qty.qty ? qty.qty : qty;
-                return `${actualQty} x ${label}`;
-            });
+                if (id === 'mimosa' && qty === true) return 'Mimosa ($3.00)';
+                if (id === 'mimosa-395' && qty === true) return 'Mimosa ($3.95)';
+                const line = this.resolveBeverageInvoiceLine(id, qty, 0);
+                return line ? `${line.qty} x ${line.description}` : '';
+            })
+            .filter(Boolean);
         return parts.length ? parts.join(', ') : 'Sin Servicio de Bebidas';
     }
 
@@ -6671,7 +7096,7 @@ class ReservationManager {
 
     // Edit reservation
     async editReservation(id) {
-        const reservation = this.reservations.find(r => r.id === id);
+        const reservation = this.findReservationById(id);
         if (!reservation) return;
 
         this._suppressReservationFormDirty = true;
@@ -6882,7 +7307,7 @@ class ReservationManager {
         // Instead, keep it in the array and update it when saved
         this.isEditingReservation = true;
         this.editingReservationId = id;
-        console.log(`⚠️ Editing reservation ${id} - keeping in array to prevent deletion`);
+        appDebug(`⚠️ Editing reservation ${id} - keeping in array to prevent deletion`);
         
         // Don't save here - wait for form submission
         // The saveReservation() function will handle updating the existing reservation
@@ -7008,16 +7433,13 @@ class ReservationManager {
 
         // Create list items for missing fields
         const listItems = missingFields.map(field => {
-            const fieldName = getFieldName(field);
+            const fieldName = this.escapeHtml(getFieldName(field));
             return `<li><i class="fas fa-times-circle"></i> ${fieldName}</li>`;
         });
 
         listContainer.innerHTML = listItems.join('');
 
-        // Show modal with animation
-        modal.classList.remove('hidden');
-        void modal.offsetWidth; // Force reflow
-        modal.classList.add('visible');
+        this.openOverlayWithFocusTrap(modal);
 
         const firstId = missingFields[0];
         if (firstId) {
@@ -7030,11 +7452,7 @@ class ReservationManager {
     // Close validation error modal
     closeValidationErrorModal() {
         const modal = document.getElementById('validationErrorModal');
-        if (!modal) return;
-        modal.classList.remove('visible');
-        setTimeout(() => {
-            modal.classList.add('hidden');
-        }, 220);
+        this.closeOverlayWithFocusTrap(modal);
     }
 
     // Show notification
@@ -7095,33 +7513,47 @@ class ReservationManager {
             console.warn('Save blocked: Still initializing');
             return;
         }
-        
-        // Safety check: Don't save empty array (prevents accidental deletion)
+
+        // Hard-block empty cloud sync — never wipe Firestore from an empty local list
         if (this.reservations.length === 0) {
-            console.warn('Save blocked: Reservations array is empty - this would delete all data');
-            const okEmpty = await this.appConfirm(
-                'No hay reservaciones para guardar. Continuar podría borrar los datos en la nube. ¿Desea continuar?',
-                { title: 'Advertencia', okText: 'Sí, continuar' }
-            );
-            if (!okEmpty) return;
+            console.warn('Save blocked: Reservations array is empty');
+            this.saveReservationsToLocalStorage();
+            if (window.FIREBASE_LOADED && window.firestore) {
+                this.showNotification(
+                    'No se sincroniza una lista vacía a la nube. Elimine reservaciones una por una.',
+                    'error',
+                    5500
+                );
+            }
+            return;
         }
 
         this.pendingChanges = true;
         const syncBanner = document.getElementById('syncStatusBanner');
         syncBanner?.classList.remove('hidden');
 
+        let savedOk = false;
         try {
             if (window.FIREBASE_LOADED && window.firestore) {
                 await this.saveReservationsToFirestore();
-            } else {
-                this.saveReservationsToLocalStorage();
             }
+            this.saveReservationsToLocalStorage();
+            savedOk = true;
+        } catch (error) {
+            console.error('Error saving reservations:', error);
+            this.saveReservationsToLocalStorage();
+            this.showNotification(
+                'No se pudo guardar en la nube. Los cambios quedaron en este dispositivo.',
+                'error',
+                5500
+            );
         } finally {
+            const delay = savedOk ? 1500 : 5000;
             setTimeout(() => {
                 this.pendingChanges = false;
                 syncBanner?.classList.add('hidden');
                 appDebug('Pending changes flag reset - sync will resume');
-            }, 3000);
+            }, delay);
         }
     }
 
@@ -7129,58 +7561,56 @@ class ReservationManager {
     async saveReservationsToFirestore() {
         if (!window.FIREBASE_LOADED || !window.firestore) return;
 
-        try {
-            const batch = window.firestore.batch();
-            const reservationsRef = window.firestore.collection('reservations');
+        if (this.reservations.length === 0) {
+            throw new Error('Refusing to sync empty reservations list to Firestore');
+        }
 
-            // Get current reservations in Firestore to track what exists
-            const snapshot = await reservationsRef.get();
-            const existingIds = new Set();
-            snapshot.forEach((doc) => {
-                existingIds.add(String(doc.id));
-            });
+        const batch = window.firestore.batch();
+        const reservationsRef = window.firestore.collection('reservations');
 
-            // Update or create each reservation
-            const currentIds = new Set();
-            this.reservations.forEach((reservation) => {
-                const docRef = reservationsRef.doc(String(reservation.id));
-                batch.set(docRef, reservation, { merge: true });
-                currentIds.add(String(reservation.id));
-            });
+        // Get current reservations in Firestore to track what exists
+        const snapshot = await reservationsRef.get();
+        const existingIds = new Set();
+        snapshot.forEach((doc) => {
+            existingIds.add(String(doc.id));
+        });
 
-            // Delete reservations that no longer exist locally (including when local list is empty)
-            const toDelete = [];
-            existingIds.forEach((id) => {
-                if (!currentIds.has(String(id))) {
-                    toDelete.push(String(id));
-                }
-            });
+        // Update or create each reservation
+        const currentIds = new Set();
+        this.reservations.forEach((reservation) => {
+            const docRef = reservationsRef.doc(String(reservation.id));
+            batch.set(docRef, reservation, { merge: true });
+            currentIds.add(String(reservation.id));
+        });
 
-            if (toDelete.length > 0) {
-                // Allow deleting a single reservation always; only block large accidental bulk deletes
-                const isBulkDelete = toDelete.length > 1 && toDelete.length > existingIds.size * 0.5;
-                if (isBulkDelete) {
-                    console.error(`Bulk deletion BLOCKED: Attempting to delete ${toDelete.length} out of ${existingIds.size} reservations`);
-                    throw new Error('Bulk deletion prevented: Too many reservations would be deleted');
-                }
+        // Delete reservations that no longer exist locally
+        const toDelete = [];
+        existingIds.forEach((id) => {
+            if (!currentIds.has(String(id))) {
+                toDelete.push(String(id));
+            }
+        });
 
-                if (toDelete.length > 1) {
-                    console.warn(`⚠️ WARNING: Attempting to delete ${toDelete.length} reservations:`, toDelete);
-                }
-
-                toDelete.forEach((id) => {
-                    console.warn(`⚠️ DELETING reservation from Firestore: ${id}`);
-                    batch.delete(reservationsRef.doc(id));
-                });
+        if (toDelete.length > 0) {
+            // Allow deleting a single reservation always; only block large accidental bulk deletes
+            const isBulkDelete = toDelete.length > 1 && toDelete.length > existingIds.size * 0.5;
+            if (isBulkDelete) {
+                console.error(`Bulk deletion BLOCKED: Attempting to delete ${toDelete.length} out of ${existingIds.size} reservations`);
+                throw new Error('Bulk deletion prevented: Too many reservations would be deleted');
             }
 
-            await batch.commit();
-            console.log('Reservations saved to Firestore:', this.reservations.length);
-        } catch (error) {
-            console.error('Error saving to Firestore:', error);
-            // Fallback to localStorage on error
-            this.saveReservationsToLocalStorage();
+            if (toDelete.length > 1) {
+                console.warn(`⚠️ WARNING: Attempting to delete ${toDelete.length} reservations:`, toDelete);
+            }
+
+            toDelete.forEach((id) => {
+                console.warn(`⚠️ DELETING reservation from Firestore: ${id}`);
+                batch.delete(reservationsRef.doc(id));
+            });
         }
+
+        await batch.commit();
+        appDebug('Reservations saved to Firestore:', this.reservations.length);
     }
 
     // Load from Firestore
@@ -7199,9 +7629,9 @@ class ReservationManager {
                 reservations.push(reservation);
             });
             // Sort by date
-            reservations.sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate));
+            reservations.sort((a, b) => this.compareEventDates(a.eventDate, b.eventDate));
             this.reservations = reservations;
-            console.log('Reservations loaded from Firestore:', reservations.length);
+            appDebug('Reservations loaded from Firestore:', reservations.length);
             return reservations;
         } catch (error) {
             console.error('Error loading from Firestore:', error);
@@ -7239,20 +7669,20 @@ class ReservationManager {
 
     // Export reservation as invoice
     async exportReservationInvoice(id) {
-        console.log('Export invoice called with ID:', id);
+        appDebug('Export invoice called with ID:', id);
         try {
-            // Check if jsPDF is loaded
-            if (!window.jspdf || !window.jspdf.jsPDF) {
+            try {
+                await ensureJsPdfLoaded();
+            } catch (loadErr) {
                 this.showNotification('Error: Las librerías de PDF no se cargaron correctamente. Por favor, recarga la página.', 'error');
-                console.error('jsPDF library not loaded. Please check if CDN scripts are accessible.');
-                console.log('window.jspdf:', window.jspdf);
+                console.error('jsPDF library not loaded:', loadErr);
                 return;
             }
-            console.log('jsPDF library loaded successfully');
+            appDebug('jsPDF library loaded successfully');
 
             // Use in-memory reservation so the exported PDF matches what the user sees on screen
             // (avoids stale Firestore data when user removed items but export ran before save completed)
-            let reservation = this.reservations.find(r => r.id === id);
+            let reservation = this.findReservationById(id);
             if (!reservation) {
                 // Not in memory (e.g. page just loaded on another tab); load from storage
                 if (window.FIREBASE_LOADED && window.firestore) {
@@ -7260,27 +7690,30 @@ class ReservationManager {
                 } else {
                     this.reservations = this.loadReservations();
                 }
-                reservation = this.reservations.find(r => r.id === id);
+                reservation = this.findReservationById(id);
             }
-            console.log('Total reservations in memory:', this.reservations.length);
-            console.log('Looking for reservation ID:', id);
+            appDebug('Total reservations in memory:', this.reservations.length);
+            appDebug('Looking for reservation ID:', id);
             if (!reservation) {
                 console.error('Reservation not found. Available IDs:', this.reservations.map(r => r.id));
                 this.showNotification('Error: Reservación no encontrada.', 'error');
                 return;
             }
             
-            console.log('Reservation found:', reservation);
-            console.log('Reservation pricing:', reservation.pricing);
-            console.log('Reservation beverages:', reservation.beverages);
-            console.log('Reservation entremeses:', reservation.entremeses);
-            console.log('Reservation buffet:', reservation.buffet);
-            console.log('Plato mexicano value:', reservation.buffet?.platoMexicano);
+            appDebug('Reservation found:', reservation);
+            appDebug('Reservation pricing:', reservation.pricing);
+            appDebug('Reservation beverages:', reservation.beverages);
+            appDebug('Reservation entremeses:', reservation.entremeses);
+            appDebug('Reservation buffet:', reservation.buffet);
+            appDebug('Plato mexicano value:', reservation.buffet?.platoMexicano);
 
         // Convert logo to base64 for embedding
         let logoBase64 = '';
         try {
-            const response = await fetch('Logo_Antesala-removebg-preview.png');
+            let response = await fetch('Logo_Antesala-compact.png');
+            if (!response.ok) {
+                response = await fetch('Logo_Antesala-removebg-preview.png');
+            }
             const blob = await response.blob();
             logoBase64 = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -7454,76 +7887,18 @@ class ReservationManager {
             }
         }
 
-        // Beverages
+        // Beverages (including custom catalog items from Añadir ítems)
         if (reservation.beverages && Object.keys(reservation.beverages).length > 0) {
-            const items = this.getBeverageItems();
             Object.entries(reservation.beverages).forEach(([id, qty]) => {
-                // Skip items with qty = 0 or falsy values (deleted items)
-                if (qty === false || qty === null || qty === undefined) return;
-                if (typeof qty === 'number' && qty <= 0) return;
-                if (typeof qty === 'object' && qty !== null && 'qty' in qty) {
-                    const n = parseInt(qty.qty) || 0;
-                    if (n <= 0) return;
-                }
-                
-                // Handle Mimosa options separately - they're per person
-                if (id === 'mimosa' && qty === true) {
-                    const total = 3.00 * reservation.guestCount;
-                    itemsHTML += `
-                        <tr>
-                            <td><strong>Mimosa ($3.00)</strong></td>
-                            <td>${reservation.guestCount}</td>
-                            <td>$${total.toFixed(2)}</td>
-                        </tr>
-                    `;
-                } else if (id === 'mimosa-395' && qty === true) {
-                    const total = 3.95 * reservation.guestCount;
-                    itemsHTML += `
-                        <tr>
-                            <td><strong>Mimosa ($3.95)</strong></td>
-                            <td>${reservation.guestCount}</td>
-                            <td>$${total.toFixed(2)}</td>
-                        </tr>
-                    `;
-                } else {
-                    // Skip mimosa options as they're handled above - only process regular items
-                    if (id !== 'mimosa' && id !== 'mimosa-395') {
-                        let actualQty = qty;
-                        let notesText = '';
-                        if (typeof qty === 'object' && qty !== null && qty.qty !== undefined) {
-                            actualQty = qty.qty;
-                            if (qty.notes) {
-                                notesText = ` (${qty.notes})`;
-                            }
-                        }
-                        const numQty = parseInt(actualQty, 10) || 0;
-                        if (numQty <= 0) return;
-                        let displayName;
-                        let price = 0;
-                        // Check if qty object has stored name and price (for custom beverages)
-                        if (typeof qty === 'object' && qty !== null && qty.name) {
-                            displayName = qty.name;
-                            price = qty.price || 0;
-                        } else {
-                            const item = items.find(i => i.id === id);
-                            if (item) {
-                                displayName = item.name;
-                                price = item.price;
-                            } else {
-                                displayName = id;
-                                price = 0;
-                            }
-                        }
-                        const total = price * numQty;
-                        itemsHTML += `
-                            <tr>
-                                <td><strong>${displayName}${notesText}</strong></td>
-                                <td>${numQty}</td>
-                                <td>$${total.toFixed(2)}</td>
-                            </tr>
-                        `;
-                    }
-                }
+                const line = this.resolveBeverageInvoiceLine(id, qty, reservation.guestCount || 0);
+                if (!line) return;
+                itemsHTML += `
+                    <tr>
+                        <td><strong>${line.description}</strong></td>
+                        <td>${line.qty}</td>
+                        <td>$${line.total.toFixed(2)}</td>
+                    </tr>
+                `;
             });
         }
 
@@ -7824,68 +8199,16 @@ class ReservationManager {
             }
         }
 
-        // Beverages
+        // Beverages (including custom catalog items from Añadir ítems)
         if (reservation.beverages && Object.keys(reservation.beverages).length > 0) {
-            const items = this.getBeverageItems();
             Object.entries(reservation.beverages).forEach(([id, qty]) => {
-                // Skip items with qty = 0 or falsy values (deleted items)
-                if (qty === false || qty === null || qty === undefined) return;
-                if (typeof qty === 'number' && qty <= 0) return;
-                if (typeof qty === 'object' && qty !== null && 'qty' in qty) {
-                    const n = parseInt(qty.qty) || 0;
-                    if (n <= 0) return;
-                }
-                
-                // Handle Mimosa options separately - they're per person
-                if (id === 'mimosa' && qty === true) {
-                    const total = 3.00 * reservation.guestCount;
-                    itemsData.push({
-                        description: 'Mimosa ($3.00)',
-                        qty: reservation.guestCount.toString(),
-                        total: `$${total.toFixed(2)}`
-                    });
-                } else if (id === 'mimosa-395' && qty === true) {
-                    const total = 3.95 * reservation.guestCount;
-                    itemsData.push({
-                        description: 'Mimosa ($3.95)',
-                        qty: reservation.guestCount.toString(),
-                        total: `$${total.toFixed(2)}`
-                    });
-                } else {
-                    // Skip mimosa options as they're handled above - only process regular items
-                    if (id !== 'mimosa' && id !== 'mimosa-395') {
-                        let actualQty = qty;
-                        let notesText = '';
-                        if (typeof qty === 'object' && qty !== null && qty.qty !== undefined) {
-                            actualQty = qty.qty;
-                            if (qty.notes) {
-                                notesText = ` (${qty.notes})`;
-                            }
-                        }
-                        const numQty = parseInt(actualQty, 10) || 0;
-                        if (numQty <= 0) return;
-                        const item = items.find(i => i.id === id);
-                        let displayName;
-                        let price = 0;
-                        // Check if qty object has stored name and price (for custom beverages)
-                        if (typeof qty === 'object' && qty !== null && qty.name) {
-                            displayName = qty.name;
-                            price = qty.price || 0;
-                        } else if (item) {
-                            displayName = item.name;
-                            price = item.price;
-                        } else {
-                            displayName = id;
-                            price = 0;
-                        }
-                        const total = price * numQty;
-                        itemsData.push({
-                            description: displayName + notesText,
-                            qty: numQty.toString(),
-                            total: `$${total.toFixed(2)}`
-                        });
-                    }
-                }
+                const line = this.resolveBeverageInvoiceLine(id, qty, reservation.guestCount || 0);
+                if (!line) return;
+                itemsData.push({
+                    description: line.description,
+                    qty: String(line.qty),
+                    total: `$${line.total.toFixed(2)}`
+                });
             });
         }
 
@@ -8301,6 +8624,48 @@ Hay varios métodos de pago disponibles. Todo pago que sea cobrado en el termina
         }
     }
 
+    getWhatsAppUrl(phone, message = '') {
+        const digits = String(phone || '').replace(/\D/g, '');
+        if (!digits) return null;
+        const num = digits.length === 10 ? `1${digits}` : digits;
+        const text = message ? `?text=${encodeURIComponent(message)}` : '';
+        return `https://wa.me/${num}${text}`;
+    }
+
+    getMailtoUrl(email, subject = '', body = '') {
+        const addr = String(email || '').trim();
+        if (!addr || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) return null;
+        const params = [];
+        if (subject) params.push(`subject=${encodeURIComponent(subject)}`);
+        if (body) params.push(`body=${encodeURIComponent(body)}`);
+        return `mailto:${addr}${params.length ? `?${params.join('&')}` : ''}`;
+    }
+
+    buildContactActionButtons(reservation) {
+        const esc = (s) => this.escapeHtml(s);
+        const name = reservation.clientName || 'cliente';
+        const date = this.normalizeEventDate(reservation.eventDate);
+        const msg = `Hola ${name}, le escribimos de La Antesala sobre su reservación${date ? ` del ${date}` : ''}.`;
+        const wa = this.getWhatsAppUrl(reservation.clientPhone, msg);
+        const mail = this.getMailtoUrl(
+            reservation.clientEmail,
+            `Reservación La Antesala${date ? ` — ${date}` : ''}`,
+            msg
+        );
+        const buttons = [];
+        if (wa) {
+            buttons.push(`<a class="btn btn-small btn-outline" href="${esc(wa)}" target="_blank" rel="noopener noreferrer" title="WhatsApp">
+                <i class="fab fa-whatsapp"></i> WhatsApp
+            </a>`);
+        }
+        if (mail) {
+            buttons.push(`<a class="btn btn-small btn-outline" href="${esc(mail)}" title="Correo">
+                <i class="fas fa-envelope"></i> Correo
+            </a>`);
+        }
+        return buttons.join('');
+    }
+
     // Export reservations (bonus feature)
     exportReservations() {
         const dataStr = JSON.stringify(this.reservations, null, 2);
@@ -8400,23 +8765,48 @@ function updateDarkModeIcon(isDarkMode) {
     }
 }
 
+// Lazy-load jsPDF (+ autotable) when PDF export is requested
+let jsPdfLoadPromise = null;
+function ensureJsPdfLoaded() {
+    if (window.jspdf && window.jspdf.jsPDF) {
+        return Promise.resolve();
+    }
+    if (jsPdfLoadPromise) return jsPdfLoadPromise;
+
+    const loadScript = (src) => new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${src}"]`);
+        if (existing) {
+            if (window.jspdf && window.jspdf.jsPDF) resolve();
+            else existing.addEventListener('load', () => resolve(), { once: true });
+            existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Failed to load ${src}`));
+        document.head.appendChild(script);
+    });
+
+    jsPdfLoadPromise = loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')
+        .then(() => loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js'))
+        .then(() => {
+            if (!window.jspdf || !window.jspdf.jsPDF) {
+                throw new Error('jsPDF failed to initialize after load');
+            }
+        })
+        .catch((err) => {
+            jsPdfLoadPromise = null;
+            throw err;
+        });
+
+    return jsPdfLoadPromise;
+}
+
 // Initialize the reservation manager when the page loads
 let reservationManager;
 document.addEventListener('DOMContentLoaded', () => {
-    // Check if jsPDF libraries loaded
-    const checkLibraries = () => {
-        if (!window.jspdf || !window.jspdf.jsPDF) {
-            console.warn('jsPDF library not detected. Checking again in 1 second...');
-            setTimeout(checkLibraries, 1000);
-            return;
-        }
-        console.log('✓ jsPDF library loaded successfully');
-    };
-    // Start checking after a short delay to allow scripts to load
-    setTimeout(checkLibraries, 500);
-    
     reservationManager = new ReservationManager();
-    // Make reservationManager globally accessible for debugging
     window.reservationManager = reservationManager;
 
     document.getElementById('appConfirmModal')?.addEventListener('click', (e) => {
@@ -8435,19 +8825,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize dark mode
     initializeDarkMode();
     
-    // Add keyboard shortcuts
+    // Add keyboard shortcuts (only on reservation form)
     document.addEventListener('keydown', (e) => {
-        if (e.ctrlKey || e.metaKey) {
-            switch(e.key) {
-                case 's':
-                    e.preventDefault();
-                    document.getElementById('saveBtn').click();
-                    break;
-                case 'Enter':
-                    e.preventDefault();
-                    document.getElementById('calculateBtn').click();
-                    break;
-            }
+        if (!(e.ctrlKey || e.metaKey)) return;
+        if (reservationManager?.currentSection !== 'new-reservation') return;
+        switch(e.key) {
+            case 's':
+                e.preventDefault();
+                document.getElementById('saveBtn')?.click();
+                break;
+            case 'Enter':
+                e.preventDefault();
+                document.getElementById('calculateBtn')?.click();
+                break;
         }
     });
 });
@@ -8483,39 +8873,26 @@ function nextMonth() {
     }
 }
 
-function exportReservationInvoice(id) {
-    console.log('Export button clicked, ID:', id);
+async function exportReservationInvoice(id) {
+    appDebug('Export button clicked, ID:', id);
     
-    // Check if ReservationManager is initialized
     if (!reservationManager) {
         console.error('ReservationManager not initialized');
         alert('Error: El sistema no se ha inicializado correctamente. Por favor, recarga la página.');
         return;
     }
-    
-    // Check if jsPDF is loaded before attempting export
-    if (!window.jspdf || !window.jspdf.jsPDF) {
-        console.error('jsPDF not loaded. Script status:', {
-            'window.jspdf exists': !!window.jspdf,
-            'window.jspdf.jsPDF exists': !!(window.jspdf && window.jspdf.jsPDF),
-            'all scripts loaded': document.readyState
-        });
-        
-        const errorMsg = 'Error: Las librerías de PDF no se cargaron correctamente.\n\n' +
-                        'Posibles causas:\n' +
-                        '• Conexión a internet bloqueada o lenta\n' +
-                        '• Firewall/proxy bloqueando CDN (cdnjs.cloudflare.com)\n' +
-                        '• Extensiones del navegador bloqueando scripts\n' +
-                        '• Problemas de seguridad del navegador\n\n' +
-                        'Por favor:\n' +
-                        '1. Verifica tu conexión a internet\n' +
-                        '2. Revisa la consola del navegador (F12) para más detalles\n' +
-                        '3. Intenta recargar la página\n' +
-                        '4. Desactiva extensiones que puedan bloquear scripts';
-        alert(errorMsg);
+
+    try {
+        await ensureJsPdfLoaded();
+    } catch (err) {
+        console.error('jsPDF not loaded:', err);
+        reservationManager.showNotification(
+            'Error: Las librerías de PDF no se cargaron. Verifica tu conexión e intenta de nuevo.',
+            'error',
+            5500
+        );
         return;
     }
     
-    // Proceed with export
     reservationManager.exportReservationInvoice(id);
 }

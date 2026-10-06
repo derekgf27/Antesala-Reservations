@@ -18,6 +18,8 @@
     --shadow: rgba(0,0,0,0.08);
     --shadow-hover: rgba(0,0,0,0.12);
     --modal-overlay: rgba(26, 32, 44, 0.55);
+    --brand-orange: #F27B21;
+    --brand-gold: #D4A04B;
 }
 
 [data-theme="dark"] {
@@ -43,6 +45,26 @@ body {
     line-height: 1.6;
     overflow-x: hidden;
     transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Visible keyboard focus rings */
+:focus-visible {
+    outline: 2px solid var(--brand-orange);
+    outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+.menu-item:focus-visible,
+.upcoming-item--action:focus-visible,
+.recent-item--action:focus-visible,
+.form-jump-nav a:focus-visible {
+    outline: 2px solid var(--brand-orange);
+    outline-offset: 2px;
 }
 
 /* App Container */
@@ -118,7 +140,7 @@ body {
 
 .sidebar-footer {
     position: absolute;
-    bottom: 80px;
+    bottom: 140px;
     left: 0;
     right: 0;
     text-align: center;
@@ -2219,7 +2241,8 @@ body {
 
 .recent-item--action:hover,
 .upcoming-item--action:focus-visible {
-    outline: none;
+    outline: 2px solid var(--brand-orange);
+    outline-offset: 2px;
     background: var(--bg-secondary);
     box-shadow: 0 2px 12px rgba(242, 123, 33, 0.18);
 }
@@ -3171,7 +3194,8 @@ body {
 .form-jump-nav a:hover,
 .form-jump-nav a:focus-visible {
     background: rgba(242, 123, 33, 0.12);
-    outline: none;
+    outline: 2px solid var(--brand-orange);
+    outline-offset: 2px;
 }
 
 #section-cliente,

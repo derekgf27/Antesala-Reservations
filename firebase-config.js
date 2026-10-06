@@ -2,7 +2,7 @@
 // To enable cloud sync, you need to:
 // 1. Go to https://console.firebase.google.com/
 // 2. Create a new project (or use existing)
-// 3. Enable Firestore Database (start in test mode)
+// 3. Enable Firestore Database
 // 4. Copy your config from Project Settings > General > Your apps > Firebase SDK snippet
 // 5. Replace the values below with your Firebase config
 // 6. Set FIREBASE_ENABLED to true
@@ -30,17 +30,14 @@ if (FIREBASE_ENABLED && firebaseConfig.apiKey !== 'YOUR_API_KEY' && typeof fireb
         window.FIREBASE_LOADED = true;
         window.firebaseApp = firebaseApp;
         window.firestore = firestore;
-        console.log('Firebase initialized successfully');
+        if (typeof console !== 'undefined') {
+            // Keep one success log for setup troubleshooting
+            console.info('Firebase initialized successfully');
+        }
     } catch (error) {
         console.error('Firebase initialization error:', error);
         window.FIREBASE_LOADED = false;
     }
 } else {
     window.FIREBASE_LOADED = false;
-    if (!FIREBASE_ENABLED) {
-        console.log('Firebase not enabled. Using localStorage for data storage.');
-    } else if (typeof firebase === 'undefined') {
-        console.log('Firebase SDK not loaded. Using localStorage for data storage.');
-    }
 }
-
