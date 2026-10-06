@@ -2375,6 +2375,15 @@ class ReservationManager {
         return lines;
     }
 
+    /** Strip individual $ amounts from a drink label for invoice bullets (e.g. "Vino ($30)" → "Vino"). */
+    stripBeveragePriceFromLabel(label) {
+        return String(label || '')
+            .replace(/\s*\(\s*\$\s*[\d.,]+\s*\)/g, '') // ($30) / ( $30 )
+            .replace(/\s*\$\s*[\d.,]+/g, '') // trailing $30
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+    }
+
     /**
      * Group all bebidas under one "Bebidas" subcategory (same layout as Buffet):
      * bold "Bebidas" header + bullet list of every drink under it.
@@ -2385,10 +2394,10 @@ class ReservationManager {
         if (lines.length === 0) return null;
 
         const total = lines.reduce((sum, line) => sum + (line.total || 0), 0);
-        // Buffet-style bullets: item name, with qty so each drink stays clear
+        // Buffet-style bullets: name + [Cant. N], no per-item dollar amounts
         const bullets = lines.map((line) => {
-            const label = line.description || 'Bebida';
-            return `${label} (Cant. ${line.qty})`;
+            const label = this.stripBeveragePriceFromLabel(line.description || 'Bebida') || 'Bebida';
+            return `${label} [Cant. ${line.qty}]`;
         });
 
         return {
