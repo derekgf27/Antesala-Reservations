@@ -1317,6 +1317,11 @@
                 <button type="button" class="modal-close" id="beverageCloseBtn" aria-label="Cerrar">×</button>
             </div>
             <div class="modal-body">
+                <div class="beverage-modal-search-wrap">
+                    <i class="fas fa-search beverage-modal-search-icon" aria-hidden="true"></i>
+                    <input type="search" id="beverageModalSearch" class="beverage-modal-search-input" placeholder="Buscar bebida…" autocomplete="off" aria-label="Buscar bebida">
+                </div>
+                <p id="beverageModalSearchEmpty" class="beverage-modal-search-empty hidden">No se encontraron bebidas.</p>
                 <details class="accordion">
                     <summary class="accordion-summary">Cervezas</summary>
                     <div class="accordion-content">

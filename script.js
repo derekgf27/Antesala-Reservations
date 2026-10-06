@@ -983,6 +983,10 @@ class ReservationManager {
         // Clear beverage selections button in modal
         const beverageClearBtn = document.getElementById('beverageClearBtn');
         beverageClearBtn?.addEventListener('click', () => this.clearBeverageSelectionsInModal());
+
+        const beverageModalSearch = document.getElementById('beverageModalSearch');
+        beverageModalSearch?.addEventListener('input', () => this.filterBeverageModalSearch());
+        beverageModalSearch?.addEventListener('search', () => this.filterBeverageModalSearch());
         
         // Clear buffet selections button in modal
         const buffetClearBtn = document.getElementById('buffetClearBtn');
@@ -2850,6 +2854,7 @@ class ReservationManager {
         // Attach change handlers for selection animation
         this.attachBeverageInputHandlers();
         this.refreshBeverageSelectionSidebar();
+        this.resetBeverageModalSearch();
         // Show with entrance animation
         modal.classList.remove('hidden');
         // Force reflow so the next class triggers transition
@@ -2857,15 +2862,71 @@ class ReservationManager {
         modal.classList.add('visible');
         // Sidebar after custom beverage inputs are filled
         setTimeout(() => this.refreshBeverageSelectionSidebar(), 120);
+        const searchInput = document.getElementById('beverageModalSearch');
+        if (searchInput) {
+            setTimeout(() => searchInput.focus(), 240);
+        }
     }
 
     closeBeverageModal() {
         const modal = document.getElementById('beverageModal');
         if (!modal) return;
+        this.resetBeverageModalSearch();
         modal.classList.remove('visible');
         setTimeout(() => {
             modal.classList.add('hidden');
         }, 220);
+    }
+
+    resetBeverageModalSearch() {
+        const searchInput = document.getElementById('beverageModalSearch');
+        if (searchInput) searchInput.value = '';
+        this.filterBeverageModalSearch();
+    }
+
+    filterBeverageModalSearch() {
+        const modal = document.getElementById('beverageModal');
+        const searchInput = document.getElementById('beverageModalSearch');
+        const emptyEl = document.getElementById('beverageModalSearchEmpty');
+        if (!modal || !searchInput) return;
+
+        const query = (searchInput.value || '').trim().toLowerCase();
+        let matchCount = 0;
+
+        modal.querySelectorAll('details.accordion').forEach(section => {
+            const items = section.querySelectorAll('.protein-grid > div');
+            let sectionMatches = 0;
+            items.forEach(item => {
+                const label = (item.querySelector('label')?.textContent || '').toLowerCase();
+                const matches = !query || label.includes(query);
+                item.classList.toggle('beverage-search-hidden', !matches);
+                if (matches) sectionMatches++;
+            });
+            const showSection = !query || sectionMatches > 0;
+            section.classList.toggle('beverage-search-hidden', !showSection);
+            if (query && sectionMatches > 0) {
+                section.open = true;
+            }
+            matchCount += sectionMatches;
+        });
+
+        const mimosaGroup = modal.querySelector('.entremeses-asopao-group');
+        if (mimosaGroup) {
+            let groupMatches = 0;
+            mimosaGroup.querySelectorAll('label.panecillos-label').forEach(label => {
+                const text = (label.textContent || '').toLowerCase();
+                const matches = !query || text.includes(query);
+                label.classList.toggle('beverage-search-hidden', !matches);
+                if (matches) groupMatches++;
+            });
+            const showGroup = !query || groupMatches > 0;
+            mimosaGroup.classList.toggle('beverage-search-hidden', !showGroup);
+            matchCount += groupMatches;
+        }
+
+        if (emptyEl) {
+            emptyEl.classList.toggle('hidden', !query || matchCount > 0);
+        }
     }
 
     saveBeverageSelectionsFromModal() {
