@@ -2980,7 +2980,9 @@ class ReservationManager {
             });
             const showSection = !query || sectionMatches > 0;
             section.classList.toggle('beverage-search-hidden', !showSection);
-            if (query && sectionMatches > 0) {
+            if (!query) {
+                section.open = false;
+            } else if (sectionMatches > 0) {
                 section.open = true;
             }
             matchCount += sectionMatches;
