@@ -2376,7 +2376,8 @@ class ReservationManager {
     }
 
     /**
-     * Group all bebidas under one "Bebidas" subcategory (Buffet-style header + bullets).
+     * Group all bebidas under one "Bebidas" subcategory (same layout as Buffet):
+     * bold "Bebidas" header + bullet list of every drink under it.
      * Returns null when there are no beverage lines.
      */
     buildBebidasInvoiceGroup(reservation) {
@@ -2384,9 +2385,10 @@ class ReservationManager {
         if (lines.length === 0) return null;
 
         const total = lines.reduce((sum, line) => sum + (line.total || 0), 0);
+        // Buffet-style bullets: item name, with qty so each drink stays clear
         const bullets = lines.map((line) => {
             const label = line.description || 'Bebida';
-            return `${line.qty} × ${label}`;
+            return `${label} (Cant. ${line.qty})`;
         });
 
         return {
@@ -8243,15 +8245,17 @@ class ReservationManager {
             }
         }
 
-        // Bebidas subcategory — all drink items grouped under one header (Buffet-style)
+        // Bebidas — same pattern as Buffet: category header + bullets for every drink
         const bebidasGroupPdf = this.buildBebidasInvoiceGroup(reservation);
         if (bebidasGroupPdf) {
-            const bebidasDesc = 'Bebidas\n' + bebidasGroupPdf.bullets.map(item => '• ' + item).join('\n');
+            const bebidasDesc =
+                'Bebidas\n' +
+                bebidasGroupPdf.bullets.map((item) => '• ' + item).join('\n');
             itemsData.push({
                 description: bebidasDesc,
                 qty: '-',
                 total: `$${bebidasGroupPdf.total.toFixed(2)}`,
-                isBuffet: true
+                isBuffet: true // reuse grouped-category PDF renderer (header bold + indented bullets)
             });
         }
 
@@ -8448,35 +8452,56 @@ class ReservationManager {
         yPos += 8;
         doc.setTextColor(0, 0, 0);
 
-        // Table rows
+        // Table rows (Buffet / Bebidas / Desayuno / Postres use isBuffet for category + bullets)
         doc.setFont(undefined, 'normal');
         doc.setFontSize(13);
+        const ensureItemsPageSpace = (needed = 12) => {
+            if (yPos + needed <= 280) return;
+            doc.addPage();
+            yPos = 20;
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(255, 255, 255);
+            doc.setFillColor(45, 55, 72);
+            doc.rect(20, yPos - 4, 170, 8, 'F');
+            doc.text('DESCRIPCIÓN', 25, yPos);
+            doc.text('CANT.', 140, yPos);
+            doc.text('TOTAL', 190, yPos, { align: 'right' });
+            yPos += 8;
+            doc.setTextColor(0, 0, 0);
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(13);
+        };
+
         itemsData.forEach(item => {
             const description = typeof item.description === 'string' ? item.description : '';
             
-            // Handle buffet with bullet points
+            // Grouped categories (Buffet, Bebidas, etc.): bold title + indented bullets
             if (item.isBuffet) {
                 const lines = description.split('\n');
                 lines.forEach((line, index) => {
-                    if (line.trim()) {
-                        doc.setFont(undefined, index === 0 ? 'bold' : 'normal');
-                        const xPos = index === 0 ? 25 : 30;
-                        doc.text(line, xPos, yPos);
-                        
-                        if (index === 0) {
-                        doc.text(item.qty, 140, yPos);
-                        doc.text(item.total, 190, yPos, { align: 'right' });
-                        }
-                        yPos += index === 0 ? 8 : 6;
+                    if (!line.trim()) return;
+                    ensureItemsPageSpace(index === 0 ? 14 : 10);
+                    doc.setFont(undefined, index === 0 ? 'bold' : 'normal');
+                    const xPos = index === 0 ? 25 : 30;
+                    // Keep long bullet labels from overlapping CANT/TOTAL columns
+                    const maxWidth = index === 0 ? 110 : 105;
+                    const wrapped = doc.splitTextToSize(line, maxWidth);
+                    doc.text(wrapped, xPos, yPos);
+                    if (index === 0) {
+                        doc.text(String(item.qty ?? '-'), 140, yPos);
+                        doc.text(String(item.total ?? ''), 190, yPos, { align: 'right' });
                     }
+                    yPos += (index === 0 ? 8 : 6) + Math.max(0, (wrapped.length - 1) * 5);
                 });
             } else {
+                ensureItemsPageSpace(14);
                 doc.setFont(undefined, 'bold');
                 const descLines = doc.splitTextToSize(description, 110);
                 doc.text(descLines, 25, yPos);
                 doc.setFont(undefined, 'normal');
-                doc.text(item.qty, 140, yPos);
-                doc.text(item.total, 190, yPos, { align: 'right' });
+                doc.text(String(item.qty ?? ''), 140, yPos);
+                doc.text(String(item.total ?? ''), 190, yPos, { align: 'right' });
                 yPos += Math.max(8, descLines.length * 6);
             }
             // Add spacing between items
