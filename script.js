@@ -70,13 +70,14 @@ class ReservationManager {
         // Remap colliding custom beverage ids onto reservations after both catalogs + bookings are loaded
         const remappedBeverages = this.normalizeCustomBeverageIds();
         const migratedSelections = this.migrateCustomBeverageSelectionsOnReservations();
+        const prunedDuplicates = this.pruneDuplicateBeverageSelectionsEverywhere();
         
         this.displayReservations();
         this.updateDashboard();
         
         setTimeout(async () => {
             this.isInitializing = false;
-            if (remappedBeverages || migratedSelections) {
+            if (remappedBeverages || migratedSelections || prunedDuplicates) {
                 try { await this.saveReservations(); } catch (_) { /* non-blocking */ }
             }
         }, 300);
@@ -2313,6 +2314,76 @@ class ReservationManager {
         return false;
     }
 
+    /** Stable identity for deduping (same drink under mimosa + custom-* keys, etc.). */
+    getBeverageDedupeKey(id, qty) {
+        if (qty === true) return `flag:${id}`;
+        if (typeof qty === 'object' && qty !== null && qty.name) {
+            return `name:${String(qty.name).trim().toLowerCase()}`;
+        }
+        const item = this.findBeverageById(id);
+        if (item?.name) return `name:${String(item.name).trim().toLowerCase()}`;
+        return `id:${String(id).toLowerCase()}`;
+    }
+
+    /**
+     * Collapse duplicate active beverage entries that share the same display name
+     * (e.g. mimosa:{qty,name} + custom-mimosa-copa:{qty,name} both "Mimosa copa").
+     * Prefers custom-* catalog ids.
+     */
+    dedupeBeverageMap(beveragesMap) {
+        if (!beveragesMap || typeof beveragesMap !== 'object') return {};
+        const reserved = this.getStandardBeverageIds();
+        const best = new Map();
+
+        const rank = (id, qty) => {
+            let score = 0;
+            if (String(id).startsWith('custom-')) score += 100;
+            if (typeof qty === 'object' && qty !== null && qty.custom === true) score += 50;
+            if (!reserved.has(id)) score += 20;
+            if (typeof qty === 'object' && qty !== null && qty.name) score += 10;
+            return score;
+        };
+
+        Object.entries(beveragesMap).forEach(([id, qty]) => {
+            if (!this.hasActiveBeverageQty(qty)) return;
+            const key = this.getBeverageDedupeKey(id, qty);
+            const score = rank(id, qty);
+            const prev = best.get(key);
+            if (!prev || score > prev.score) {
+                best.set(key, { id, qty, score });
+            }
+        });
+
+        const out = {};
+        best.forEach(({ id, qty }) => {
+            out[id] = qty;
+        });
+        return out;
+    }
+
+    /** Remove duplicate active keys from a beverages map. Returns true if changed. */
+    pruneDuplicateBeverageSelections(map) {
+        if (!map || typeof map !== 'object') return false;
+        const deduped = this.dedupeBeverageMap(map);
+        let changed = false;
+        Object.entries(map).forEach(([id, qty]) => {
+            if (!this.hasActiveBeverageQty(qty)) return;
+            if (!Object.prototype.hasOwnProperty.call(deduped, id)) {
+                delete map[id];
+                changed = true;
+            }
+        });
+        return changed;
+    }
+
+    pruneDuplicateBeverageSelectionsEverywhere() {
+        let changed = this.pruneDuplicateBeverageSelections(this.beverageSelections);
+        (this.reservations || []).forEach((res) => {
+            if (this.pruneDuplicateBeverageSelections(res.beverages)) changed = true;
+        });
+        return changed;
+    }
+
     /**
      * Resolve a reservation beverage entry into an invoice/PDF line.
      * Prefers name/price stored on the selection (custom bebidas) over catalog lookup.
@@ -2372,7 +2443,7 @@ class ReservationManager {
         if (!reservation?.beverages || typeof reservation.beverages !== 'object') return [];
         const guestCount = reservation.guestCount || 0;
         const lines = [];
-        Object.entries(reservation.beverages).forEach(([id, qty]) => {
+        Object.entries(this.dedupeBeverageMap(reservation.beverages)).forEach(([id, qty]) => {
             const line = this.resolveBeverageInvoiceLine(id, qty, guestCount);
             if (line) lines.push(line);
         });
@@ -2585,10 +2656,13 @@ class ReservationManager {
         const findCatalogId = (key, val) => {
             if ((this.customBeverages || []).some(b => b.id === key)) return key;
             if (val?.name) {
-                const byName = this.customBeverages.find(b =>
-                    b.name === val.name || b.originalName === val.name ||
-                    (b.originalName && val.name && val.name.startsWith(b.originalName))
-                );
+                const nameLower = String(val.name).trim().toLowerCase();
+                const byName = this.customBeverages.find(b => {
+                    const bName = String(b.name || '').trim().toLowerCase();
+                    const bOrig = String(b.originalName || '').trim().toLowerCase();
+                    return bName === nameLower || bOrig === nameLower ||
+                        (bOrig && nameLower.startsWith(bOrig));
+                });
                 if (byName) return byName.id;
             }
             if (key && !key.startsWith('custom-')) {
@@ -2613,6 +2687,8 @@ class ReservationManager {
                 delete map[key];
                 changed = true;
             });
+            // Drop leftover duplicates that share the same drink name
+            if (this.pruneDuplicateBeverageSelections(map)) changed = true;
         };
 
         migrateMap(this.beverageSelections);
@@ -3041,6 +3117,7 @@ class ReservationManager {
         // Replace beverageSelections with the new selections object
         // This ensures beverages with qty = 0 are properly removed
         this.beverageSelections = selections;
+        this.pruneDuplicateBeverageSelections(this.beverageSelections);
     }
 
     updateBeverageSummary() {
@@ -3052,8 +3129,9 @@ class ReservationManager {
         const items = [];
         
         // Add regular beverage items (with quantities)
-        Object.entries(this.beverageSelections).forEach(([id, qty]) => {
-            if (id === 'mimosa' || id === 'mimosa-395') return; // Handle Mimosa separately
+        Object.entries(this.dedupeBeverageMap(this.beverageSelections)).forEach(([id, qty]) => {
+            // Built-in per-person Mimosa checkboxes only — custom "Mimosa copa" objects still list here
+            if ((id === 'mimosa' || id === 'mimosa-395') && qty === true) return;
             if (typeof qty === 'object' && qty !== null && qty.qty) {
                 // Handle beverages with notes
                 const item = beverages.find(b => b.id === id);
@@ -4123,7 +4201,7 @@ class ReservationManager {
         let alcoholicDrinkCost = 0;
         let nonAlcoholicDrinkCost = 0;
         let alcoholicQty = 0;
-        Object.entries(this.beverageSelections).forEach(([id, qty]) => {
+        Object.entries(this.dedupeBeverageMap(this.beverageSelections)).forEach(([id, qty]) => {
             // Handle Mimosa options separately - they're per person
             if (id === 'mimosa' && qty === true) {
                 const mimosaCost = 3.00 * guestCount;
@@ -6323,8 +6401,7 @@ class ReservationManager {
         if (!beveragesMap || Object.keys(beveragesMap).length === 0) {
             return '<span class="detail-value">Ninguno</span>';
         }
-        const beverageList = Object.entries(beveragesMap)
-            .filter(([, qty]) => this.hasActiveBeverageQty(qty))
+        const beverageList = Object.entries(this.dedupeBeverageMap(beveragesMap))
             .map(([id, qty]) => {
                 if (id === 'mimosa' && qty === true) {
                     return `<li>Mimosa ($3.00 por persona)</li>`;
@@ -7258,8 +7335,7 @@ class ReservationManager {
 
     getBeverageSummaryString(beveragesMap) {
         if (!beveragesMap || Object.keys(beveragesMap).length === 0) return 'Sin Servicio de Bebidas';
-        const parts = Object.entries(beveragesMap)
-            .filter(([, qty]) => this.hasActiveBeverageQty(qty))
+        const parts = Object.entries(this.dedupeBeverageMap(beveragesMap))
             .map(([id, qty]) => {
                 if (id === 'mimosa' && qty === true) return 'Mimosa ($3.00)';
                 if (id === 'mimosa-395' && qty === true) return 'Mimosa ($3.95)';
@@ -7445,6 +7521,7 @@ class ReservationManager {
         if (dessertTypeEl) dessertTypeEl.value = reservation.dessertType || '';
         // no drinkType select anymore
         this.beverageSelections = reservation.beverages || {};
+        this.pruneDuplicateBeverageSelections(this.beverageSelections);
         this.updateBeverageSummary();
         this.entremesesSelections = reservation.entremeses || {};
         this.updateEntremesesSummary();
