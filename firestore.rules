@@ -1,34 +1,39 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Reservations collection
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Optional: tighten further by listing staff emails, e.g.
+    // return isSignedIn() && request.auth.token.email in ['staff@gmail.com'];
+    function isStaff() {
+      return isSignedIn();
+    }
+
     match /reservations/{reservationId} {
-      // Allow read access to all reservations
-      allow read: if true;
-      
-      // Allow write access with basic validation
-      // Ensures required fields exist and are correct types
-      allow create: if request.resource.data.keys().hasAll(['id', 'eventDate'])
+      allow read: if isStaff();
+
+      allow create: if isStaff()
+                    && request.resource.data.keys().hasAll(['id', 'eventDate'])
                     && request.resource.data.id is string
                     && request.resource.data.id.size() > 0
                     && request.resource.data.eventDate is string;
-      
-      allow update: if request.resource.data.keys().hasAll(['id', 'eventDate'])
+
+      allow update: if isStaff()
+                    && request.resource.data.keys().hasAll(['id', 'eventDate'])
                     && request.resource.data.id is string
                     && request.resource.data.id.size() > 0
                     && request.resource.data.eventDate is string
-                    && request.resource.data.id == resource.data.id; // Prevent ID changes
-      
-      allow delete: if true;
+                    && request.resource.data.id == resource.data.id;
+
+      allow delete: if isStaff();
     }
-    
-    // Menu config (custom items added via Añadir ítems)
+
     match /menuConfig/{docId} {
-      allow read: if true;
-      allow write: if true;
+      allow read, write: if isStaff();
     }
-    
-    // Deny all other collections
+
     match /{document=**} {
       allow read, write: if false;
     }

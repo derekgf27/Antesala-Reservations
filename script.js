@@ -2394,6 +2394,7 @@ class ReservationManager {
         if (lines.length === 0) return null;
 
         const total = lines.reduce((sum, line) => sum + (line.total || 0), 0);
+        const qtyUnits = lines.reduce((sum, line) => sum + (parseInt(line.qty, 10) || 0), 0);
         // Buffet-style bullets: name + [Cant. N], no per-item dollar amounts
         const bullets = lines.map((line) => {
             const label = this.stripBeveragePriceFromLabel(line.description || 'Bebida') || 'Bebida';
@@ -2404,8 +2405,106 @@ class ReservationManager {
             title: 'Bebidas',
             bullets,
             total,
+            qtyUnits,
             lines
         };
+    }
+
+    /** Resolve active entremeses into invoice lines (qty + total). */
+    getReservationEntremesesInvoiceLines(reservation) {
+        if (!reservation?.entremeses || typeof reservation.entremeses !== 'object') return [];
+        const guestCount = reservation.guestCount || 0;
+        const catalog = this.getEntremesesItems();
+        const lines = [];
+
+        Object.entries(reservation.entremeses).forEach(([id, qty]) => {
+            if (qty === false || qty === null || qty === undefined) return;
+
+            if (id === 'asopao' && qty === true) {
+                lines.push({ description: 'Asopao', qty: guestCount, total: 3.0 * guestCount });
+                return;
+            }
+            if (id === 'asopao-495' && qty === true) {
+                lines.push({ description: 'Asopao', qty: guestCount, total: 4.95 * guestCount });
+                return;
+            }
+            if (id === 'caldo-gallego' && qty === true) {
+                lines.push({ description: 'Caldo de Gallego', qty: guestCount, total: 5.95 * guestCount });
+                return;
+            }
+            if (id === 'ceviche' && qty === true) {
+                lines.push({ description: 'Ceviche', qty: guestCount, total: 3.95 * guestCount });
+                return;
+            }
+
+            let numQty = 0;
+            let nameOverride = null;
+            let priceOverride = null;
+            if (typeof qty === 'number') {
+                numQty = qty;
+            } else if (typeof qty === 'object' && qty !== null && 'qty' in qty) {
+                numQty = parseInt(qty.qty, 10) || 0;
+                if (qty.name) nameOverride = qty.name;
+                if (qty.price !== undefined) priceOverride = parseFloat(qty.price);
+            }
+            if (numQty <= 0) return;
+
+            const item = catalog.find(e => e.id === id);
+            const description = nameOverride || item?.name || id;
+            const price = priceOverride != null && !Number.isNaN(priceOverride)
+                ? priceOverride
+                : (typeof item?.price === 'number' ? item.price : parseFloat(item?.price) || 0);
+            lines.push({ description, qty: numQty, total: price * numQty });
+        });
+
+        return lines;
+    }
+
+    /**
+     * Group entremeses under one "Entremeses" subcategory (Buffet / Bebidas style).
+     */
+    buildEntremesesInvoiceGroup(reservation) {
+        const lines = this.getReservationEntremesesInvoiceLines(reservation);
+        if (lines.length === 0) return null;
+
+        const total = lines.reduce((sum, line) => sum + (line.total || 0), 0);
+        const qtyUnits = lines.reduce((sum, line) => sum + (parseInt(line.qty, 10) || 0), 0);
+        const bullets = lines.map((line) => {
+            const label = this.stripBeveragePriceFromLabel(line.description || 'Entremés') || 'Entremés';
+            return `${label} [Cant. ${line.qty}]`;
+        });
+
+        return {
+            title: 'Entremeses',
+            bullets,
+            total,
+            qtyUnits,
+            lines
+        };
+    }
+
+    /** Next permanent invoice number for the current calendar year (YYYY-NNN). */
+    allocateInvoiceNumber() {
+        const year = new Date().getFullYear();
+        const prefix = `${year}-`;
+        let maxSeq = 0;
+        (this.reservations || []).forEach((r) => {
+            const n = r && r.invoiceNumber;
+            if (typeof n !== 'string' || !n.startsWith(prefix)) return;
+            const seq = parseInt(n.slice(prefix.length), 10);
+            if (!Number.isNaN(seq) && seq > maxSeq) maxSeq = seq;
+        });
+        return `${year}-${String(maxSeq + 1).padStart(3, '0')}`;
+    }
+
+    /** Return existing invoice number or assign + attach a stable one. */
+    ensureInvoiceNumber(reservation) {
+        if (!reservation) return this.allocateInvoiceNumber();
+        if (typeof reservation.invoiceNumber === 'string' && /^\d{4}-\d{3,}$/.test(reservation.invoiceNumber)) {
+            return reservation.invoiceNumber;
+        }
+        reservation.invoiceNumber = this.allocateInvoiceNumber();
+        return reservation.invoiceNumber;
     }
 
     /** Ensure custom beverage ids never collide with built-in ones (e.g. corona). */
@@ -4456,6 +4555,7 @@ class ReservationManager {
             depositPaid: false, // Default to unpaid, can be toggled later
             additionalPayments: [], // Array to track payments beyond deposit
             pricing: pricing,
+            invoiceNumber: this.allocateInvoiceNumber(),
             createdAt: new Date().toISOString()
         };
 
@@ -4470,6 +4570,10 @@ class ReservationManager {
                 // Preserve payment history
                 reservation.additionalPayments = this.reservations[existingIndex].additionalPayments || [];
                 reservation.depositPaid = this.reservations[existingIndex].depositPaid || false;
+                // Keep stable invoice number (assign once if older reservation lacks one)
+                reservation.invoiceNumber = this.reservations[existingIndex].invoiceNumber
+                    || reservation.invoiceNumber
+                    || this.allocateInvoiceNumber();
                 
                 // Update the reservation in place
                 this.reservations[existingIndex] = reservation;
@@ -7784,9 +7888,12 @@ class ReservationManager {
         const year = eventDate.getFullYear();
         const formattedDate = `${month}/${day}/${year}`;
 
-        // Generate invoice number (based on year and reservation index)
-        const reservationIndex = this.reservations.findIndex(r => r.id === reservation.id) + 1;
-        const invoiceNumber = `${new Date().getFullYear()}-${String(reservationIndex).padStart(3, '0')}`;
+        // Stable invoice number (persisted on the reservation; never based on list index)
+        const hadInvoiceNumber = !!(reservation.invoiceNumber && /^\d{4}-\d{3,}$/.test(reservation.invoiceNumber));
+        const invoiceNumber = this.ensureInvoiceNumber(reservation);
+        if (!hadInvoiceNumber) {
+            try { await this.saveReservations(); } catch (_) { /* non-blocking */ }
+        }
 
         // Build itemized list
         let itemsHTML = '';
@@ -7951,75 +8058,30 @@ class ReservationManager {
                             ${bebidasOptionsList}
                         </ul>
                     </td>
-                    <td>-</td>
+                    <td>${bebidasGroupHtml.qtyUnits}</td>
                     <td>$${bebidasGroupHtml.total.toFixed(2)}</td>
                 </tr>
             `;
         }
 
-        // Entremeses
-        if (reservation.entremeses && Object.keys(reservation.entremeses).length > 0) {
-            const entremesesItems = this.getEntremesesItems();
-            Object.entries(reservation.entremeses).forEach(([id, qty]) => {
-                // Skip items with qty = 0 or falsy values (deleted items)
-                if (qty === false || qty === null || qty === undefined) return;
-                if (typeof qty === 'object' && qty !== null && 'qty' in qty) {
-                    const n = parseInt(qty.qty) || 0;
-                    if (n <= 0) return;
-                }
-                
-                // Handle Asopao, Caldo de Gallego, and Ceviche - they're per person
-                if (id === 'asopao' && qty === true) {
-                    const total = 3.00 * reservation.guestCount;
-                    itemsHTML += `
-                        <tr>
-                            <td><strong>Asopao</strong></td>
-                            <td>${reservation.guestCount}</td>
-                            <td>$${total.toFixed(2)}</td>
-                        </tr>
-                    `;
-                } else if (id === 'asopao-495' && qty === true) {
-                    const total = 4.95 * reservation.guestCount;
-                    itemsHTML += `
-                        <tr>
-                            <td><strong>Asopao ($4.95)</strong></td>
-                            <td>${reservation.guestCount}</td>
-                            <td>$${total.toFixed(2)}</td>
-                        </tr>
-                    `;
-                } else if (id === 'caldo-gallego' && qty === true) {
-                    const total = 5.95 * reservation.guestCount;
-                    itemsHTML += `
-                        <tr>
-                            <td><strong>Caldo de Gallego</strong></td>
-                            <td>${reservation.guestCount}</td>
-                            <td>$${total.toFixed(2)}</td>
-                        </tr>
-                    `;
-                } else if (id === 'ceviche' && qty === true) {
-                    const total = 3.95 * reservation.guestCount;
-                    itemsHTML += `
-                        <tr>
-                            <td><strong>Ceviche</strong></td>
-                            <td>${reservation.guestCount}</td>
-                            <td>$${total.toFixed(2)}</td>
-                        </tr>
-                    `;
-                } else if (typeof qty === 'number' && qty > 0) {
-                    // Regular entremeses items
-                    const item = entremesesItems.find(e => e.id === id);
-                    if (item) {
-                        const total = item.price * qty;
-                        itemsHTML += `
-                            <tr>
-                                <td><strong>${item.name}</strong></td>
-                                <td>${qty}</td>
-                                <td>$${total.toFixed(2)}</td>
-                            </tr>
-                        `;
-                    }
-                }
-            });
+        // Entremeses subcategory — same pattern as Buffet / Bebidas
+        const entremesesGroupHtml = this.buildEntremesesInvoiceGroup(reservation);
+        if (entremesesGroupHtml) {
+            const entremesesOptionsList = entremesesGroupHtml.bullets
+                .map(item => `<li style="margin-left: 20px; padding: 2px 0; list-style: disc;">${item}</li>`)
+                .join('');
+            itemsHTML += `
+                <tr>
+                    <td>
+                        <strong>Entremeses</strong>
+                        <ul style="margin: 8px 0 0 20px; padding-left: 0; list-style-type: disc;">
+                            ${entremesesOptionsList}
+                        </ul>
+                    </td>
+                    <td>${entremesesGroupHtml.qtyUnits}</td>
+                    <td>$${entremesesGroupHtml.total.toFixed(2)}</td>
+                </tr>
+            `;
         }
 
         // Postres (custom from Anadir Items)
@@ -8262,62 +8324,23 @@ class ReservationManager {
                 bebidasGroupPdf.bullets.map((item) => '• ' + item).join('\n');
             itemsData.push({
                 description: bebidasDesc,
-                qty: '-',
+                qty: String(bebidasGroupPdf.qtyUnits),
                 total: `$${bebidasGroupPdf.total.toFixed(2)}`,
                 isBuffet: true // reuse grouped-category PDF renderer (header bold + indented bullets)
             });
         }
 
-        // Entremeses
-        if (reservation.entremeses && Object.keys(reservation.entremeses).length > 0) {
-            const entremesesItems = this.getEntremesesItems();
-            Object.entries(reservation.entremeses).forEach(([id, qty]) => {
-                // Skip items with qty = 0 or falsy values (deleted items)
-                if (qty === false || qty === null || qty === undefined) return;
-                if (typeof qty === 'object' && qty !== null && 'qty' in qty) {
-                    const n = parseInt(qty.qty) || 0;
-                    if (n <= 0) return;
-                }
-                
-                if (id === 'asopao' && qty === true) {
-                    const total = 3.00 * reservation.guestCount;
-                    itemsData.push({
-                        description: 'Asopao',
-                        qty: reservation.guestCount.toString(),
-                        total: `$${total.toFixed(2)}`
-                    });
-                } else if (id === 'asopao-495' && qty === true) {
-                    const total = 4.95 * reservation.guestCount;
-                    itemsData.push({
-                        description: 'Asopao ($4.95)',
-                        qty: reservation.guestCount.toString(),
-                        total: `$${total.toFixed(2)}`
-                    });
-                } else if (id === 'caldo-gallego' && qty === true) {
-                    const total = 5.95 * reservation.guestCount;
-                    itemsData.push({
-                        description: 'Caldo de Gallego',
-                        qty: reservation.guestCount.toString(),
-                        total: `$${total.toFixed(2)}`
-                    });
-                } else if (id === 'ceviche' && qty === true) {
-                    const total = 3.95 * reservation.guestCount;
-                    itemsData.push({
-                        description: 'Ceviche',
-                        qty: reservation.guestCount.toString(),
-                        total: `$${total.toFixed(2)}`
-                    });
-                } else if (typeof qty === 'number' && qty > 0) {
-                    const item = entremesesItems.find(e => e.id === id);
-                    if (item) {
-                        const total = item.price * qty;
-                        itemsData.push({
-                            description: item.name,
-                            qty: qty.toString(),
-                            total: `$${total.toFixed(2)}`
-                        });
-                    }
-                }
+        // Entremeses — same pattern as Buffet / Bebidas
+        const entremesesGroupPdf = this.buildEntremesesInvoiceGroup(reservation);
+        if (entremesesGroupPdf) {
+            const entremesesDesc =
+                'Entremeses\n' +
+                entremesesGroupPdf.bullets.map((item) => '• ' + item).join('\n');
+            itemsData.push({
+                description: entremesesDesc,
+                qty: String(entremesesGroupPdf.qtyUnits),
+                total: `$${entremesesGroupPdf.total.toFixed(2)}`,
+                isBuffet: true
             });
         }
 
@@ -8441,7 +8464,7 @@ class ReservationManager {
         doc.text(`Día: ${formattedDate}`, 20, yPos);
         yPos += 5;
         doc.text(`Hora: ${this.formatTime12Hour(reservation.eventTime)}`, 20, yPos);
-        yPos += 8;
+        yPos += 6;
 
         // Items table
         doc.setLineWidth(0.4);
@@ -8485,12 +8508,12 @@ class ReservationManager {
         itemsData.forEach(item => {
             const description = typeof item.description === 'string' ? item.description : '';
             
-            // Grouped categories (Buffet, Bebidas, etc.): bold title + indented bullets
+            // Grouped categories (Buffet, Bebidas, Entremeses): bold title + indented bullets
             if (item.isBuffet) {
                 const lines = description.split('\n');
                 lines.forEach((line, index) => {
                     if (!line.trim()) return;
-                    ensureItemsPageSpace(index === 0 ? 14 : 10);
+                    ensureItemsPageSpace(index === 0 ? 12 : 8);
                     doc.setFont(undefined, index === 0 ? 'bold' : 'normal');
                     const xPos = index === 0 ? 25 : 30;
                     // Keep long bullet labels from overlapping CANT/TOTAL columns
@@ -8501,20 +8524,21 @@ class ReservationManager {
                         doc.text(String(item.qty ?? '-'), 140, yPos);
                         doc.text(String(item.total ?? ''), 190, yPos, { align: 'right' });
                     }
-                    yPos += (index === 0 ? 8 : 6) + Math.max(0, (wrapped.length - 1) * 5);
+                    // Denser spacing so long Bebidas/Entremeses lists stay on page 1 with totals
+                    yPos += (index === 0 ? 6.5 : 4.5) + Math.max(0, (wrapped.length - 1) * 4);
                 });
             } else {
-                ensureItemsPageSpace(14);
+                ensureItemsPageSpace(12);
                 doc.setFont(undefined, 'bold');
                 const descLines = doc.splitTextToSize(description, 110);
                 doc.text(descLines, 25, yPos);
                 doc.setFont(undefined, 'normal');
                 doc.text(String(item.qty ?? ''), 140, yPos);
                 doc.text(String(item.total ?? ''), 190, yPos, { align: 'right' });
-                yPos += Math.max(8, descLines.length * 6);
+                yPos += Math.max(6.5, descLines.length * 5);
             }
-            // Add spacing between items
-            yPos += 2;
+            // Tight spacing between line items
+            yPos += 1;
         });
 
         // Financial summary
@@ -8880,9 +8904,54 @@ function ensureJsPdfLoaded() {
     return jsPdfLoadPromise;
 }
 
-// Initialize the reservation manager when the page loads
+// Initialize the reservation manager only after Google Sign-In
 let reservationManager;
-document.addEventListener('DOMContentLoaded', () => {
+let appBootstrapped = false;
+
+function setAuthGateMessage(message, isError = false) {
+    const errorEl = document.getElementById('authGateError');
+    const statusEl = document.getElementById('authGateStatus');
+    if (isError) {
+        if (errorEl) {
+            errorEl.textContent = message || '';
+            errorEl.classList.toggle('hidden', !message);
+        }
+        statusEl?.classList.add('hidden');
+    } else {
+        errorEl?.classList.add('hidden');
+        if (statusEl) {
+            statusEl.textContent = message || '';
+            statusEl.classList.toggle('hidden', !message);
+        }
+    }
+}
+
+function showAuthGate(show) {
+    const gate = document.getElementById('authGate');
+    const appRoot = document.getElementById('appRoot');
+    if (gate) gate.classList.toggle('hidden', !show);
+    if (appRoot) {
+        if (show) {
+            appRoot.hidden = true;
+            appRoot.classList.add('app-container--locked');
+        } else {
+            appRoot.hidden = false;
+            appRoot.classList.remove('app-container--locked');
+        }
+    }
+}
+
+function updateSidebarUser(user) {
+    const emailEl = document.getElementById('sidebarUserEmail');
+    if (emailEl) {
+        emailEl.textContent = user?.email || '';
+    }
+}
+
+function bootstrapAppOnce() {
+    if (appBootstrapped) return;
+    appBootstrapped = true;
+
     reservationManager = new ReservationManager();
     window.reservationManager = reservationManager;
 
@@ -8898,15 +8967,11 @@ document.addEventListener('DOMContentLoaded', () => {
             e.returnValue = '';
         }
     });
-    
-    // Initialize dark mode
-    initializeDarkMode();
-    
-    // Add keyboard shortcuts (only on reservation form)
+
     document.addEventListener('keydown', (e) => {
         if (!(e.ctrlKey || e.metaKey)) return;
         if (reservationManager?.currentSection !== 'new-reservation') return;
-        switch(e.key) {
+        switch (e.key) {
             case 's':
                 e.preventDefault();
                 document.getElementById('saveBtn')?.click();
@@ -8916,6 +8981,121 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('calculateBtn')?.click();
                 break;
         }
+    });
+}
+
+async function handleAuthorizedUser(user) {
+    window.firebaseAuthUser = user;
+    window.FIREBASE_AUTH_READY = true;
+    updateSidebarUser(user);
+    setAuthGateMessage('');
+    showAuthGate(false);
+    bootstrapAppOnce();
+}
+
+async function handleUnauthorizedOrSignedOut(message) {
+    window.firebaseAuthUser = null;
+    window.FIREBASE_AUTH_READY = false;
+    updateSidebarUser(null);
+    showAuthGate(true);
+    if (message) setAuthGateMessage(message, true);
+    else setAuthGateMessage('Usa tu cuenta de Google del personal para entrar.', false);
+}
+
+async function signInWithGoogle() {
+    if (!window.firebaseAuth) {
+        setAuthGateMessage('Firebase Auth no está disponible. Revisa la configuración.', true);
+        return;
+    }
+    const btn = document.getElementById('googleSignInBtn');
+    if (btn) btn.disabled = true;
+    setAuthGateMessage('Abriendo Google…', false);
+
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    try {
+        await window.firebaseAuth.signInWithPopup(provider);
+        // onAuthStateChanged will finish the flow
+    } catch (error) {
+        console.error('Google sign-in error:', error);
+        const code = error?.code || '';
+        if (code === 'auth/popup-blocked' || code === 'auth/cancelled-popup-request') {
+            try {
+                setAuthGateMessage('Redirigiendo a Google…', false);
+                await window.firebaseAuth.signInWithRedirect(provider);
+                return;
+            } catch (redirectErr) {
+                console.error('Google redirect error:', redirectErr);
+                setAuthGateMessage('No se pudo iniciar sesión. Intenta de nuevo.', true);
+            }
+        } else if (code === 'auth/popup-closed-by-user') {
+            setAuthGateMessage('Inicio de sesión cancelado.', true);
+        } else if (code === 'auth/unauthorized-domain') {
+            setAuthGateMessage('Este dominio no está autorizado en Firebase Auth. Agrégalo en Authorized domains.', true);
+        } else if (code === 'auth/operation-not-allowed') {
+            setAuthGateMessage('Google Sign-In no está habilitado en Firebase Console.', true);
+        } else {
+            setAuthGateMessage(error?.message || 'Error al iniciar sesión.', true);
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function signOutStaff() {
+    try {
+        if (window.firebaseAuth) {
+            await window.firebaseAuth.signOut();
+        }
+    } catch (error) {
+        console.error('Sign-out error:', error);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    initializeDarkMode();
+
+    document.getElementById('googleSignInBtn')?.addEventListener('click', () => {
+        void signInWithGoogle();
+    });
+    document.getElementById('signOutBtn')?.addEventListener('click', () => {
+        void signOutStaff();
+    });
+
+    // No Firebase / Auth SDK — cannot protect cloud data; block app
+    if (!window.FIREBASE_LOADED || !window.firebaseAuth) {
+        showAuthGate(true);
+        setAuthGateMessage(
+            'Firebase Auth no cargó. Verifica la conexión e intenta recargar la página.',
+            true
+        );
+        return;
+    }
+
+    setAuthGateMessage('Comprobando sesión…', false);
+
+    // Complete redirect-based sign-in (mobile / blocked popups)
+    window.firebaseAuth.getRedirectResult().catch((err) => {
+        console.warn('getRedirectResult:', err);
+    });
+
+    window.firebaseAuth.onAuthStateChanged(async (user) => {
+        if (!user) {
+            await handleUnauthorizedOrSignedOut('');
+            return;
+        }
+
+        const email = user.email || '';
+        if (typeof window.isStaffEmailAllowed === 'function' && !window.isStaffEmailAllowed(email)) {
+            try { await window.firebaseAuth.signOut(); } catch (_) { /* ignore */ }
+            await handleUnauthorizedOrSignedOut(
+                `El correo ${email} no está autorizado. Pide que lo agreguen en ALLOWED_STAFF_EMAILS.`
+            );
+            return;
+        }
+
+        await handleAuthorizedUser(user);
     });
 });
 

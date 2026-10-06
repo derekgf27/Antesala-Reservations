@@ -23,12 +23,12 @@ Follow these steps to deploy the security rules:
 
 ## What These Rules Do
 
-- Allow the app to read, create, update, and delete reservations
+- **Require Google Sign-In** (`request.auth != null`) for all reservation and menu access
 - Validate that creates/updates include `id` and `eventDate`
 - Prevent changing a reservation's `id` on update
-- Allow shared `menuConfig` read/write
+- Allow shared `menuConfig` read/write only for signed-in staff
 - Block access to any other collections
 
-**Note:** These rules allow public access (no authentication). That matches this single-staff app setup.
+**Important:** Enable Google Sign-In first (see `AUTH_SETUP.md`). After publishing these rules, unsigned visitors cannot read or write data.
 
-After publishing, test creating, editing, and deleting a reservation to confirm sync still works.
+After publishing, sign in with Google and test creating, editing, and deleting a reservation to confirm sync still works.

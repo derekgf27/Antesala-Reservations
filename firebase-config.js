@@ -1,39 +1,70 @@
 // Firebase Configuration
-// To enable cloud sync, you need to:
-// 1. Go to https://console.firebase.google.com/
-// 2. Create a new project (or use existing)
-// 3. Enable Firestore Database
-// 4. Copy your config from Project Settings > General > Your apps > Firebase SDK snippet
-// 5. Replace the values below with your Firebase config
-// 6. Set FIREBASE_ENABLED to true
+// 1. Enable Google Sign-In in Firebase Console → Authentication → Sign-in method
+// 2. Add your hosting domain under Authentication → Settings → Authorized domains
+// 3. Add staff Gmail addresses to ALLOWED_STAFF_EMAILS below
+// 4. Deploy firestore.rules (auth required)
 
 const firebaseConfig = {
-    apiKey: "AIzaSyCnZZ9VerU9xWAyZmlyRaKnV6HTg6gt1Uo",
+    apiKey: "AIzaZyCnZZ9VerU9xWAyZmlyRaKnV6HTg6gt1Uo",
     authDomain: "antesalareservations.firebaseapp.com",
     projectId: "antesalareservations",
     storageBucket: "antesalareservations.firebasestorage.app",
     messagingSenderId: "23401845027",
-    appId: "1:23401845027:web:f570b3c9ae14029f543c96"
+    appId: "1:23401845027:web:f570b3c9ae14029f543c96",
+    measurementId: "G-L9XYZPPB15"
 };
 
-// Set to true once you've configured Firebase above
 const FIREBASE_ENABLED = true;
+
+/**
+ * Staff Google accounts allowed to use the app (lowercase).
+ * Example: 'antesala.ponce@gmail.com'
+ * If empty, ANY Google account that can sign in is allowed (not recommended for production).
+ */
+const ALLOWED_STAFF_EMAILS = [
+     'kaleferr@gmail.com',
+];
 
 // Initialize Firebase if enabled
 let firebaseApp = null;
 let firestore = null;
+let firebaseAuth = null;
+
+window.FIREBASE_LOADED = false;
+window.FIREBASE_AUTH_READY = false;
+window.firebaseAuthUser = null;
+
+function normalizeEmail(email) {
+    return String(email || '').trim().toLowerCase();
+}
+
+function isStaffEmailAllowed(email) {
+    const normalized = normalizeEmail(email);
+    if (!normalized) return false;
+    if (!Array.isArray(ALLOWED_STAFF_EMAILS) || ALLOWED_STAFF_EMAILS.length === 0) {
+        return true; // open to any signed-in Google user until allowlist is filled
+    }
+    return ALLOWED_STAFF_EMAILS.map(normalizeEmail).includes(normalized);
+}
+
+window.isStaffEmailAllowed = isStaffEmailAllowed;
+window.ALLOWED_STAFF_EMAILS = ALLOWED_STAFF_EMAILS;
 
 if (FIREBASE_ENABLED && firebaseConfig.apiKey !== 'YOUR_API_KEY' && typeof firebase !== 'undefined') {
     try {
         firebaseApp = firebase.initializeApp(firebaseConfig);
         firestore = firebase.firestore();
+        firebaseAuth = firebase.auth();
+        // Stay signed in across browser restarts (default is LOCAL; set explicitly)
+        firebaseAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
+            console.warn('Could not set auth persistence:', err);
+        });
+
         window.FIREBASE_LOADED = true;
         window.firebaseApp = firebaseApp;
         window.firestore = firestore;
-        if (typeof console !== 'undefined') {
-            // Keep one success log for setup troubleshooting
-            console.info('Firebase initialized successfully');
-        }
+        window.firebaseAuth = firebaseAuth;
+        console.info('Firebase initialized successfully');
     } catch (error) {
         console.error('Firebase initialization error:', error);
         window.FIREBASE_LOADED = false;

@@ -73,6 +73,114 @@ textarea:focus-visible,
     min-height: 100vh;
 }
 
+.app-container[hidden],
+.app-container.app-container--locked[hidden] {
+    display: none !important;
+}
+
+/* Google Sign-In gate */
+.auth-gate {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background:
+        radial-gradient(ellipse at top, rgba(242, 123, 33, 0.18), transparent 55%),
+        linear-gradient(160deg, #1a202c 0%, #2d3748 45%, #1a202c 100%);
+}
+
+.auth-gate.hidden {
+    display: none !important;
+}
+
+.auth-gate-card {
+    width: min(420px, 100%);
+    background: var(--bg-secondary, #fff);
+    color: var(--text-primary, #1a202c);
+    border-radius: 16px;
+    padding: 32px 28px 28px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+    text-align: center;
+}
+
+.auth-gate-logo {
+    display: block;
+    margin: 0 auto 16px;
+    max-width: 200px;
+    height: auto;
+}
+
+.auth-gate-card h1 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.auth-gate-subtitle {
+    font-size: 0.95rem;
+    color: var(--text-muted, #718096);
+    margin-bottom: 22px;
+    line-height: 1.45;
+}
+
+.auth-google-btn {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 1rem;
+    padding: 12px 16px;
+}
+
+.auth-google-btn:disabled {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+.auth-gate-error {
+    margin-top: 14px;
+    color: #e53e3e;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.auth-gate-error.hidden {
+    display: none;
+}
+
+.auth-gate-status {
+    margin-top: 14px;
+    font-size: 0.85rem;
+    color: var(--text-muted, #718096);
+}
+
+.auth-gate-status.hidden {
+    display: none;
+}
+
+.sidebar-user {
+    padding: 12px 16px 8px;
+    border-top: 1px solid var(--border-color);
+    margin-top: auto;
+}
+
+.sidebar-user-email {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    word-break: break-all;
+    margin-bottom: 8px;
+}
+
+.sidebar-signout-btn {
+    width: 100%;
+    font-size: 0.85rem;
+    padding: 8px 10px;
+}
+
 /* Mobile Menu Toggle Button */
 .mobile-menu-toggle {
     display: none;

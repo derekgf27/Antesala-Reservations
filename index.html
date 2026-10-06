@@ -15,11 +15,27 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="firebase-config.js"></script>
 </head>
 <body>
-    <div class="app-container">
+    <!-- Google Sign-In gate (session persists — staff sign in once per device) -->
+    <div id="authGate" class="auth-gate" role="dialog" aria-modal="true" aria-labelledby="authGateTitle">
+        <div class="auth-gate-card">
+            <img src="Logo_Antesala-compact.png" alt="LA ANTESALA" class="auth-gate-logo" width="200" height="67" decoding="async">
+            <h1 id="authGateTitle">Antesala Reservaciones</h1>
+            <p class="auth-gate-subtitle">Acceso solo para personal. Inicia sesión con Google una vez; el dispositivo recordará tu sesión.</p>
+            <button type="button" class="btn btn-primary auth-google-btn" id="googleSignInBtn">
+                <i class="fab fa-google" aria-hidden="true"></i>
+                Continuar con Google
+            </button>
+            <p id="authGateError" class="auth-gate-error hidden" role="alert"></p>
+            <p id="authGateStatus" class="auth-gate-status">Comprobando sesión…</p>
+        </div>
+    </div>
+
+    <div class="app-container app-container--locked" id="appRoot" hidden>
         <!-- Sidebar Navigation -->
         <nav class="sidebar">
             <div class="sidebar-header">
@@ -60,7 +76,13 @@
                     <span>Modo Oscuro</span>
                 </button>
             </div>
-                       <div class="sidebar-footer">
+            <div class="sidebar-user" id="sidebarUser">
+                <div class="sidebar-user-email" id="sidebarUserEmail"></div>
+                <button type="button" class="btn btn-outline sidebar-signout-btn" id="signOutBtn">
+                    <i class="fas fa-sign-out-alt"></i> Cerrar sesión
+                </button>
+            </div>
+            <div class="sidebar-footer">
                 Antesala Reservaciones
             </div>
         </nav>
@@ -1960,6 +1982,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=bebidas-group-3"></script>
+    <script src="script.js?v=auth-google-1"></script>
 </body>
 </html>
