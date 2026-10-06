@@ -774,6 +774,12 @@ textarea:focus-visible,
     transition: color 0.3s ease;
 }
 
+.required-asterisk {
+    color: #F27B21;
+    font-weight: 700;
+    margin-left: 2px;
+}
+
 .optional-label {
     color: var(--text-muted);
     font-size: 0.9rem;

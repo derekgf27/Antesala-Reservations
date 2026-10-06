@@ -203,8 +203,8 @@
                                 </div>
                                 <div class="card-content">
                                     <div class="form-group">
-                                        <label for="clientName">Nombre del Cliente</label>
-                                        <input type="text" id="clientName" name="clientName" required>
+                                        <label for="clientName">Nombre del Cliente <span class="required-asterisk" aria-hidden="true">*</span></label>
+                                        <input type="text" id="clientName" name="clientName" required aria-required="true">
                                     </div>
                                     <div class="form-group">
                                         <label for="clientEmail">Correo Electrónico</label>
@@ -225,12 +225,12 @@
                                 </div>
                                 <div class="card-content">
                                     <div class="form-group">
-                                        <label for="eventDate">Fecha del Evento</label>
-                                        <input type="date" id="eventDate" name="eventDate" required>
+                                        <label for="eventDate">Fecha del Evento <span class="required-asterisk" aria-hidden="true">*</span></label>
+                                        <input type="date" id="eventDate" name="eventDate" required aria-required="true">
                                     </div>
                                     <div class="form-group">
-                                        <label for="eventTime">Hora del Evento</label>
-                                        <input type="time" id="eventTime" name="eventTime" required>
+                                        <label for="eventTime">Hora del Evento <span class="required-asterisk" aria-hidden="true">*</span></label>
+                                        <input type="time" id="eventTime" name="eventTime" required aria-required="true">
                                     </div>
                                     <div class="form-group">
                                         <label for="eventType">Tipo de Evento</label>
@@ -246,7 +246,7 @@
                                         </select>
                                     </div>
                                     <div class="form-group hidden" id="otherEventTypeGroup">
-                                        <label for="otherEventType">Especificar Tipo de Evento</label>
+                                        <label for="otherEventType">Especificar Tipo de Evento <span class="optional-label">(opcional)</span></label>
                                         <input type="text" id="otherEventType" name="otherEventType" placeholder="Ingrese el tipo de evento">
                                     </div>
                                     <div class="form-group">
@@ -276,8 +276,8 @@
                                 </div>
                                 <div class="card-content">
                                     <div class="form-group">
-                                        <label for="roomType">Espacio para Evento</label>
-                                        <select id="roomType" name="roomType" required>
+                                        <label for="roomType">Espacio para Evento <span class="required-asterisk" aria-hidden="true">*</span></label>
+                                        <select id="roomType" name="roomType" required aria-required="true">
                                             <option value="">Seleccionar Espacio</option>
                                             <option value="grand-hall" data-price="0">Salon 1</option>
                                             <option value="intimate-room" data-price="0">Salon 2</option>
@@ -285,7 +285,7 @@
                                         </select>
                                     </div>
                                     <div class="form-group">
-                                        <label for="guestCount">Número de Invitados</label>
+                                        <label for="guestCount">Número de Invitados <span class="required-asterisk" aria-hidden="true">*</span></label>
                                         <div class="guest-count-container">
                                             <input type="range" id="guestCount" name="guestCount" min="10" max="200" step="10" value="50">
                                             <div class="guest-count-display">
@@ -312,8 +312,8 @@
                                 </div>
                                 <div class="card-content">
                                     <div class="form-group">
-                                        <label for="foodType">Servicio de Comida</label>
-                                        <select id="foodType" name="foodType">
+                                        <label for="foodType">Servicio de Comida <span class="required-asterisk" aria-hidden="true">*</span></label>
+                                        <select id="foodType" name="foodType" required aria-required="true">
                                             <option value="">Seleccionar Servicio de Comida</option>
                                             <option value="buffet">Buffet</option>
                                             <option value="individual-plates" data-price="35">Platos Individuales</option>

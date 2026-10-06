@@ -4144,11 +4144,13 @@ class ReservationManager {
         
         if (eventType.value === 'other') {
             otherEventTypeGroup.classList.remove('hidden');
-            otherEventType.required = true;
+            if (otherEventType) otherEventType.required = false;
         } else {
             otherEventTypeGroup.classList.add('hidden');
-            otherEventType.required = false;
-            otherEventType.value = '';
+            if (otherEventType) {
+                otherEventType.required = false;
+                otherEventType.value = '';
+            }
         }
     }
 
@@ -4419,79 +4421,18 @@ class ReservationManager {
         const formData = new FormData(formEl);
         const pricing = this.calculatePrice();
 
-        // Check ALL fields in the form (not just required)
+        // Validate required fields (marked with * / [required]) — not optional ones
         const missingFields = [];
-        
-        // Get all visible form fields
-        const formFields = formEl.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]), select, textarea');
-        
-        formFields.forEach(field => {
-            // Skip hidden fields (checkboxes are already excluded)
-            if (field.classList.contains('hidden') || field.closest('.hidden')) {
-                return;
-            }
-            
-            // Skip if field is inside a hidden parent
-            const parent = field.closest('#otherEventTypeGroup');
-            if (parent && parent.classList.contains('hidden') && field.id !== 'otherEventType') {
-                return;
-            }
-            
-            // Skip email field emptiness (optional) — format checked separately
-            if (field.id === 'clientEmail' || field.name === 'clientEmail') {
-                return;
-            }
-            
-            // Skip phone field (it's optional)
-            if (field.id === 'clientPhone' || field.name === 'clientPhone') {
-                return;
-            }
-            
-            // Skip company name field (it's optional)
-            if (field.id === 'companyName' || field.name === 'companyName') {
-                return;
-            }
-            
-            // Skip breakfast field (it's optional - defaults to "Sin Desayuno")
-            if (field.id === 'breakfastType' || field.name === 'breakfastType') {
-                return;
-            }
-            
-            // Skip dessert field (it's optional - defaults to "Sin Postres")
-            if (field.id === 'dessertType' || field.name === 'dessertType') {
-                return;
-            }
-            
-            // Skip event type field (it's optional)
-            if (field.id === 'eventType' || field.name === 'eventType') {
-                return;
-            }
-            
-            // Skip event duration field (it's optional)
-            if (field.id === 'eventDuration' || field.name === 'eventDuration') {
-                return;
-            }
-            
-            const value = field.value ? field.value.trim() : '';
-            const fieldId = field.id || field.name;
-            
-            // Check if field is empty
-            if (!value || value === '' || (field.tagName === 'SELECT' && value === '')) {
-                missingFields.push(fieldId);
+        formEl.querySelectorAll('[required]').forEach(field => {
+            if (field.classList.contains('hidden') || field.closest('.hidden')) return;
+            if (field.id === 'otherEventType') return; // always optional
+            const value = field.value ? String(field.value).trim() : '';
+            if (!value) {
+                missingFields.push(field.id || field.name);
             }
         });
 
-        // Extra validation when event type is "other" (only if event type is provided)
         const eventType = formData.get('eventType');
-        if (eventType === 'other') {
-            const otherEventType = document.getElementById('otherEventType');
-            if (!otherEventType || !otherEventType.value.trim()) {
-                if (!missingFields.includes('otherEventType')) {
-                    missingFields.push('otherEventType');
-                }
-            }
-        }
-        // Note: eventType itself is optional, but if "other" is selected, otherEventType becomes required
 
         // Extra validation for guest count
         const guestCountManual = document.getElementById('guestCountManual');
@@ -4663,7 +4604,9 @@ class ReservationManager {
             clientPhone: formData.get('clientPhone'),
             eventDate: formData.get('eventDate'),
             eventTime: formData.get('eventTime'),
-            eventType: eventType === 'other' ? formData.get('otherEventType') : eventType,
+            eventType: eventType === 'other'
+                ? ((formData.get('otherEventType') || '').trim() || 'other')
+                : eventType,
             eventDuration: formData.get('eventDuration'),
             companyName: formData.get('companyName') || '',
             roomType: formData.get('roomType'),
