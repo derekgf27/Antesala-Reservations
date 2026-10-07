@@ -5621,14 +5621,25 @@ class ReservationManager {
                     ${Array.isArray(reservation.auditTrail) && reservation.auditTrail.length > 0 ? `
                     <ul class="audit-trail-list">
                         ${[...reservation.auditTrail].slice().reverse().slice(0, 20).map((entry) => {
+                            const actionKey = String(entry.action || 'updated');
                             const label = (window.AntesalaAudit && window.AntesalaAudit.actionLabel)
-                                ? window.AntesalaAudit.actionLabel(entry.action)
-                                : (entry.action || '');
+                                ? window.AntesalaAudit.actionLabel(actionKey)
+                                : actionKey;
                             const when = (window.AntesalaAudit && window.AntesalaAudit.formatAuditTime)
                                 ? window.AntesalaAudit.formatAuditTime(entry.at)
                                 : (entry.at || '');
-                            const details = entry.details ? ` — ${esc(entry.details)}` : '';
-                            return `<li><strong>${esc(label)}</strong> · ${esc(when)} · ${esc(entry.by || '')}${details}</li>`;
+                            const details = entry.details ? esc(entry.details) : '';
+                            const by = esc(entry.by || '—');
+                            return `<li class="audit-trail-item audit-trail-item--${esc(actionKey)}">
+                                <div class="audit-trail-item-top">
+                                    <span class="audit-trail-action">${esc(label)}</span>
+                                    <time class="audit-trail-when">${esc(when)}</time>
+                                </div>
+                                <div class="audit-trail-item-meta">
+                                    <span class="audit-trail-by"><i class="fas fa-user" aria-hidden="true"></i> ${by}</span>
+                                    ${details ? `<span class="audit-trail-details">${details}</span>` : ''}
+                                </div>
+                            </li>`;
                         }).join('')}
                     </ul>
                     ` : `
