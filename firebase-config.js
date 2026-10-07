@@ -26,6 +26,14 @@ const ALLOWED_STAFF_EMAILS = [
     'derekgf27@gmail.com',
 ];
 
+/**
+ * Optional Firebase App Check reCAPTCHA v3 site key.
+ * Leave empty until you enable App Check in Firebase Console (see SECURITY_HARDENING.md).
+ * Example: '6Lc........................................'
+ */
+const FIREBASE_APPCHECK_SITE_KEY = '';
+window.FIREBASE_APPCHECK_SITE_KEY = FIREBASE_APPCHECK_SITE_KEY;
+
 // Initialize Firebase if enabled
 let firebaseApp = null;
 let firestore = null;
@@ -65,6 +73,9 @@ if (FIREBASE_ENABLED && firebaseConfig.apiKey !== 'YOUR_API_KEY' && typeof fireb
         window.firebaseApp = firebaseApp;
         window.firestore = firestore;
         window.firebaseAuth = firebaseAuth;
+        if (window.AntesalaAppCheck && typeof window.AntesalaAppCheck.initAppCheck === 'function') {
+            window.AntesalaAppCheck.initAppCheck();
+        }
         console.info('Firebase initialized successfully');
     } catch (error) {
         console.error('Firebase initialization error:', error);

@@ -30,6 +30,7 @@ Follow these steps to deploy the security rules:
 - Validate that creates/updates include `id` and `eventDate`
 - Prevent changing a reservation's `id` on update
 - Allow shared `menuConfig` read/write only for allowlisted staff
+- Allow `counters/*` for staff (atomic invoice numbers)
 - Block access to any other collections
 
 **Important:** After publishing, only the listed staff emails can read or write data. Add new staff in **both** `firestore.rules` and `firebase-config.js`, then republish rules.

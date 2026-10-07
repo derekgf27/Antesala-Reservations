@@ -32,10 +32,16 @@ service cloud.firestore {
                     && request.resource.data.eventDate is string
                     && request.resource.data.id == resource.data.id;
 
+      // Soft-delete preferred; hard delete allowed for trash purge
       allow delete: if isStaff();
     }
 
     match /menuConfig/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    // Atomic invoice counters: counters/invoices-YYYY
+    match /counters/{counterId} {
       allow read, write: if isStaff();
     }
 

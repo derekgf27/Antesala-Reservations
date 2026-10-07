@@ -22,7 +22,7 @@ class ReservationManager {
         this.menuConfigPendingChanges = false;
         this.sortOption = 'createdAt'; // Default sort by recently created
         this.sortDirection = 'desc'; // 'desc' for descending (most recent first)
-        this.reservationsListView = 'upcoming'; // 'upcoming' | 'archive'
+        this.reservationsListView = 'upcoming'; // 'upcoming' | 'archive' | 'trash'
         this.isUpdatingDeposit = false; // Flag to prevent re-sorting when toggling deposit
         this.currentPaymentReservationId = null; // Track which reservation is being paid
         this.isInitializing = true; // Flag to prevent saves during initialization
@@ -2578,27 +2578,43 @@ class ReservationManager {
         };
     }
 
+    isReservationDeleted(reservation) {
+        return !!(reservation && reservation.deletedAt);
+    }
+
+    getActiveReservations() {
+        return (this.reservations || []).filter((r) => !this.isReservationDeleted(r));
+    }
+
+    getDeletedReservations() {
+        return (this.reservations || []).filter((r) => this.isReservationDeleted(r));
+    }
+
+    appendReservationAudit(reservation, action, details) {
+        if (window.AntesalaAudit && typeof window.AntesalaAudit.appendAudit === 'function') {
+            window.AntesalaAudit.appendAudit(reservation, action, details);
+        }
+        return reservation;
+    }
+
     /** Next permanent invoice number for the current calendar year (YYYY-NNN). */
-    allocateInvoiceNumber() {
-        const year = new Date().getFullYear();
-        const prefix = `${year}-`;
-        let maxSeq = 0;
-        (this.reservations || []).forEach((r) => {
-            const n = r && r.invoiceNumber;
-            if (typeof n !== 'string' || !n.startsWith(prefix)) return;
-            const seq = parseInt(n.slice(prefix.length), 10);
-            if (!Number.isNaN(seq) && seq > maxSeq) maxSeq = seq;
-        });
-        return `${year}-${String(maxSeq + 1).padStart(3, '0')}`;
+    async allocateInvoiceNumber() {
+        if (window.AntesalaInvoice && typeof window.AntesalaInvoice.allocateInvoiceNumber === 'function') {
+            return window.AntesalaInvoice.allocateInvoiceNumber(this.reservations || []);
+        }
+        return window.AntesalaInvoice
+            ? window.AntesalaInvoice.localNextInvoiceNumber(this.reservations || [])
+            : `${new Date().getFullYear()}-001`;
     }
 
     /** Return existing invoice number or assign + attach a stable one. */
-    ensureInvoiceNumber(reservation) {
+    async ensureInvoiceNumber(reservation) {
         if (!reservation) return this.allocateInvoiceNumber();
         if (typeof reservation.invoiceNumber === 'string' && /^\d{4}-\d{3,}$/.test(reservation.invoiceNumber)) {
             return reservation.invoiceNumber;
         }
-        reservation.invoiceNumber = this.allocateInvoiceNumber();
+        reservation.invoiceNumber = await this.allocateInvoiceNumber();
+        this.appendReservationAudit(reservation, 'invoice', reservation.invoiceNumber);
         return reservation.invoiceNumber;
     }
 
@@ -4691,7 +4707,8 @@ class ReservationManager {
             depositPaid: false, // Default to unpaid, can be toggled later
             additionalPayments: [], // Array to track payments beyond deposit
             pricing: pricing,
-            invoiceNumber: this.allocateInvoiceNumber(),
+            invoiceNumber: null,
+            auditTrail: [],
             createdAt: new Date().toISOString()
         };
 
@@ -4700,16 +4717,24 @@ class ReservationManager {
             // Update existing reservation instead of creating new one
             const existingIndex = this.findReservationIndexById(this.editingReservationId);
             if (existingIndex !== -1) {
+                const existing = this.reservations[existingIndex];
                 // Preserve the original ID and creation date
                 reservation.id = String(this.editingReservationId);
-                reservation.createdAt = this.reservations[existingIndex].createdAt;
-                // Preserve payment history
-                reservation.additionalPayments = this.reservations[existingIndex].additionalPayments || [];
-                reservation.depositPaid = this.reservations[existingIndex].depositPaid || false;
+                reservation.createdAt = existing.createdAt;
+                // Preserve payment history / audit / soft-delete flags
+                reservation.additionalPayments = existing.additionalPayments || [];
+                reservation.depositPaid = existing.depositPaid || false;
+                reservation.depositPaymentDate = existing.depositPaymentDate || null;
+                reservation.auditTrail = Array.isArray(existing.auditTrail) ? [...existing.auditTrail] : [];
+                reservation.deletedAt = existing.deletedAt || null;
+                reservation.deletedBy = existing.deletedBy || null;
                 // Keep stable invoice number (assign once if older reservation lacks one)
-                reservation.invoiceNumber = this.reservations[existingIndex].invoiceNumber
-                    || reservation.invoiceNumber
-                    || this.allocateInvoiceNumber();
+                reservation.invoiceNumber = existing.invoiceNumber || null;
+                if (!reservation.invoiceNumber) {
+                    reservation.invoiceNumber = await this.allocateInvoiceNumber();
+                    this.appendReservationAudit(reservation, 'invoice', reservation.invoiceNumber);
+                }
+                this.appendReservationAudit(reservation, 'updated', reservation.clientName || '');
                 
                 // Update the reservation in place
                 this.reservations[existingIndex] = reservation;
@@ -4734,6 +4759,9 @@ class ReservationManager {
         }
         
         // Add new reservation (not editing)
+        reservation.invoiceNumber = await this.allocateInvoiceNumber();
+        this.appendReservationAudit(reservation, 'created', reservation.clientName || '');
+        this.appendReservationAudit(reservation, 'invoice', reservation.invoiceNumber);
         this.reservations.push(reservation);
         this.markReservationDirty(reservation.id);
         await this.saveReservations();
@@ -4808,13 +4836,14 @@ class ReservationManager {
 
     // Update dashboard statistics
     updateDashboard() {
-        const totalReservations = this.reservations.length;
-        const totalRevenue = this.reservations.reduce((sum, res) => sum + res.pricing.totalCost, 0);
-        const totalGuests = this.reservations.reduce((sum, res) => sum + res.guestCount, 0);
+        const active = this.getActiveReservations();
+        const totalReservations = active.length;
+        const totalRevenue = active.reduce((sum, res) => sum + (res.pricing?.totalCost || 0), 0);
+        const totalGuests = active.reduce((sum, res) => sum + (res.guestCount || 0), 0);
         
         // Today's reservations (local calendar date)
         const today = this.getTodayDateString();
-        const todayReservations = this.reservations.filter(res => this.normalizeEventDate(res.eventDate) === today).length;
+        const todayReservations = active.filter(res => this.normalizeEventDate(res.eventDate) === today).length;
 
         // Update stats
         document.getElementById('totalReservations').textContent = totalReservations;
@@ -4832,7 +4861,7 @@ class ReservationManager {
     // Update recent reservations
     updateRecentReservations() {
         const container = document.getElementById('recentReservations');
-        const recent = [...this.reservations]
+        const recent = [...this.getActiveReservations()]
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
             .slice(0, 5);
 
@@ -4864,7 +4893,7 @@ class ReservationManager {
     updateUpcomingEvents() {
         const container = document.getElementById('upcomingEvents');
         const today = this.getTodayDateString();
-        const upcoming = this.reservations
+        const upcoming = this.getActiveReservations()
             .filter(res => this.normalizeEventDate(res.eventDate) >= today)
             .sort((a, b) => this.compareEventDates(a.eventDate, b.eventDate))
             .slice(0, 5);
@@ -4915,7 +4944,7 @@ class ReservationManager {
         if (!container) return;
         
         const today = this.getTodayDateString();
-        const todayEvents = this.reservations
+        const todayEvents = this.getActiveReservations()
             .filter(res => this.normalizeEventDate(res.eventDate) === today)
             .sort((a, b) => {
                 // Sort by time
@@ -5020,7 +5049,7 @@ class ReservationManager {
             
             if (isCurrentMonth) {
                 const dateStr = `${this.currentCalendarYear}-${String(this.currentCalendarMonth + 1).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
-                const dayReservations = this.reservations.filter(res => res.eventDate === dateStr);
+                const dayReservations = this.getActiveReservations().filter(res => res.eventDate === dateStr);
                 
                 calendarHTML += `
                     <div class="calendar-day ${isToday ? 'today' : ''}" onclick="reservationManager.selectDateFromCalendar('${dateStr}', event)">
@@ -5081,7 +5110,7 @@ class ReservationManager {
         const container = document.getElementById('pendingDepositsStats');
         if (!container) return;
 
-        const pending = this.reservations.filter(r => {
+        const pending = this.getActiveReservations().filter(r => {
             const deposit = r.pricing?.depositAmount || 0;
             return deposit > 0 && !r.depositPaid;
         });
@@ -5122,7 +5151,7 @@ class ReservationManager {
         if (!container) return;
 
         const ym = this.getTodayDateString().slice(0, 7);
-        const thisMonth = this.reservations.filter(r => this.normalizeEventDate(r.eventDate).startsWith(ym));
+        const thisMonth = this.getActiveReservations().filter(r => this.normalizeEventDate(r.eventDate).startsWith(ym));
         const roomNames = {
             'grand-hall': 'Salón 1',
             'intimate-room': 'Salón 2',
@@ -5160,7 +5189,7 @@ class ReservationManager {
         const el = document.getElementById('revenueChart');
         if (!el) return;
         const byMonth = new Map();
-        this.reservations.forEach((res) => {
+        this.getActiveReservations().forEach((res) => {
             if (!res.eventDate || !res.pricing) return;
             const key = res.eventDate.slice(0, 7);
             const add = typeof res.pricing.totalCost === 'number' ? res.pricing.totalCost : 0;
@@ -5196,7 +5225,7 @@ class ReservationManager {
         const container = document.getElementById('roomStats');
         const roomCounts = {};
         
-        this.reservations.forEach(res => {
+        this.getActiveReservations().forEach(res => {
             roomCounts[res.roomType] = (roomCounts[res.roomType] || 0) + 1;
         });
 
@@ -5224,9 +5253,10 @@ class ReservationManager {
     // Update guest statistics
     updateGuestStats() {
         const container = document.getElementById('guestStats');
-        const totalGuests = this.reservations.reduce((sum, res) => sum + res.guestCount, 0);
-        const avgGuests = this.reservations.length > 0 ? totalGuests / this.reservations.length : 0;
-        const guestCounts = this.reservations.map((res) => res.guestCount);
+        const active = this.getActiveReservations();
+        const totalGuests = active.reduce((sum, res) => sum + res.guestCount, 0);
+        const avgGuests = active.length > 0 ? totalGuests / active.length : 0;
+        const guestCounts = active.map((res) => res.guestCount);
         const maxGuests = guestCounts.length > 0 ? Math.max(...guestCounts) : 0;
         const minGuests = guestCounts.length > 0 ? Math.min(...guestCounts) : 0;
 
@@ -5586,6 +5616,23 @@ class ReservationManager {
                         })()}
                     </div>
                 </div>
+                ${Array.isArray(reservation.auditTrail) && reservation.auditTrail.length > 0 ? `
+                <div class="detail-section">
+                    <h4><i class="fas fa-history"></i> Historial de cambios</h4>
+                    <ul class="audit-trail-list">
+                        ${[...reservation.auditTrail].slice().reverse().slice(0, 20).map((entry) => {
+                            const label = (window.AntesalaAudit && window.AntesalaAudit.actionLabel)
+                                ? window.AntesalaAudit.actionLabel(entry.action)
+                                : (entry.action || '');
+                            const when = (window.AntesalaAudit && window.AntesalaAudit.formatAuditTime)
+                                ? window.AntesalaAudit.formatAuditTime(entry.at)
+                                : (entry.at || '');
+                            const details = entry.details ? ` — ${esc(entry.details)}` : '';
+                            return `<li><strong>${esc(label)}</strong> · ${esc(when)} · ${esc(entry.by || '')}${details}</li>`;
+                        }).join('')}
+                    </ul>
+                </div>
+                ` : ''}
             </div>
         `;
         
@@ -6487,6 +6534,7 @@ class ReservationManager {
             reservation.depositPaymentDate = this.getTodayDateString();
         }
         
+        this.appendReservationAudit(reservation, 'deposit', reservation.depositPaid ? 'Pagado' : 'No pagado');
         this.markReservationDirty(id);
         this.saveReservations();
         
@@ -6808,6 +6856,7 @@ class ReservationManager {
             reservation.depositPaymentDate = date; // Use the payment date
         }
 
+        this.appendReservationAudit(reservation, 'payment', `$${actualAmount.toFixed(2)}`);
         this.markReservationDirty(reservation.id);
         this.saveReservations();
 
@@ -6848,6 +6897,7 @@ class ReservationManager {
         const ok = await this.appConfirm('¿Eliminar este pago del historial?', { title: 'Eliminar pago' });
         if (!ok) return;
         reservation.additionalPayments.splice(paymentIndex, 1);
+        this.appendReservationAudit(reservation, 'payment_deleted', `#${paymentIndex + 1}`);
         this.markReservationDirty(reservation.id);
         await this.saveReservations();
         this.displayReservations();
@@ -6904,6 +6954,9 @@ class ReservationManager {
 
     // Display reservations
     escapeHtml(str) {
+        if (window.AntesalaUtils && typeof window.AntesalaUtils.escapeHtml === 'function') {
+            return window.AntesalaUtils.escapeHtml(str);
+        }
         return this.escapeMenuConfigHtml(str);
     }
 
@@ -6957,7 +7010,7 @@ class ReservationManager {
         const end = start + (Number.isFinite(durationHours) && durationHours > 0 ? durationHours : 4) * 60;
         const exclude = excludeId != null ? String(excludeId) : null;
 
-        return this.reservations.filter(r => {
+        return this.getActiveReservations().filter(r => {
             if (exclude && String(r.id) === exclude) return false;
             if (r.roomType !== roomType) return false;
             if (this.normalizeEventDate(r.eventDate) !== date) return false;
@@ -6992,13 +7045,17 @@ class ReservationManager {
 
     updateReservationsViewTabs() {
         const today = this.getTodayDateString();
-        const upcomingCount = this.reservations.filter(r => (r.eventDate || '') >= today).length;
-        const archiveCount = this.reservations.filter(r => (r.eventDate || '') < today).length;
+        const active = this.getActiveReservations();
+        const upcomingCount = active.filter(r => (r.eventDate || '') >= today).length;
+        const archiveCount = active.filter(r => (r.eventDate || '') < today).length;
+        const trashCount = this.getDeletedReservations().length;
 
         const upcomingCountEl = document.getElementById('upcomingReservationsCount');
         const archiveCountEl = document.getElementById('archiveReservationsCount');
+        const trashCountEl = document.getElementById('trashReservationsCount');
         if (upcomingCountEl) upcomingCountEl.textContent = String(upcomingCount);
         if (archiveCountEl) archiveCountEl.textContent = String(archiveCount);
+        if (trashCountEl) trashCountEl.textContent = String(trashCount);
 
         document.querySelectorAll('[data-reservations-view]').forEach(btn => {
             const isActive = btn.getAttribute('data-reservations-view') === this.reservationsListView;
@@ -7010,7 +7067,9 @@ class ReservationManager {
         if (titleEl) {
             titleEl.textContent = this.reservationsListView === 'archive'
                 ? 'Archivo de reservaciones'
-                : 'Reservaciones próximas';
+                : this.reservationsListView === 'trash'
+                    ? 'Papelera'
+                    : 'Reservaciones próximas';
         }
     }
 
@@ -7021,14 +7080,20 @@ class ReservationManager {
         this.updateReservationsViewTabs();
 
         const today = this.getTodayDateString();
-        const viewReservations = this.reservations.filter(r => {
-            const eventDate = r.eventDate || '';
-            return this.reservationsListView === 'archive'
-                ? eventDate < today
-                : eventDate >= today;
-        });
+        let viewReservations;
+        if (this.reservationsListView === 'trash') {
+            viewReservations = this.getDeletedReservations();
+        } else {
+            const active = this.getActiveReservations();
+            viewReservations = active.filter(r => {
+                const eventDate = r.eventDate || '';
+                return this.reservationsListView === 'archive'
+                    ? eventDate < today
+                    : eventDate >= today;
+            });
+        }
 
-        if (this.reservations.length === 0) {
+        if (this.getActiveReservations().length === 0 && this.reservationsListView !== 'trash') {
             container.innerHTML = `
                 <div class="empty-state">
                     <h3>Aún no hay reservaciones</h3>
@@ -7039,19 +7104,25 @@ class ReservationManager {
         }
 
         if (viewReservations.length === 0) {
-            container.innerHTML = this.reservationsListView === 'archive'
-                ? `
+            if (this.reservationsListView === 'archive') {
+                container.innerHTML = `
                 <div class="empty-state">
                     <h3>No hay reservaciones en el archivo</h3>
                     <p>Las reservaciones pasan automáticamente aquí cuando su fecha ya ocurrió.</p>
-                </div>
-            `
-                : `
+                </div>`;
+            } else if (this.reservationsListView === 'trash') {
+                container.innerHTML = `
+                <div class="empty-state">
+                    <h3>La papelera está vacía</h3>
+                    <p>Las reservaciones eliminadas aparecen aquí y se pueden restaurar.</p>
+                </div>`;
+            } else {
+                container.innerHTML = `
                 <div class="empty-state">
                     <h3>No hay reservaciones próximas</h3>
                     <p>Las reservaciones pasadas están en el archivo. Cree una nueva para verla aquí.</p>
-                </div>
-            `;
+                </div>`;
+            }
             return;
         }
 
@@ -7232,6 +7303,14 @@ class ReservationManager {
                     ` : ''}
                 </div>
                 <div class="reservation-actions">
+                    ${this.reservationsListView === 'trash' ? `
+                    <button class="btn btn-small btn-success" onclick="reservationManager.restoreReservation('${rid}')">
+                        <i class="fas fa-undo"></i> Restaurar
+                    </button>
+                    <button class="btn btn-small btn-danger" onclick="reservationManager.purgeReservation('${rid}')">
+                        <i class="fas fa-trash"></i> Borrar permanente
+                    </button>
+                    ` : `
                     ${this.buildContactActionButtons(reservation)}
                     <button class="btn btn-small btn-success" onclick="reservationManager.openPaymentModal('${rid}')">
                         <i class="fas fa-money-bill-wave"></i> Registrar Pago
@@ -7245,6 +7324,7 @@ class ReservationManager {
                     <button class="btn btn-small btn-danger" onclick="reservationManager.deleteReservation('${rid}')">
                         Eliminar
                     </button>
+                    `}
                 </div>
             </div>
         `;
@@ -7394,6 +7474,10 @@ class ReservationManager {
     async editReservation(id) {
         const reservation = this.findReservationById(id);
         if (!reservation) return;
+        if (this.isReservationDeleted(reservation)) {
+            this.showNotification('Restaure la reservación desde la papelera antes de editarla.', 'error');
+            return;
+        }
 
         this._suppressReservationFormDirty = true;
         try {
@@ -7618,11 +7702,15 @@ class ReservationManager {
         document.querySelector('.reservation-form')?.scrollIntoView({ behavior: 'smooth' });
     }
 
-    // Delete reservation
+    // Soft-delete reservation (moves to Papelera; recoverable)
     async deleteReservation(id) {
         const reservation = this.reservations.find(r => String(r.id) === String(id));
         if (!reservation) {
             this.showNotification('Reservación no encontrada', 'error');
+            return;
+        }
+        if (this.isReservationDeleted(reservation)) {
+            this.showNotification('Esta reservación ya está en la papelera.', 'error');
             return;
         }
         
@@ -7635,42 +7723,79 @@ class ReservationManager {
                 return `${month}/${day}/${d.getFullYear()}`;
             })()
             : 'Sin fecha';
-        const confirmMessage = `¿Eliminar esta reservación?\n\nCliente: ${clientName}\nFecha: ${eventDate}\n\nEsta acción no se puede deshacer.`;
+        const confirmMessage = `¿Mover esta reservación a la papelera?\n\nCliente: ${clientName}\nFecha: ${eventDate}\n\nPuede restaurarla después desde Papelera.`;
         
         const ok = await this.appConfirm(confirmMessage, {
-            title: 'Eliminar reservación',
+            title: 'Mover a papelera',
             okText: 'Sí, eliminar'
         });
         if (!ok) return;
 
-        const previousReservations = this.reservations;
+        reservation.deletedAt = new Date().toISOString();
+        reservation.deletedBy = (window.AntesalaUtils && window.AntesalaUtils.staffEmail)
+            ? window.AntesalaUtils.staffEmail()
+            : (window.firebaseAuthUser?.email || 'unknown');
+        this.appendReservationAudit(reservation, 'deleted', clientName);
+        this.markReservationDirty(reservation.id);
+        try {
+            await this.saveReservations();
+            this.displayReservations();
+            this.updateDashboard();
+            this.showNotification('Reservación movida a la papelera.', 'error', 4500);
+        } catch (error) {
+            console.error('Error soft-deleting reservation:', error);
+            reservation.deletedAt = null;
+            reservation.deletedBy = null;
+            this.showNotification('Error al eliminar la reservación. Intente de nuevo.', 'error');
+        }
+    }
+
+    async restoreReservation(id) {
+        const reservation = this.reservations.find(r => String(r.id) === String(id));
+        if (!reservation || !this.isReservationDeleted(reservation)) {
+            this.showNotification('Reservación no encontrada en la papelera.', 'error');
+            return;
+        }
+        reservation.deletedAt = null;
+        reservation.deletedBy = null;
+        this.appendReservationAudit(reservation, 'restored', reservation.clientName || '');
+        this.markReservationDirty(reservation.id);
+        await this.saveReservations();
+        this.displayReservations();
+        this.updateDashboard();
+        this.showNotification('Reservación restaurada.', 'success');
+    }
+
+    async purgeReservation(id) {
+        const reservation = this.reservations.find(r => String(r.id) === String(id));
+        if (!reservation || !this.isReservationDeleted(reservation)) {
+            this.showNotification('Solo se pueden borrar permanentemente ítems de la papelera.', 'error');
+            return;
+        }
+        const ok = await this.appConfirm(
+            `¿Borrar permanentemente a ${reservation.clientName || 'esta reservación'}?\n\nEsta acción no se puede deshacer.`,
+            { title: 'Borrar permanentemente', okText: 'Borrar para siempre' }
+        );
+        if (!ok) return;
+
         const reservationId = String(reservation.id);
+        const previous = this.reservations;
         this.reservations = this.reservations.filter(r => String(r.id) !== reservationId);
-
-        this.pendingChanges = true;
-        const syncBanner = document.getElementById('syncStatusBanner');
-        syncBanner?.classList.remove('hidden');
-
+        this.markReservationDeleted(reservationId);
         try {
             if (window.FIREBASE_LOADED && window.firestore) {
                 await window.firestore.collection('reservations').doc(reservationId).delete();
             }
+            this.deletedReservationIds.delete(reservationId);
             this.saveReservationsToLocalStorage();
             this.displayReservations();
             this.updateDashboard();
-            this.showNotification('Reservación eliminada correctamente.', 'error', 5500);
-            appDebug('Reservation deleted:', reservationId, 'Total reservations:', this.reservations.length);
+            this.showNotification('Reservación borrada permanentemente.', 'error', 4500);
         } catch (error) {
-            console.error('Error deleting reservation:', error);
-            this.reservations = previousReservations;
+            console.error('Error purging reservation:', error);
+            this.reservations = previous;
             this.displayReservations();
-            this.showNotification('Error al eliminar la reservación. Intente de nuevo.', 'error');
-        } finally {
-            setTimeout(() => {
-                this.pendingChanges = false;
-                syncBanner?.classList.add('hidden');
-                appDebug('Pending changes flag reset - sync will resume');
-            }, 3000);
+            this.showNotification('Error al borrar permanentemente.', 'error');
         }
     }
 
@@ -8022,7 +8147,7 @@ class ReservationManager {
 
         // Stable invoice number (persisted on the reservation; never based on list index)
         const hadInvoiceNumber = !!(reservation.invoiceNumber && /^\d{4}-\d{3,}$/.test(reservation.invoiceNumber));
-        const invoiceNumber = this.ensureInvoiceNumber(reservation);
+        const invoiceNumber = await this.ensureInvoiceNumber(reservation);
         if (!hadInvoiceNumber) {
             try {
                 this.markReservationDirty(reservation.id);
