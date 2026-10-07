@@ -7340,13 +7340,13 @@ class ReservationManager {
                     </div>
                     ` : `
                     <div class="reservation-actions-primary">
-                        <button type="button" class="btn btn-small btn-primary" onclick="reservationManager.showReservationDetails('${rid}')">
+                        <button type="button" class="btn btn-small btn-info" onclick="reservationManager.showReservationDetails('${rid}')">
                             <i class="fas fa-history"></i> Ver detalles
                         </button>
-                        <button type="button" class="btn btn-small btn-outline" onclick="reservationManager.editReservation('${rid}')">
+                        <button type="button" class="btn btn-small btn-primary" onclick="reservationManager.editReservation('${rid}')">
                             Editar
                         </button>
-                        <button type="button" class="btn btn-small btn-primary" onclick="exportReservationInvoice('${rid}')">
+                        <button type="button" class="btn btn-small btn-export" onclick="exportReservationInvoice('${rid}')">
                             <i class="fas fa-file-invoice"></i> Exportar
                         </button>
                     </div>

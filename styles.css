@@ -1878,6 +1878,30 @@ textarea:focus-visible,
     background: linear-gradient(135deg, #059669 0%, #047857 100%);
 }
 
+.btn-info {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+}
+
+.btn-info:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.btn-export {
+    background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(13, 148, 136, 0.3);
+}
+
+.btn-export:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(13, 148, 136, 0.4);
+    background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+}
+
 .btn-outline {
     background: #F27B21;
     color: white;
@@ -2064,6 +2088,16 @@ button.reservation-client--link:hover {
     list-style: none;
     cursor: pointer;
     user-select: none;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1.5px solid var(--border-color);
+    box-shadow: none;
+}
+
+.reservation-more-summary:hover {
+    background: var(--bg-tertiary, rgba(255, 255, 255, 0.06));
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
 }
 
 .reservation-more-summary::-webkit-details-marker {
