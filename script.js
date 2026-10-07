@@ -7346,16 +7346,16 @@ class ReservationManager {
                         <button type="button" class="btn btn-small btn-outline" onclick="reservationManager.editReservation('${rid}')">
                             Editar
                         </button>
-                        <button type="button" class="btn btn-small btn-success" onclick="reservationManager.openPaymentModal('${rid}')">
-                            <i class="fas fa-money-bill-wave"></i> Pago
+                        <button type="button" class="btn btn-small btn-primary" onclick="exportReservationInvoice('${rid}')">
+                            <i class="fas fa-file-invoice"></i> Exportar
                         </button>
                     </div>
                     <details class="reservation-more-menu">
                         <summary class="btn btn-small btn-outline reservation-more-summary">Más</summary>
                         <div class="reservation-more-menu-panel">
                             ${this.buildContactActionButtons(reservation, { menu: true })}
-                            <button type="button" class="btn btn-small btn-primary" onclick="exportReservationInvoice('${rid}')">
-                                <i class="fas fa-file-invoice"></i> Exportar Factura
+                            <button type="button" class="btn btn-small btn-success" onclick="reservationManager.openPaymentModal('${rid}')">
+                                <i class="fas fa-money-bill-wave"></i> Pago
                             </button>
                             <button type="button" class="btn btn-small btn-danger" onclick="reservationManager.deleteReservation('${rid}')">
                                 Eliminar
