@@ -5616,9 +5616,9 @@ class ReservationManager {
                         })()}
                     </div>
                 </div>
-                ${Array.isArray(reservation.auditTrail) && reservation.auditTrail.length > 0 ? `
-                <div class="detail-section">
+                <div class="detail-section audit-trail-section">
                     <h4><i class="fas fa-history"></i> Historial de cambios</h4>
+                    ${Array.isArray(reservation.auditTrail) && reservation.auditTrail.length > 0 ? `
                     <ul class="audit-trail-list">
                         ${[...reservation.auditTrail].slice().reverse().slice(0, 20).map((entry) => {
                             const label = (window.AntesalaAudit && window.AntesalaAudit.actionLabel)
@@ -5631,8 +5631,10 @@ class ReservationManager {
                             return `<li><strong>${esc(label)}</strong> · ${esc(when)} · ${esc(entry.by || '')}${details}</li>`;
                         }).join('')}
                     </ul>
+                    ` : `
+                    <p class="audit-trail-empty">Sin cambios registrados aún. Se guardan al crear, editar, registrar pagos o eliminar.</p>
+                    `}
                 </div>
-                ` : ''}
             </div>
         `;
         
@@ -7201,7 +7203,9 @@ class ReservationManager {
             return `
             <div class="reservation-card${this.isPastReservation(reservation) ? ' reservation-card--archived' : ''}">
                 <div class="reservation-header">
-                    <div class="reservation-client">${esc(reservation.clientName)}</div>
+                    <button type="button" class="reservation-client reservation-client--link" onclick="reservationManager.showReservationDetails('${rid}')" title="Ver detalles e historial">
+                        ${esc(reservation.clientName)}
+                    </button>
                     <div class="reservation-total">$${reservation.pricing.totalCost.toFixed(2)}</div>
                 </div>
                 <div class="reservation-details">
@@ -7303,8 +7307,8 @@ class ReservationManager {
                     ` : ''}
                 </div>
                 <div class="reservation-actions">
-                    <button type="button" class="btn btn-small btn-outline" onclick="reservationManager.showReservationDetails('${rid}')">
-                        <i class="fas fa-eye"></i> Ver detalles
+                    <button type="button" class="btn btn-small btn-primary" onclick="reservationManager.showReservationDetails('${rid}')">
+                        <i class="fas fa-history"></i> Ver detalles
                     </button>
                     ${this.reservationsListView === 'trash' ? `
                     <button class="btn btn-small btn-success" onclick="reservationManager.restoreReservation('${rid}')">

@@ -1895,10 +1895,34 @@ textarea:focus-visible,
     transition: color 0.3s ease;
 }
 
+button.reservation-client--link {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    text-align: left;
+}
+
+button.reservation-client--link:hover {
+    color: #F27B21;
+    text-decoration: underline;
+}
+
 .reservation-total {
     font-weight: 700;
     font-size: 1.3rem;
     color: #F27B21;
+}
+
+.audit-trail-empty {
+    margin: 8px 0 0;
+    font-size: 0.9rem;
+    color: var(--text-muted, #888);
 }
 
 .reservation-details {
