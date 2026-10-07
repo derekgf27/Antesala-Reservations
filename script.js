@@ -7211,13 +7211,32 @@ class ReservationManager {
         const esc = (s) => this.escapeHtml(s);
         container.innerHTML = filteredReservations.map(reservation => {
             const rid = esc(reservation.id);
+            const depositAmount = reservation.pricing?.depositAmount || 0;
+            const remainingBalance = this.calculateRemainingBalance(reservation);
+            const isFullyPaid = remainingBalance <= 0.01;
+            const hasDeposit = depositAmount > 0;
+            const beverageCount = this.countActiveBeverageItems(reservation.beverages);
+            const entremesesCount = this.countActiveEntremesesItems(reservation.entremeses);
+            const depositBadge = hasDeposit
+                ? (() => {
+                    const paid = !!reservation.depositPaid;
+                    const disabled = isFullyPaid
+                        ? ' style="opacity: 0.5; cursor: not-allowed; pointer-events: none;" title="Reservación completamente pagada"'
+                        : ` onclick="reservationManager.toggleDepositStatus('${rid}')" data-reservation-id="${rid}" title="Cambiar estado del depósito"`;
+                    return `<span class="deposit-status-toggle reservation-header-badge ${paid ? 'paid' : 'unpaid'}"${disabled}>${paid ? '✓ Pagado' : 'No Pagado'}</span>`;
+                })()
+                : '';
+
             return `
             <div class="reservation-card${this.isPastReservation(reservation) ? ' reservation-card--archived' : ''}">
                 <div class="reservation-header">
                     <button type="button" class="reservation-client reservation-client--link" onclick="reservationManager.showReservationDetails('${rid}')" title="Ver detalles e historial">
                         ${esc(reservation.clientName)}
                     </button>
-                    <div class="reservation-total">$${reservation.pricing.totalCost.toFixed(2)}</div>
+                    <div class="reservation-header-right">
+                        ${depositBadge}
+                        <div class="reservation-total">$${reservation.pricing.totalCost.toFixed(2)}</div>
+                    </div>
                 </div>
                 <div class="reservation-details">
                     <div class="reservation-detail">
@@ -7252,10 +7271,10 @@ class ReservationManager {
                         <span>${esc(this.getFoodDisplayName(reservation.foodType, reservation))}</span>
                     </div>
                     ` : ''}
-                    ${reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => this.hasActiveBeverageQty(qty)) ? `
+                    ${beverageCount > 0 ? `
                     <div class="reservation-detail">
                         <strong>Bebidas:</strong>
-                        <span>${esc(this.getBeverageSummaryString(reservation.beverages))}</span>
+                        <span>${esc(this.getBeverageCardSummary(reservation.beverages))}</span>
                     </div>
                     ` : ''}
                     ${reservation.breakfastType && this.isBreakfast(reservation.breakfastType) ? `
@@ -7281,31 +7300,20 @@ class ReservationManager {
                         ].filter(Boolean).map(esc).join(', ')}</span>
                     </div>
                     ` : ''}
-                    ${reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => (typeof qty === 'number' && qty > 0) || qty === true) ? `
+                    ${entremesesCount > 0 ? `
                     <div class="reservation-detail">
                         <strong>Entremeses:</strong>
-                        <span>${esc(this.getEntremesesSummaryString(reservation.entremeses))}</span>
+                        <span>${esc(this.getEntremesesCardSummary(reservation.entremeses))}</span>
                     </div>
                     ` : ''}
                     <div class="reservation-detail">
                         <strong>Contacto:</strong>
                         <span>${esc(reservation.clientPhone)}</span>
                     </div>
-                    ${reservation.pricing.depositAmount > 0 ? `
+                    ${hasDeposit ? `
                     <div class="reservation-detail">
                         <strong>Depósito:</strong>
-                        <span>
-                            $${reservation.pricing.depositAmount.toFixed(2)} ${reservation.depositPercentage === 'custom' || reservation.pricing.depositPercentage === 'custom' ? '(Personalizado)' : `(${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%)`}
-                            ${(() => {
-                                const remainingBalance = this.calculateRemainingBalance(reservation);
-                                const isFullyPaid = remainingBalance <= 0.01; // Allow small tolerance
-                                // Disable deposit toggle when balance is fully paid
-                                if (isFullyPaid) {
-                                    return `<span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;" title="Reservación completamente pagada - El depósito no se puede modificar">${reservation.depositPaid ? '✓ Pagado' : 'No Pagado'}</span>`;
-                                }
-                                return `<span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" onclick="reservationManager.toggleDepositStatus('${rid}')" data-reservation-id="${rid}">${reservation.depositPaid ? '✓ Pagado' : 'No Pagado'}</span>`;
-                            })()}
-                        </span>
+                        <span>$${depositAmount.toFixed(2)} ${reservation.depositPercentage === 'custom' || reservation.pricing.depositPercentage === 'custom' ? '(Personalizado)' : `(${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%)`}</span>
                     </div>
                     <div class="reservation-detail">
                         <strong>Total Pagado:</strong>
@@ -7313,35 +7321,47 @@ class ReservationManager {
                     </div>
                     <div class="reservation-detail">
                         <strong>Balance Restante:</strong>
-                        <span>$${this.calculateRemainingBalance(reservation).toFixed(2)}</span>
+                        <span>$${remainingBalance.toFixed(2)}</span>
                     </div>
                     ` : ''}
                 </div>
                 <div class="reservation-actions">
-                    <button type="button" class="btn btn-small btn-primary" onclick="reservationManager.showReservationDetails('${rid}')">
-                        <i class="fas fa-history"></i> Ver detalles
-                    </button>
                     ${this.reservationsListView === 'trash' ? `
-                    <button class="btn btn-small btn-success" onclick="reservationManager.restoreReservation('${rid}')">
-                        <i class="fas fa-undo"></i> Restaurar
-                    </button>
-                    <button class="btn btn-small btn-danger" onclick="reservationManager.purgeReservation('${rid}')">
-                        <i class="fas fa-trash"></i> Borrar permanente
-                    </button>
+                    <div class="reservation-actions-primary">
+                        <button type="button" class="btn btn-small btn-primary" onclick="reservationManager.showReservationDetails('${rid}')">
+                            <i class="fas fa-history"></i> Ver detalles
+                        </button>
+                        <button type="button" class="btn btn-small btn-success" onclick="reservationManager.restoreReservation('${rid}')">
+                            <i class="fas fa-undo"></i> Restaurar
+                        </button>
+                        <button type="button" class="btn btn-small btn-danger" onclick="reservationManager.purgeReservation('${rid}')">
+                            <i class="fas fa-trash"></i> Borrar permanente
+                        </button>
+                    </div>
                     ` : `
-                    ${this.buildContactActionButtons(reservation)}
-                    <button class="btn btn-small btn-success" onclick="reservationManager.openPaymentModal('${rid}')">
-                        <i class="fas fa-money-bill-wave"></i> Registrar Pago
-                    </button>
-                    <button class="btn btn-small btn-primary" onclick="exportReservationInvoice('${rid}')">
-                        <i class="fas fa-file-invoice"></i> Exportar Factura
-                    </button>
-                    <button class="btn btn-small btn-outline" onclick="reservationManager.editReservation('${rid}')">
-                        Editar
-                    </button>
-                    <button class="btn btn-small btn-danger" onclick="reservationManager.deleteReservation('${rid}')">
-                        Eliminar
-                    </button>
+                    <div class="reservation-actions-primary">
+                        <button type="button" class="btn btn-small btn-primary" onclick="reservationManager.showReservationDetails('${rid}')">
+                            <i class="fas fa-history"></i> Ver detalles
+                        </button>
+                        <button type="button" class="btn btn-small btn-outline" onclick="reservationManager.editReservation('${rid}')">
+                            Editar
+                        </button>
+                        <button type="button" class="btn btn-small btn-success" onclick="reservationManager.openPaymentModal('${rid}')">
+                            <i class="fas fa-money-bill-wave"></i> Pago
+                        </button>
+                    </div>
+                    <details class="reservation-more-menu">
+                        <summary class="btn btn-small btn-outline reservation-more-summary">Más</summary>
+                        <div class="reservation-more-menu-panel">
+                            ${this.buildContactActionButtons(reservation, { menu: true })}
+                            <button type="button" class="btn btn-small btn-primary" onclick="exportReservationInvoice('${rid}')">
+                                <i class="fas fa-file-invoice"></i> Exportar Factura
+                            </button>
+                            <button type="button" class="btn btn-small btn-danger" onclick="reservationManager.deleteReservation('${rid}')">
+                                Eliminar
+                            </button>
+                        </div>
+                    </details>
                     `}
                 </div>
             </div>
@@ -7404,6 +7424,38 @@ class ReservationManager {
     getDrinkDisplayName(drinkType) {
         // Deprecated with modal multi-select
         return '—';
+    }
+
+    countActiveBeverageItems(beveragesMap) {
+        if (!beveragesMap || typeof beveragesMap !== 'object') return 0;
+        return Object.entries(this.dedupeBeverageMap(beveragesMap))
+            .filter(([, qty]) => this.hasActiveBeverageQty(qty))
+            .length;
+    }
+
+    /** Compact label for reservation cards (full list lives in Ver detalles). */
+    getBeverageCardSummary(beveragesMap) {
+        const count = this.countActiveBeverageItems(beveragesMap);
+        if (count <= 0) return 'Sin Servicio de Bebidas';
+        return count === 1 ? '1 ítem' : `${count} ítems`;
+    }
+
+    countActiveEntremesesItems(entremesesMap) {
+        if (!entremesesMap || typeof entremesesMap !== 'object') return 0;
+        return Object.entries(entremesesMap).filter(([, qty]) => {
+            if (qty === true) return true;
+            if (typeof qty === 'number') return qty > 0;
+            if (typeof qty === 'object' && qty !== null && 'qty' in qty) {
+                return (parseInt(qty.qty, 10) || 0) > 0;
+            }
+            return false;
+        }).length;
+    }
+
+    getEntremesesCardSummary(entremesesMap) {
+        const count = this.countActiveEntremesesItems(entremesesMap);
+        if (count <= 0) return 'Sin Entremeses';
+        return count === 1 ? '1 ítem' : `${count} ítems`;
     }
 
     getBeverageSummaryString(beveragesMap) {
@@ -9020,7 +9072,7 @@ Hay varios métodos de pago disponibles. Todo pago que sea cobrado en el termina
         return `mailto:${addr}${params.length ? `?${params.join('&')}` : ''}`;
     }
 
-    buildContactActionButtons(reservation) {
+    buildContactActionButtons(reservation, options = {}) {
         const esc = (s) => this.escapeHtml(s);
         const name = reservation.clientName || 'cliente';
         const date = this.normalizeEventDate(reservation.eventDate);
@@ -9031,14 +9083,15 @@ Hay varios métodos de pago disponibles. Todo pago que sea cobrado en el termina
             `Reservación La Antesala${date ? ` — ${date}` : ''}`,
             msg
         );
+        const menuClass = options.menu ? ' reservation-more-item' : '';
         const buttons = [];
         if (wa) {
-            buttons.push(`<a class="btn btn-small btn-outline" href="${esc(wa)}" target="_blank" rel="noopener noreferrer" title="WhatsApp">
+            buttons.push(`<a class="btn btn-small btn-outline${menuClass}" href="${esc(wa)}" target="_blank" rel="noopener noreferrer" title="WhatsApp">
                 <i class="fab fa-whatsapp"></i> WhatsApp
             </a>`);
         }
         if (mail) {
-            buttons.push(`<a class="btn btn-small btn-outline" href="${esc(mail)}" title="Correo">
+            buttons.push(`<a class="btn btn-small btn-outline${menuClass}" href="${esc(mail)}" title="Correo">
                 <i class="fas fa-envelope"></i> Correo
             </a>`);
         }
