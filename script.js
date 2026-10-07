@@ -7303,6 +7303,9 @@ class ReservationManager {
                     ` : ''}
                 </div>
                 <div class="reservation-actions">
+                    <button type="button" class="btn btn-small btn-outline" onclick="reservationManager.showReservationDetails('${rid}')">
+                        <i class="fas fa-eye"></i> Ver detalles
+                    </button>
                     ${this.reservationsListView === 'trash' ? `
                     <button class="btn btn-small btn-success" onclick="reservationManager.restoreReservation('${rid}')">
                         <i class="fas fa-undo"></i> Restaurar
