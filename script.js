@@ -490,7 +490,7 @@ class ReservationManager {
         document.querySelectorAll('[data-reservations-view]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const view = btn.getAttribute('data-reservations-view');
-                if (view !== 'upcoming' && view !== 'archive') return;
+                if (view !== 'upcoming' && view !== 'archive' && view !== 'trash') return;
                 this.reservationsListView = view;
                 this.displayReservations();
             });
