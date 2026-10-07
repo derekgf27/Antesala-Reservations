@@ -31,6 +31,8 @@ class ReservationManager {
         this._suppressReservationFormDirty = false; // While programmatically filling the form
         this.isEditingReservation = false; // Flag to prevent saves during edit operations
         this.editingReservationId = null; // Track which reservation is being edited
+        this.dirtyReservationIds = new Set(); // Per-doc Firestore writes (create/update)
+        this.deletedReservationIds = new Set(); // Per-doc Firestore deletes (if batched)
         this.initializeEventListeners();
         this.initializeNavigation();
         this.updateGuestCountDisplay();
@@ -78,9 +80,26 @@ class ReservationManager {
         setTimeout(async () => {
             this.isInitializing = false;
             if (remappedBeverages || migratedSelections || prunedDuplicates) {
-                try { await this.saveReservations(); } catch (_) { /* non-blocking */ }
+                try {
+                    (this.reservations || []).forEach((r) => this.markReservationDirty(r.id));
+                    await this.saveReservations();
+                } catch (_) { /* non-blocking */ }
             }
         }, 300);
+    }
+
+    markReservationDirty(id) {
+        if (id == null || id === '') return;
+        const key = String(id);
+        this.dirtyReservationIds.add(key);
+        this.deletedReservationIds.delete(key);
+    }
+
+    markReservationDeleted(id) {
+        if (id == null || id === '') return;
+        const key = String(id);
+        this.deletedReservationIds.add(key);
+        this.dirtyReservationIds.delete(key);
     }
 
     // Setup real-time Firestore listener
@@ -1337,11 +1356,11 @@ class ReservationManager {
                 div.style.alignItems = 'center';
                 div.style.gap = '0.5rem';
                 div.innerHTML = `
-                    <label for="${inputId}" style="flex:1;">${name} — $${price.toFixed(2)}</label>
+                    <label for="${this.escapeHtml(inputId)}" style="flex:1;">${this.escapeHtml(name)} — $${price.toFixed(2)}</label>
                     <div class="quantity-selector">
-                        <button type="button" class="quantity-btn quantity-minus" data-dessert-custom="${inputId}">−</button>
-                        <input type="number" id="${inputId}" min="0" value="${qty}" readonly style="width:3rem;">
-                        <button type="button" class="quantity-btn quantity-plus" data-dessert-custom="${inputId}">+</button>
+                        <button type="button" class="quantity-btn quantity-minus" data-dessert-custom="${this.escapeHtml(inputId)}">−</button>
+                        <input type="number" id="${this.escapeHtml(inputId)}" min="0" value="${qty}" readonly style="width:3rem;">
+                        <button type="button" class="quantity-btn quantity-plus" data-dessert-custom="${this.escapeHtml(inputId)}">+</button>
                     </div>
                 `;
                 customContainer.appendChild(div);
@@ -1492,6 +1511,7 @@ class ReservationManager {
             if (hasBuffet) {
                 items.push(`<li style="margin-top: 10px;"><strong>Platos Individuales:</strong></li>`);
             }
+            const esc = (s) => this.escapeHtml(s);
             const platesHTML = this.individualPlatesSelections.map(plate => {
                 const plateTotal = plate.price * plate.quantity;
                 const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
@@ -1501,11 +1521,11 @@ class ReservationManager {
                 
                 let complementosText = '';
                 if (complementos.length > 0) {
-                    const complementosList = complementos.map(comp => comp.name).join(', ');
+                    const complementosList = complementos.map(comp => esc(comp.name)).join(', ');
                     complementosText = ` - Complementos: ${complementosList}`;
                 }
                 
-                return `<li style="color: #333;">${plate.name} - $${plate.price.toFixed(2)}${complementosText} <strong>Total: $${total.toFixed(2)}</strong></li>`;
+                return `<li style="color: #333;">${esc(plate.name)} - $${plate.price.toFixed(2)}${complementosText} <strong>Total: $${total.toFixed(2)}</strong></li>`;
             });
             items.push(...platesHTML);
         }
@@ -1539,7 +1559,7 @@ class ReservationManager {
             if (isCustomBreakfast) {
                 container.classList.remove('hidden');
                 editBreakfastBtn?.classList.add('hidden');
-                container.innerHTML = `<ul><li>${this.getFoodDisplayName(breakfastType)}</li></ul>`;
+                container.innerHTML = `<ul><li>${this.escapeHtml(this.getFoodDisplayName(breakfastType))}</li></ul>`;
             } else {
                 const medianochePavo = document.getElementById('breakfastMedianochePavo');
                 const cafe = document.getElementById('breakfastCafe');
@@ -1607,7 +1627,7 @@ class ReservationManager {
                     if (qty <= 0) return;
                     const item = postresList.find(p => p.id === id);
                     const name = item ? (item.name || id) : id;
-                    items.push(`<li>${name} × ${qty}</li>`);
+                    items.push(`<li>${this.escapeHtml(name)} × ${this.escapeHtml(qty)}</li>`);
                 });
             }
 
@@ -2148,8 +2168,8 @@ class ReservationManager {
         const row = document.createElement('div');
         row.className = 'complemento-row plate-config-complemento-row';
         row.innerHTML = `
-            <input type="text" class="complemento-name plate-config-complemento-name" placeholder="Nombre del complemento" value="${(name || '').replace(/"/g, '&quot;')}">
-            <input type="number" class="complemento-price plate-config-complemento-price" placeholder="Precio ($)" min="0" step="0.01" value="${price || ''}">
+            <input type="text" class="complemento-name plate-config-complemento-name" placeholder="Nombre del complemento" value="${this.escapeHtml(name || '')}">
+            <input type="number" class="complemento-price plate-config-complemento-price" placeholder="Precio ($)" min="0" step="0.01" value="${this.escapeHtml(price || '')}">
             <button type="button" class="btn btn-outline btn-sm complemento-remove" aria-label="Quitar complemento"><i class="fas fa-times"></i></button>
         `;
         row.querySelector('.complemento-remove').addEventListener('click', () => row.remove());
@@ -2797,11 +2817,11 @@ class ReservationManager {
                     beverageDiv.setAttribute('data-custom-beverage', 'true');
                     beverageDiv.setAttribute('data-custom-beverage-id', beverage.id);
                     beverageDiv.innerHTML = `
-                        <label for="${inputId}">${beverage.name} ($${Number(beverage.price || 0).toFixed(2)})</label>
+                        <label for="${this.escapeHtml(inputId)}">${this.escapeHtml(beverage.name)} ($${Number(beverage.price || 0).toFixed(2)})</label>
                         <div class="quantity-selector">
-                            <button type="button" class="quantity-btn quantity-minus" data-beverage="${inputId}">−</button>
-                            <input type="number" id="${inputId}" min="0" value="0" readonly data-custom-beverage-id="${beverage.id}">
-                            <button type="button" class="quantity-btn quantity-plus" data-beverage="${inputId}">+</button>
+                            <button type="button" class="quantity-btn quantity-minus" data-beverage="${this.escapeHtml(inputId)}">−</button>
+                            <input type="number" id="${this.escapeHtml(inputId)}" min="0" value="0" readonly data-custom-beverage-id="${this.escapeHtml(beverage.id)}">
+                            <button type="button" class="quantity-btn quantity-plus" data-beverage="${this.escapeHtml(inputId)}">+</button>
                         </div>
                     `;
                     container.appendChild(beverageDiv);
@@ -3146,8 +3166,8 @@ class ReservationManager {
                 } else {
                     label = id;
                 }
-                const notesText = qty.notes ? ` (${qty.notes})` : '';
-                items.push(`<li>${label}: ${qty.qty}${notesText}</li>`);
+                const notesText = qty.notes ? ` (${this.escapeHtml(qty.notes)})` : '';
+                items.push(`<li>${this.escapeHtml(label)}: ${this.escapeHtml(qty.qty)}${notesText}</li>`);
             } else if (qty > 0) {
                 const item = beverages.find(b => b.id === id);
                 let label;
@@ -3160,7 +3180,7 @@ class ReservationManager {
                     label = id;
                 }
                 const actualQty = typeof qty === 'object' && qty !== null && qty.qty ? qty.qty : qty;
-                items.push(`<li>${label}: ${actualQty}</li>`);
+                items.push(`<li>${this.escapeHtml(label)}: ${this.escapeHtml(actualQty)}</li>`);
             }
         });
         
@@ -3243,11 +3263,11 @@ class ReservationManager {
                 const name = item.name || item.id;
                 const div = document.createElement('div');
                 div.innerHTML = `
-                    <label for="${inputId}">${name} ($${price.toFixed(2)})</label>
+                    <label for="${this.escapeHtml(inputId)}">${this.escapeHtml(name)} ($${price.toFixed(2)})</label>
                     <div class="quantity-selector">
-                        <button type="button" class="quantity-btn quantity-minus" data-entremes="${inputId}">−</button>
-                        <input type="number" id="${inputId}" min="0" value="${qty}" readonly>
-                        <button type="button" class="quantity-btn quantity-plus" data-entremes="${inputId}">+</button>
+                        <button type="button" class="quantity-btn quantity-minus" data-entremes="${this.escapeHtml(inputId)}">−</button>
+                        <input type="number" id="${this.escapeHtml(inputId)}" min="0" value="${qty}" readonly>
+                        <button type="button" class="quantity-btn quantity-plus" data-entremes="${this.escapeHtml(inputId)}">+</button>
                     </div>
                 `;
                 customContainer.appendChild(div);
@@ -3352,7 +3372,7 @@ class ReservationManager {
             if (qty > 0) {
                 const item = entremeses.find(e => e.id === id);
                 const label = item ? item.name : id;
-                items.push(`<li>${label}: ${qty}</li>`);
+                items.push(`<li>${this.escapeHtml(label)}: ${this.escapeHtml(qty)}</li>`);
             }
         });
         
@@ -3593,17 +3613,18 @@ class ReservationManager {
             const complementosTotal = complementos.reduce((sum, comp) => sum + ((comp.price || 0) * plate.quantity), 0);
             const total = plateTotal + complementosTotal;
             
+            const esc = (s) => this.escapeHtml(s);
             let complementosText = '';
             if (complementos.length > 0) {
-                const complementosList = complementos.map(comp => comp.name).join(', ');
+                const complementosList = complementos.map(comp => esc(comp.name)).join(', ');
                 complementosText = `<br><span style="color: #333; font-size: 0.9em; display: block;">Complementos: ${complementosList}</span>`;
             }
             
             return `
             <div class="individual-plate-item" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9;">
                 <div style="flex: 1; color: #333;">
-                    <strong style="color: #333;">${plate.name} - $${plate.price.toFixed(2)}</strong><br>
-                    <span style="color: #333; font-size: 0.9em;">Cantidad: ${plate.quantity} personas</span>
+                    <strong style="color: #333;">${esc(plate.name)} - $${plate.price.toFixed(2)}</strong><br>
+                    <span style="color: #333; font-size: 0.9em;">Cantidad: ${esc(plate.quantity)} personas</span>
                     ${complementosText}
                     <br><span style="color: #333; font-size: 0.95em; font-weight: 600;">Total: $${total.toFixed(2)}</span>
                 </div>
@@ -3715,6 +3736,7 @@ class ReservationManager {
         editBtn?.classList.remove('hidden');
         addBtn?.classList.add('hidden');
 
+        const esc = (s) => this.escapeHtml(s);
         const itemsHTML = this.individualPlatesSelections.map(plate => {
             const plateTotal = plate.price * plate.quantity;
             const complementos = Array.isArray(plate.complementos) ? plate.complementos : 
@@ -3724,11 +3746,11 @@ class ReservationManager {
             
             let complementosText = '';
             if (complementos.length > 0) {
-                const complementosList = complementos.map(comp => comp.name).join(', ');
+                const complementosList = complementos.map(comp => esc(comp.name)).join(', ');
                 complementosText = ` - Complementos: ${complementosList}`;
             }
             
-            return `<li style="color: #333;">${plate.name} - $${plate.price.toFixed(2)}${complementosText} <strong>Total: $${total.toFixed(2)}</strong></li>`;
+            return `<li style="color: #333;">${esc(plate.name)} - $${plate.price.toFixed(2)}${complementosText} <strong>Total: $${total.toFixed(2)}</strong></li>`;
         }).join('');
 
         container.innerHTML = `<ul>${itemsHTML}</ul>`;
@@ -4697,6 +4719,7 @@ class ReservationManager {
                 this.isEditingReservation = false;
                 this.editingReservationId = null;
                 
+                this.markReservationDirty(reservation.id);
                 await this.saveReservations();
                 this.displayReservations();
                 this.clearForm();
@@ -4712,6 +4735,7 @@ class ReservationManager {
         
         // Add new reservation (not editing)
         this.reservations.push(reservation);
+        this.markReservationDirty(reservation.id);
         await this.saveReservations();
         this.displayReservations();
         this.clearForm();
@@ -5554,7 +5578,7 @@ class ReservationManager {
                                     }
                                     const notes = payment.notes || (payment.isDeposit ? 'Deposit' : '');
                                     const depositClass = payment.isDeposit ? ' class="deposit-payment-item"' : '';
-                                    return `<li${depositClass}>$${payment.amount.toFixed(2)} - ${formattedDate}${notes ? ` (${notes})` : ''}</li>`;
+                                    return `<li${depositClass}>$${payment.amount.toFixed(2)} - ${formattedDate}${notes ? ` (${esc(notes)})` : ''}</li>`;
                                 }).join('')}
                             </ul>
                         </div>
@@ -5928,11 +5952,14 @@ class ReservationManager {
             if (filtered.length === 0) return;
             html += `<div class="menu-preview-group"><h4>${section.label}</h4><ul>`;
             filtered.forEach(item => {
+                const safeLabel = this.escapeHtml(item.label);
+                const safeId = this.escapeHtml(item.id);
+                const safeKey = this.escapeHtml(section.key);
                 html += `
-                    <li class="menu-preview-item" data-buffet-key="${section.key}" data-id="${item.id}">
-                        <span class="menu-preview-label">${item.label}</span>
-                        <button type="button" class="menu-preview-btn" data-action="edit" aria-label="Editar ${item.label}"><i class="fas fa-edit"></i></button>
-                        <button type="button" class="menu-preview-btn" data-action="delete" aria-label="Eliminar ${item.label}"><i class="fas fa-trash"></i></button>
+                    <li class="menu-preview-item" data-buffet-key="${safeKey}" data-id="${safeId}">
+                        <span class="menu-preview-label">${safeLabel}</span>
+                        <button type="button" class="menu-preview-btn" data-action="edit" aria-label="Editar ${safeLabel}"><i class="fas fa-edit"></i></button>
+                        <button type="button" class="menu-preview-btn" data-action="delete" aria-label="Eliminar ${safeLabel}"><i class="fas fa-trash"></i></button>
                     </li>
                 `;
             });
@@ -6082,9 +6109,9 @@ class ReservationManager {
         }
         let html = '<ul>';
         filtered.forEach(item => {
-            const label = item.name + (item.price != null && item.price > 0 ? ` — $${Number(item.price).toFixed(2)}` : '');
+            const label = this.escapeHtml(item.name) + (item.price != null && item.price > 0 ? ` — $${Number(item.price).toFixed(2)}` : '');
             html += `
-                <li class="menu-preview-item" data-simple-category="${category}" data-id="${item.id}">
+                <li class="menu-preview-item" data-simple-category="${this.escapeHtml(category)}" data-id="${this.escapeHtml(item.id)}">
                     <span class="menu-preview-label">${label}</span>
                     <button type="button" class="menu-preview-btn" data-action="edit" aria-label="Editar"><i class="fas fa-edit"></i></button>
                     <button type="button" class="menu-preview-btn" data-action="delete" aria-label="Eliminar"><i class="fas fa-trash"></i></button>
@@ -6187,11 +6214,13 @@ class ReservationManager {
             if (!items.length) return;
             html += `<div class="menu-preview-group"><h4>${labels[cat] || cat}</h4><ul>`;
             items.forEach(b => {
+                const safeName = this.escapeHtml(b.name);
+                const safeId = this.escapeHtml(b.id);
                 html += `
-                    <li class="menu-preview-item" data-beverage-id="${b.id}">
-                        <span class="menu-preview-label">${b.name} - $${b.price.toFixed(2)}</span>
-                        <button type="button" class="menu-preview-btn" data-action="edit" aria-label="Editar ${b.name}"><i class="fas fa-edit"></i></button>
-                        <button type="button" class="menu-preview-btn" data-action="delete" aria-label="Eliminar ${b.name}"><i class="fas fa-trash"></i></button>
+                    <li class="menu-preview-item" data-beverage-id="${safeId}">
+                        <span class="menu-preview-label">${safeName} - $${Number(b.price || 0).toFixed(2)}</span>
+                        <button type="button" class="menu-preview-btn" data-action="edit" aria-label="Editar ${safeName}"><i class="fas fa-edit"></i></button>
+                        <button type="button" class="menu-preview-btn" data-action="delete" aria-label="Eliminar ${safeName}"><i class="fas fa-trash"></i></button>
                     </li>
                 `;
             });
@@ -6356,7 +6385,7 @@ class ReservationManager {
                 }
                 const line = this.resolveBeverageInvoiceLine(id, qty, 0);
                 if (!line) return '';
-                return `<li>${line.qty} x ${line.description}</li>`;
+                return `<li>${this.escapeHtml(line.qty)} x ${this.escapeHtml(line.description)}</li>`;
             })
             .filter(Boolean);
         return beverageList.length > 0 
@@ -6458,7 +6487,7 @@ class ReservationManager {
             reservation.depositPaymentDate = this.getTodayDateString();
         }
         
-        // Save to localStorage
+        this.markReservationDirty(id);
         this.saveReservations();
         
         // Update only the specific card elements without re-rendering all cards
@@ -6716,7 +6745,7 @@ class ReservationManager {
                 <div class="payment-history-item ${payment.isDeposit ? 'payment-deposit-item' : ''}">
                     <div class="payment-history-amount">$${payment.amount.toFixed(2)}</div>
                     <div class="payment-history-date">${formattedDate}</div>
-                    <div class="payment-history-notes ${payment.isDeposit ? 'deposit-label' : ''}">${payment.notes || (payment.isDeposit ? 'Deposit' : '')}</div>
+                    <div class="payment-history-notes ${payment.isDeposit ? 'deposit-label' : ''}">${this.escapeHtml(payment.notes || (payment.isDeposit ? 'Deposit' : ''))}</div>
                     ${deleteButton}
                 </div>
             `;
@@ -6779,7 +6808,7 @@ class ReservationManager {
             reservation.depositPaymentDate = date; // Use the payment date
         }
 
-        // Save to storage
+        this.markReservationDirty(reservation.id);
         this.saveReservations();
 
         // Update displays
@@ -6819,6 +6848,7 @@ class ReservationManager {
         const ok = await this.appConfirm('¿Eliminar este pago del historial?', { title: 'Eliminar pago' });
         if (!ok) return;
         reservation.additionalPayments.splice(paymentIndex, 1);
+        this.markReservationDirty(reservation.id);
         await this.saveReservations();
         this.displayReservations();
         this.updatePaymentSummary();
@@ -7781,17 +7811,10 @@ class ReservationManager {
             return;
         }
 
-        // Hard-block empty cloud sync — never wipe Firestore from an empty local list
-        if (this.reservations.length === 0) {
+        // Hard-block empty full sync — per-doc deletes are handled separately
+        if (this.reservations.length === 0 && this.dirtyReservationIds.size === 0 && this.deletedReservationIds.size === 0) {
             console.warn('Save blocked: Reservations array is empty');
             this.saveReservationsToLocalStorage();
-            if (window.FIREBASE_LOADED && window.firestore) {
-                this.showNotification(
-                    'No se sincroniza una lista vacía a la nube. Elimine reservaciones una por una.',
-                    'error',
-                    5500
-                );
-            }
             return;
         }
 
@@ -7824,60 +7847,56 @@ class ReservationManager {
         }
     }
 
-    // Save to Firestore
+    // Save to Firestore — only dirty/deleted docs (avoids full-collection last-write-wins)
     async saveReservationsToFirestore() {
         if (!window.FIREBASE_LOADED || !window.firestore) return;
 
-        if (this.reservations.length === 0) {
-            throw new Error('Refusing to sync empty reservations list to Firestore');
-        }
-
-        const batch = window.firestore.batch();
         const reservationsRef = window.firestore.collection('reservations');
+        const dirtyIds = [...this.dirtyReservationIds];
+        const deletedIds = [...this.deletedReservationIds].filter(
+            (id) => !this.reservations.some((r) => String(r.id) === String(id))
+        );
 
-        // Get current reservations in Firestore to track what exists
-        const snapshot = await reservationsRef.get();
-        const existingIds = new Set();
-        snapshot.forEach((doc) => {
-            existingIds.add(String(doc.id));
-        });
-
-        // Update or create each reservation
-        const currentIds = new Set();
-        this.reservations.forEach((reservation) => {
-            const docRef = reservationsRef.doc(String(reservation.id));
-            batch.set(docRef, reservation, { merge: true });
-            currentIds.add(String(reservation.id));
-        });
-
-        // Delete reservations that no longer exist locally
-        const toDelete = [];
-        existingIds.forEach((id) => {
-            if (!currentIds.has(String(id))) {
-                toDelete.push(String(id));
-            }
-        });
-
-        if (toDelete.length > 0) {
-            // Allow deleting a single reservation always; only block large accidental bulk deletes
-            const isBulkDelete = toDelete.length > 1 && toDelete.length > existingIds.size * 0.5;
-            if (isBulkDelete) {
-                console.error(`Bulk deletion BLOCKED: Attempting to delete ${toDelete.length} out of ${existingIds.size} reservations`);
-                throw new Error('Bulk deletion prevented: Too many reservations would be deleted');
-            }
-
-            if (toDelete.length > 1) {
-                console.warn(`⚠️ WARNING: Attempting to delete ${toDelete.length} reservations:`, toDelete);
-            }
-
-            toDelete.forEach((id) => {
-                console.warn(`⚠️ DELETING reservation from Firestore: ${id}`);
-                batch.delete(reservationsRef.doc(id));
-            });
+        if (dirtyIds.length === 0 && deletedIds.length === 0) {
+            appDebug('Firestore sync skipped: no dirty reservation documents');
+            return;
         }
 
-        await batch.commit();
-        appDebug('Reservations saved to Firestore:', this.reservations.length);
+        const ops = [];
+        dirtyIds.forEach((id) => {
+            const reservation = this.reservations.find((r) => String(r.id) === String(id));
+            if (!reservation) return;
+            ops.push({ type: 'set', id: String(id), data: reservation });
+        });
+        deletedIds.forEach((id) => {
+            ops.push({ type: 'delete', id: String(id) });
+        });
+
+        if (ops.length === 0) {
+            this.dirtyReservationIds.clear();
+            this.deletedReservationIds.clear();
+            return;
+        }
+
+        // Firestore batches max 500 operations
+        const chunkSize = 450;
+        for (let i = 0; i < ops.length; i += chunkSize) {
+            const chunk = ops.slice(i, i + chunkSize);
+            const batch = window.firestore.batch();
+            chunk.forEach((op) => {
+                const docRef = reservationsRef.doc(op.id);
+                if (op.type === 'set') {
+                    batch.set(docRef, op.data, { merge: true });
+                } else {
+                    batch.delete(docRef);
+                }
+            });
+            await batch.commit();
+        }
+
+        this.dirtyReservationIds.clear();
+        this.deletedReservationIds.clear();
+        appDebug(`Synced ${ops.length} reservation document(s) to Firestore (per-doc)`);
     }
 
     // Load from Firestore
@@ -8005,7 +8024,10 @@ class ReservationManager {
         const hadInvoiceNumber = !!(reservation.invoiceNumber && /^\d{4}-\d{3,}$/.test(reservation.invoiceNumber));
         const invoiceNumber = this.ensureInvoiceNumber(reservation);
         if (!hadInvoiceNumber) {
-            try { await this.saveReservations(); } catch (_) { /* non-blocking */ }
+            try {
+                this.markReservationDirty(reservation.id);
+                await this.saveReservations();
+            } catch (_) { /* non-blocking */ }
         }
 
         // Build itemized list

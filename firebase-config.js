@@ -2,7 +2,7 @@
 // 1. Enable Google Sign-In in Firebase Console → Authentication → Sign-in method
 // 2. Add your hosting domain under Authentication → Settings → Authorized domains
 // 3. Add staff Gmail addresses to ALLOWED_STAFF_EMAILS below
-// 4. Deploy firestore.rules (auth required)
+// 4. Keep the same emails in firestore.rules isStaff() and publish rules
 
 const firebaseConfig = {
     apiKey: "AIzaSyAdTEPaNnvNYeAQxqUXodTWgbIQAWScAHg",

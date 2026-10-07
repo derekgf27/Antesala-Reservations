@@ -23,12 +23,15 @@ Follow these steps to deploy the security rules:
 
 ## What These Rules Do
 
-- **Require Google Sign-In** (`request.auth != null`) for all reservation and menu access
+- Require a **verified Google account** whose email is on the staff allowlist
+- Allowlist emails (must match `ALLOWED_STAFF_EMAILS` in `firebase-config.js`):
+  - `kaleferr@gmail.com`
+  - `derekgf27@gmail.com`
 - Validate that creates/updates include `id` and `eventDate`
 - Prevent changing a reservation's `id` on update
-- Allow shared `menuConfig` read/write only for signed-in staff
+- Allow shared `menuConfig` read/write only for allowlisted staff
 - Block access to any other collections
 
-**Important:** Enable Google Sign-In first (see `AUTH_SETUP.md`). After publishing these rules, unsigned visitors cannot read or write data.
+**Important:** After publishing, only the listed staff emails can read or write data. Add new staff in **both** `firestore.rules` and `firebase-config.js`, then republish rules.
 
-After publishing, sign in with Google and test creating, editing, and deleting a reservation to confirm sync still works.
+After publishing, sign in with a staff Google account and test creating, editing, and deleting a reservation to confirm sync still works.

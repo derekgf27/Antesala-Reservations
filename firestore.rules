@@ -5,10 +5,15 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Optional: tighten further by listing staff emails, e.g.
-    // return isSignedIn() && request.auth.token.email in ['staff@gmail.com'];
+    // Must match ALLOWED_STAFF_EMAILS in firebase-config.js (keep both in sync).
     function isStaff() {
-      return isSignedIn();
+      return isSignedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in [
+          'kaleferr@gmail.com',
+          'derekgf27@gmail.com'
+        ];
     }
 
     match /reservations/{reservationId} {
