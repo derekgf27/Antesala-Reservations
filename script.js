@@ -7254,10 +7254,6 @@ class ReservationManager {
                         <span>${this.formatTime12Hour(reservation.eventTime)}</span>
                     </div>
                     <div class="reservation-detail">
-                        <strong>Duración:</strong>
-                        <span>${reservation.eventDuration ? reservation.eventDuration + ' horas' : 'No especificado'}</span>
-                    </div>
-                    <div class="reservation-detail">
                         <strong>Salón:</strong>
                         <span>${esc(this.getRoomDisplayName(reservation.roomType))}</span>
                     </div>
@@ -7310,20 +7306,6 @@ class ReservationManager {
                         <strong>Contacto:</strong>
                         <span>${esc(reservation.clientPhone)}</span>
                     </div>
-                    ${hasDeposit ? `
-                    <div class="reservation-detail">
-                        <strong>Depósito:</strong>
-                        <span>$${depositAmount.toFixed(2)} ${reservation.depositPercentage === 'custom' || reservation.pricing.depositPercentage === 'custom' ? '(Personalizado)' : `(${reservation.depositPercentage || reservation.pricing.depositPercentage || 20}%)`}</span>
-                    </div>
-                    <div class="reservation-detail">
-                        <strong>Total Pagado:</strong>
-                        <span>$${this.calculateTotalPaid(reservation).toFixed(2)}</span>
-                    </div>
-                    <div class="reservation-detail">
-                        <strong>Balance Restante:</strong>
-                        <span>$${remainingBalance.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
                 </div>
                 <div class="reservation-actions">
                     ${this.reservationsListView === 'trash' ? `
