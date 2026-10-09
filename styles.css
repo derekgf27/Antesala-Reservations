@@ -2321,8 +2321,9 @@ button.reservation-client--link:hover {
 .calendar-day-number {
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 8px;
-    font-size: 1.1rem;
+    margin-bottom: 4px;
+    font-size: 0.95rem;
+    line-height: 1;
     transition: color 0.3s ease;
 }
 
@@ -2340,35 +2341,43 @@ button.reservation-client--link:hover {
 }
 
 .calendar-event {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
     color: white;
-    padding: 3px 6px;
+    padding: 4px 6px;
     border-radius: 4px;
     font-size: 0.72rem;
     font-weight: 600;
     margin-bottom: 3px;
     cursor: pointer;
     overflow: hidden;
-    line-height: 1.25;
+    line-height: 1.2;
     border: none;
+    flex-shrink: 0;
 }
 
 .calendar-event--salon-1 { background: #F27B21; }
 .calendar-event--salon-2 { background: #2563eb; }
 .calendar-event--salon-3 { background: #16a34a; }
 
-.calendar-event-name,
-.calendar-event small {
-    display: block;
-    white-space: nowrap;
+.calendar-event-name {
+    flex: 1 1 auto;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .calendar-event small {
+    flex: 0 0 auto;
     font-size: 0.66rem;
     font-weight: 500;
     opacity: 0.95;
-    margin-top: 1px;
+    margin: 0;
+    white-space: nowrap;
 }
 
 .calendar-event:hover {

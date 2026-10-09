@@ -5142,9 +5142,9 @@ class ReservationManager {
                     <div class="calendar-day ${isToday ? 'today' : ''}" onclick="reservationManager.selectDateFromCalendar('${dateStr}', event)">
                         <div class="calendar-day-number">${dayNumber}</div>
                         ${visible.map(res => `
-                            <div class="calendar-event calendar-event--${this.getRoomCalendarClass(res.roomType)}" onclick="reservationManager.showReservationDetails('${esc(res.id)}', event)">
+                            <div class="calendar-event calendar-event--${this.getRoomCalendarClass(res.roomType)}" title="${esc(res.clientName)} · ${esc(this.formatTime12Hour(res.eventTime))} · ${esc(this.getRoomDisplayName(res.roomType))}" onclick="reservationManager.showReservationDetails('${esc(res.id)}', event)">
                                 <span class="calendar-event-name">${esc(res.clientName)}</span>
-                                <small>${esc(this.formatTime12Hour(res.eventTime))} · ${esc(this.getRoomDisplayName(res.roomType))}</small>
+                                <small>${esc(this.formatTime12Hour(res.eventTime))}</small>
                             </div>
                         `).join('')}
                         ${hiddenCount > 0 ? `<button type="button" class="calendar-more" onclick="reservationManager.openDayEvents('${dateStr}', event)">+${hiddenCount}</button>` : ''}
