@@ -454,18 +454,22 @@ class ReservationManager {
         }
 
         const recentReservationsEl = document.getElementById('recentReservations');
-        const activateDashboardReservationRow = (e, selector) => {
+        const activateDashboardReservationRow = (e, selector, action) => {
             const row = e.target.closest(selector);
             if (!row?.dataset.reservationId) return;
             if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
             if (e.key === ' ') e.preventDefault();
+            if (action === 'details') {
+                this.showReservationDetails(row.dataset.reservationId);
+                return;
+            }
             void this.editReservation(row.dataset.reservationId);
         };
-        recentReservationsEl?.addEventListener('click', (e) => activateDashboardReservationRow(e, '.recent-item[data-reservation-id]'));
-        recentReservationsEl?.addEventListener('keydown', (e) => activateDashboardReservationRow(e, '.recent-item[data-reservation-id]'));
+        recentReservationsEl?.addEventListener('click', (e) => activateDashboardReservationRow(e, '.recent-item[data-reservation-id]', 'edit'));
+        recentReservationsEl?.addEventListener('keydown', (e) => activateDashboardReservationRow(e, '.recent-item[data-reservation-id]', 'edit'));
         const upcomingEventsEl = document.getElementById('upcomingEvents');
-        upcomingEventsEl?.addEventListener('click', (e) => activateDashboardReservationRow(e, '.upcoming-item[data-reservation-id]'));
-        upcomingEventsEl?.addEventListener('keydown', (e) => activateDashboardReservationRow(e, '.upcoming-item[data-reservation-id]'));
+        upcomingEventsEl?.addEventListener('click', (e) => activateDashboardReservationRow(e, '.upcoming-item[data-reservation-id]', 'details'));
+        upcomingEventsEl?.addEventListener('keydown', (e) => activateDashboardReservationRow(e, '.upcoming-item[data-reservation-id]', 'details'));
 
         const calendarTodayBtn = document.getElementById('calendarTodayBtn');
         calendarTodayBtn?.addEventListener('click', () => this.goToCalendarToday());
@@ -985,6 +989,18 @@ class ReservationManager {
         const todayEventsCloseBtn2 = document.getElementById('todayEventsCloseBtn2');
         
         todayReservationsCard?.addEventListener('click', () => this.openTodayEventsModal());
+        todayReservationsCard?.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            this.openTodayEventsModal();
+        });
+        const pendingDepositsCard = document.getElementById('pendingDepositsCard');
+        pendingDepositsCard?.addEventListener('click', () => this.openPendingDeposits());
+        pendingDepositsCard?.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            void this.openPendingDeposits();
+        });
         todayEventsCloseBtn?.addEventListener('click', () => this.closeTodayEventsModal());
         todayEventsCloseBtn2?.addEventListener('click', () => this.closeTodayEventsModal());
         
@@ -4849,7 +4865,34 @@ class ReservationManager {
         document.getElementById('totalReservations').textContent = totalReservations;
         document.getElementById('totalRevenue').textContent = `$${totalRevenue.toFixed(2)}`;
         document.getElementById('totalGuests').textContent = totalGuests;
-        document.getElementById('todayReservations').textContent = todayReservations;
+
+        const todayCountEl = document.getElementById('todayReservations');
+        const todayNoteEl = document.getElementById('todayReservationsNote');
+        if (todayReservations === 0) {
+            todayCountEl?.classList.add('hidden');
+            todayNoteEl?.classList.remove('hidden');
+        } else {
+            if (todayCountEl) {
+                todayCountEl.classList.remove('hidden');
+                todayCountEl.textContent = todayReservations;
+            }
+            todayNoteEl?.classList.add('hidden');
+        }
+
+        const pending = active.filter(r => (r.pricing?.depositAmount || 0) > 0 && !r.depositPaid);
+        const pendingTotal = pending.reduce((sum, r) => sum + (r.pricing?.depositAmount || 0), 0);
+        const pendingTotalEl = document.getElementById('pendingDepositsTotal');
+        const pendingNoteEl = document.getElementById('pendingDepositsNote');
+        if (pending.length === 0) {
+            pendingTotalEl?.classList.add('hidden');
+            pendingNoteEl?.classList.remove('hidden');
+        } else {
+            if (pendingTotalEl) {
+                pendingTotalEl.classList.remove('hidden');
+                pendingTotalEl.textContent = `$${pendingTotal.toFixed(2)}`;
+            }
+            pendingNoteEl?.classList.add('hidden');
+        }
 
         // Update recent reservations
         this.updateRecentReservations();
@@ -4911,15 +4954,34 @@ class ReservationManager {
             const year = eventDate.getFullYear();
             const formattedDate = `${month}/${day}/${year}`;
             return `
-            <div class="upcoming-item upcoming-item--action" data-reservation-id="${esc(reservation.id)}" role="button" tabindex="0" title="Editar reservación">
+            <div class="upcoming-item upcoming-item--action" data-reservation-id="${esc(reservation.id)}" role="button" tabindex="0" title="Ver detalles">
                 <div class="upcoming-item-info">
                     <strong>${esc(reservation.clientName)}</strong>
-                    <span>${formattedDate} · ${this.formatTime12Hour(reservation.eventTime)}</span>
+                    <span>${formattedDate} · ${this.formatTime12Hour(reservation.eventTime)} · ${esc(this.getRoomDisplayName(reservation.roomType))}</span>
                 </div>
-                <div class="upcoming-item-room">${esc(this.getRoomDisplayName(reservation.roomType))}</div>
+                ${(() => {
+                    const status = this.getDepositStatusLabel(reservation);
+                    return `<span class="deposit-status-toggle dashboard-pay-badge ${status.tone}">${esc(status.text)}</span>`;
+                })()}
             </div>
             `;
         }).join('');
+    }
+
+    getDepositStatusLabel(reservation) {
+        const deposit = reservation.pricing?.depositAmount || 0;
+        if (deposit <= 0) return { text: 'Sin depósito', tone: 'none' };
+        if (reservation.depositPaid || this.calculateRemainingBalance(reservation) <= 0.01) {
+            return { text: 'Pagado', tone: 'paid' };
+        }
+        return { text: 'No pagado', tone: 'unpaid' };
+    }
+
+    async openPendingDeposits() {
+        const depositFilter = document.getElementById('reservationFilterDeposit');
+        if (depositFilter) depositFilter.value = 'unpaid';
+        this.reservationsListView = 'upcoming';
+        await this.showSection('reservations');
     }
 
     // Open today's events modal
@@ -5824,7 +5886,7 @@ class ReservationManager {
                     hay,
                     tabMatch: 'buffet',
                     html: `<div class="menu-master-row" data-master-type="buffet" data-buffet-key="${this.escapeMenuConfigHtml(key)}" data-master-id="${this.escapeMenuConfigHtml(item.id)}">
-                        <span class="menu-master-badge">Buffet</span>
+                        <span class="menu-master-badge menu-master-badge--buffet">Buffet</span>
                         <div class="menu-master-info">
                             <span class="menu-master-title">${this.escapeMenuConfigHtml(title)}</span>
                             <span class="menu-master-sub">${this.escapeMenuConfigHtml(label)}</span>
@@ -5844,7 +5906,7 @@ class ReservationManager {
                 hay,
                 tabMatch: 'beverages',
                 html: `<div class="menu-master-row" data-master-type="beverage" data-master-id="${this.escapeMenuConfigHtml(b.id)}">
-                    <span class="menu-master-badge">Bebida</span>
+                    <span class="menu-master-badge menu-master-badge--beverages">Bebida</span>
                     <div class="menu-master-info">
                         <span class="menu-master-title">${this.escapeMenuConfigHtml(title)}</span>
                         <span class="menu-master-sub">${this.escapeMenuConfigHtml(cat)} — $${(Number(b.price) || 0).toFixed(2)}</span>
@@ -5861,7 +5923,7 @@ class ReservationManager {
                 hay,
                 tabMatch: 'plates',
                 html: `<div class="menu-master-row" data-master-type="plate" data-master-id="${this.escapeMenuConfigHtml(plate.id)}">
-                    <span class="menu-master-badge">Plato</span>
+                    <span class="menu-master-badge menu-master-badge--plates">Plato</span>
                     <div class="menu-master-info">
                         <span class="menu-master-title">${this.escapeMenuConfigHtml(title)}</span>
                         <span class="menu-master-sub">$${(Number(plate.price) || 0).toFixed(2)}</span>
@@ -5881,7 +5943,7 @@ class ReservationManager {
                     hay,
                     tabMatch: category,
                     html: `<div class="menu-master-row" data-master-type="simple" data-simple-category="${category}" data-master-id="${this.escapeMenuConfigHtml(item.id)}">
-                        <span class="menu-master-badge">${this.escapeMenuConfigHtml(badge)}</span>
+                        <span class="menu-master-badge menu-master-badge--${category}">${this.escapeMenuConfigHtml(badge)}</span>
                         <div class="menu-master-info">
                             <span class="menu-master-title">${this.escapeMenuConfigHtml(title)}</span>
                             <span class="menu-master-sub">$${price.toFixed(2)}</span>

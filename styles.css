@@ -414,6 +414,15 @@ textarea:focus-visible,
     transition: color 0.3s ease;
 }
 
+.dashboard-header {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+}
+
+.dashboard-header h1 {
+    font-size: 1.6rem;
+}
+
 .header-actions {
     display: flex;
     gap: 15px;
@@ -2694,6 +2703,83 @@ button.reservation-client--link:hover {
     box-shadow: 0 4px 12px var(--shadow-hover);
 }
 
+.stats-grid--focus {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 14px;
+}
+
+.stats-grid--compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+}
+
+.stat-card--focus {
+    border-left: 4px solid #F27B21;
+    padding: 22px 24px;
+}
+
+#pendingDepositsCard {
+    border-left-color: #e53e3e;
+}
+
+.stat-icon--alert {
+    background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
+}
+
+.stat-card--compact {
+    padding: 12px 14px;
+}
+
+.stat-card--compact:hover {
+    transform: none;
+    box-shadow: 0 4px 20px var(--shadow);
+}
+
+.stat-card--compact .stat-icon {
+    width: 40px;
+    height: 40px;
+    margin-right: 12px;
+    border-radius: 10px;
+}
+
+.stat-card--compact .stat-icon i {
+    font-size: 1rem;
+}
+
+.stat-card--compact .stat-content h3 {
+    font-size: 1.25rem;
+    margin-bottom: 0;
+}
+
+.stat-card--compact .stat-content p {
+    font-size: 0.8rem;
+}
+
+.stat-note {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.dashboard-pay-badge {
+    margin-left: 0;
+    cursor: default;
+    flex-shrink: 0;
+    pointer-events: none;
+}
+
+.dashboard-pay-badge.none {
+    background: transparent;
+    color: var(--text-muted);
+    border-color: var(--border-color);
+}
+
+.dashboard-pay-badge:hover {
+    transform: none;
+}
+
 /* Animations */
 @keyframes fadeIn {
     from {
@@ -2814,6 +2900,15 @@ button.reservation-client--link:hover {
     
     .section-header h1 {
         font-size: 2rem;
+    }
+
+    .dashboard-header h1 {
+        font-size: 1.45rem;
+    }
+
+    .stats-grid--focus,
+    .stats-grid--compact {
+        grid-template-columns: 1fr;
     }
     
     .form-container {
@@ -3402,6 +3497,103 @@ button.reservation-client--link:hover {
     color: #F27B21;
 }
 
+.menu-config-choice-card[data-menu-tab="buffet"]:not(.active) {
+    border-color: rgba(242, 123, 33, 0.55);
+}
+.menu-config-choice-card[data-menu-tab="buffet"]:not(.active) .choice-card-icon,
+.menu-config-choice-card[data-menu-tab="buffet"]:not(.active) .choice-card-title {
+    color: #F27B21;
+}
+.menu-config-choice-card[data-menu-tab="buffet"]:not(.active) .choice-card-icon {
+    background: rgba(242, 123, 33, 0.16);
+}
+.menu-config-choice-card[data-menu-tab="buffet"].active {
+    background: #F27B21;
+    border-color: #F27B21;
+}
+
+.menu-config-choice-card[data-menu-tab="beverages"]:not(.active) {
+    border-color: rgba(59, 130, 246, 0.55);
+}
+.menu-config-choice-card[data-menu-tab="beverages"]:not(.active) .choice-card-icon,
+.menu-config-choice-card[data-menu-tab="beverages"]:not(.active) .choice-card-title {
+    color: #60a5fa;
+}
+.menu-config-choice-card[data-menu-tab="beverages"]:not(.active) .choice-card-icon {
+    background: rgba(59, 130, 246, 0.16);
+}
+.menu-config-choice-card[data-menu-tab="beverages"].active {
+    background: #2563eb;
+    border-color: #2563eb;
+}
+
+.menu-config-choice-card[data-menu-tab="plates"]:not(.active) {
+    border-color: rgba(234, 179, 8, 0.6);
+}
+.menu-config-choice-card[data-menu-tab="plates"]:not(.active) .choice-card-icon,
+.menu-config-choice-card[data-menu-tab="plates"]:not(.active) .choice-card-title {
+    color: #facc15;
+}
+.menu-config-choice-card[data-menu-tab="plates"]:not(.active) .choice-card-icon {
+    background: rgba(234, 179, 8, 0.16);
+}
+.menu-config-choice-card[data-menu-tab="plates"].active {
+    background: #ca8a04;
+    border-color: #ca8a04;
+}
+
+.menu-config-choice-card[data-menu-tab="postres"]:not(.active) {
+    border-color: rgba(236, 72, 153, 0.55);
+}
+.menu-config-choice-card[data-menu-tab="postres"]:not(.active) .choice-card-icon,
+.menu-config-choice-card[data-menu-tab="postres"]:not(.active) .choice-card-title {
+    color: #f472b6;
+}
+.menu-config-choice-card[data-menu-tab="postres"]:not(.active) .choice-card-icon {
+    background: rgba(236, 72, 153, 0.16);
+}
+.menu-config-choice-card[data-menu-tab="postres"].active {
+    background: #db2777;
+    border-color: #db2777;
+}
+
+.menu-config-choice-card[data-menu-tab="entremeses"]:not(.active) {
+    border-color: rgba(34, 197, 94, 0.55);
+}
+.menu-config-choice-card[data-menu-tab="entremeses"]:not(.active) .choice-card-icon,
+.menu-config-choice-card[data-menu-tab="entremeses"]:not(.active) .choice-card-title {
+    color: #4ade80;
+}
+.menu-config-choice-card[data-menu-tab="entremeses"]:not(.active) .choice-card-icon {
+    background: rgba(34, 197, 94, 0.16);
+}
+.menu-config-choice-card[data-menu-tab="entremeses"].active {
+    background: #16a34a;
+    border-color: #16a34a;
+}
+
+.menu-config-choice-card[data-menu-tab="desayuno"]:not(.active) {
+    border-color: rgba(180, 83, 9, 0.6);
+}
+.menu-config-choice-card[data-menu-tab="desayuno"]:not(.active) .choice-card-icon,
+.menu-config-choice-card[data-menu-tab="desayuno"]:not(.active) .choice-card-title {
+    color: #fdba74;
+}
+.menu-config-choice-card[data-menu-tab="desayuno"]:not(.active) .choice-card-icon {
+    background: rgba(180, 83, 9, 0.2);
+}
+.menu-config-choice-card[data-menu-tab="desayuno"].active {
+    background: #c2410c;
+    border-color: #c2410c;
+}
+
+.menu-config-choice-card[data-menu-tab].active,
+.menu-config-choice-card[data-menu-tab].active .choice-card-title,
+.menu-config-choice-card[data-menu-tab].active .choice-card-desc,
+.menu-config-choice-card[data-menu-tab].active .choice-card-icon {
+    color: #fff;
+}
+
 .choice-card-title {
     display: block;
     font-size: 1.05rem;
@@ -3480,6 +3672,13 @@ button.reservation-client--link:hover {
     white-space: nowrap;
     flex-shrink: 0;
 }
+
+.menu-master-badge--buffet { background: #F27B21; }
+.menu-master-badge--beverages { background: #2563eb; }
+.menu-master-badge--plates { background: #ca8a04; }
+.menu-master-badge--postres { background: #db2777; }
+.menu-master-badge--entremeses { background: #16a34a; }
+.menu-master-badge--desayuno { background: #c2410c; }
 
 .menu-master-info {
     flex: 1;

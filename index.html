@@ -7,7 +7,7 @@
     <meta name="description" content="Sistema interno de reservaciones de La Antesala">
     <title>Antesala Reservaciones - Sistema de Reservación de Espacios</title>
     <!-- Updated: Added Desayuno Continental option and improved dropdown styling -->
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=menu-colors-1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -107,17 +107,35 @@
             <div id="syncStatusBanner" class="sync-status-banner hidden" role="status" aria-live="polite">Sincronizando con la nube…</div>
             <!-- Dashboard Section -->
             <section id="dashboard" class="content-section active">
-                <div class="section-header">
-                    <h1>Resumen del Panel</h1>
-                    <div class="header-actions">
-                        <button class="btn btn-primary" onclick="showSection('new-reservation')">
-                            <i class="fas fa-plus"></i> Nueva Reservación
-                        </button>
+                <div class="section-header dashboard-header">
+                    <h1>Panel</h1>
+                </div>
+
+                <div class="stats-grid stats-grid--focus">
+                    <div class="stat-card stat-card--focus clickable" id="todayReservationsCard" role="button" tabindex="0" title="Ver eventos de hoy">
+                        <div class="stat-icon">
+                            <i class="fas fa-calendar-day"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="todayReservations">0</h3>
+                            <p id="todayReservationsNote" class="stat-note hidden">Nada programado para hoy</p>
+                            <p>Eventos de Hoy</p>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-card--focus clickable" id="pendingDepositsCard" role="button" tabindex="0" title="Ver depósitos pendientes">
+                        <div class="stat-icon stat-icon--alert">
+                            <i class="fas fa-hand-holding-usd"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="pendingDepositsTotal">$0.00</h3>
+                            <p id="pendingDepositsNote" class="stat-note hidden">No hay depósitos pendientes</p>
+                            <p>Depósitos pendientes</p>
+                        </div>
                     </div>
                 </div>
 
-                <div class="stats-grid">
-                    <div class="stat-card">
+                <div class="stats-grid stats-grid--compact">
+                    <div class="stat-card stat-card--compact">
                         <div class="stat-icon">
                             <i class="fas fa-calendar-check"></i>
                         </div>
@@ -126,7 +144,7 @@
                             <p>Total de Reservaciones</p>
                         </div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card stat-card--compact">
                         <div class="stat-icon">
                             <i class="fas fa-dollar-sign"></i>
                         </div>
@@ -135,22 +153,13 @@
                             <p>Ingresos Totales</p>
                         </div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card stat-card--compact">
                         <div class="stat-icon">
                             <i class="fas fa-users"></i>
                         </div>
                         <div class="stat-content">
                             <h3 id="totalGuests">0</h3>
                             <p>Total de Invitados</p>
-                        </div>
-                    </div>
-                    <div class="stat-card clickable" id="todayReservationsCard" style="cursor: pointer;">
-                        <div class="stat-icon">
-                            <i class="fas fa-calendar-day"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3 id="todayReservations">0</h3>
-                            <p>Eventos de Hoy</p>
                         </div>
                     </div>
                 </div>
@@ -1999,6 +2008,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=invoice-whatsapp-2"></script>
+    <script src="script.js?v=menu-colors-1"></script>
 </body>
 </html>
