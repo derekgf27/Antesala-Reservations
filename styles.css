@@ -1890,6 +1890,18 @@ textarea:focus-visible,
     background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
 }
 
+.btn-whatsapp {
+    background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
+}
+
+.btn-whatsapp:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(37, 211, 102, 0.4);
+    background: linear-gradient(135deg, #1ebe5d 0%, #0e7a6d 100%);
+}
+
 .btn-export {
     background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
     color: white;

@@ -7328,8 +7328,8 @@ class ReservationManager {
                         <button type="button" class="btn btn-small btn-primary" onclick="reservationManager.editReservation('${rid}')">
                             Editar
                         </button>
-                        <button type="button" class="btn btn-small btn-export" onclick="exportReservationInvoice('${rid}')">
-                            <i class="fas fa-file-invoice"></i> Exportar
+                        <button type="button" class="btn btn-small btn-whatsapp" onclick="exportReservationInvoice('${rid}', { whatsapp: true })">
+                            <i class="fab fa-whatsapp"></i> Enviar
                         </button>
                     </div>
                     <details class="reservation-more-menu">
@@ -8131,7 +8131,7 @@ class ReservationManager {
     }
 
     // Export reservation as invoice
-    async exportReservationInvoice(id) {
+    async exportReservationInvoice(id, options = {}) {
         appDebug('Export invoice called with ID:', id);
         try {
             try {
@@ -9026,15 +9026,72 @@ Hay varios métodos de pago disponibles. Todo pago que sea cobrado en el termina
         doc.line(20, termsYPos - 10, 120, termsYPos - 10); // Date line on left
         doc.text('Fecha', 20, termsYPos);
 
-        // Save PDF
-        const fileName = `Invoice-${invoiceNumber}-${reservation.clientName.replace(/\s+/g, '-')}.pdf`;
-        doc.save(fileName);
-        
-        this.showNotification('¡Factura exportada exitosamente como PDF!', 'success');
+        const safeName = String(reservation.clientName || 'cliente')
+            .replace(/[^\w\-]+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '') || 'cliente';
+        const fileName = `Invoice-${invoiceNumber}-${safeName}.pdf`;
+        const blob = doc.output('blob');
+        this.downloadBlob(blob, fileName);
+
+        if (options.whatsapp) {
+            await this.sendInvoicePdfViaWhatsApp(blob, fileName, reservation);
+        } else {
+            this.showNotification('¡Factura exportada exitosamente como PDF!', 'success');
+        }
         } catch (error) {
             console.error('Error exporting invoice:', error);
             this.showNotification(`Error al exportar factura: ${error.message}. Por favor, verifica la consola del navegador para más detalles.`, 'error');
         }
+    }
+
+    downloadBlob(blob, fileName) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }
+
+    invoiceWhatsAppMessage(reservation) {
+        const name = reservation.clientName || 'cliente';
+        const date = this.normalizeEventDate(reservation.eventDate);
+        const invoice = reservation.invoiceNumber ? ` ${reservation.invoiceNumber}` : '';
+        return `Hola ${name}, le enviamos la factura${invoice} de La Antesala${date ? ` para su reservación del ${date}` : ''}.`;
+    }
+
+    async sendInvoicePdfViaWhatsApp(blob, fileName, reservation) {
+        const text = this.invoiceWhatsAppMessage(reservation);
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+        const shareData = { files: [file], title: fileName, text };
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share(shareData);
+                this.showNotification('PDF descargado. Elija WhatsApp para enviar la factura.', 'success', 5000);
+                return;
+            } catch (err) {
+                if (err && err.name === 'AbortError') {
+                    this.showNotification('PDF descargado. El envío por WhatsApp se canceló.', 'info', 4000);
+                    return;
+                }
+            }
+        }
+
+        const wa = this.getWhatsAppUrl(reservation.clientPhone, text);
+        if (!wa) {
+            this.showNotification('PDF descargado. Agregue un teléfono del cliente para abrir WhatsApp.', 'error', 6000);
+            return;
+        }
+        window.open(wa, '_blank', 'noopener,noreferrer');
+        this.showNotification(
+            'PDF descargado. En computadora, adjunte ese archivo en el chat de WhatsApp que se abrió.',
+            'success',
+            7000
+        );
     }
 
     getWhatsAppUrl(phone, message = '') {
@@ -9059,7 +9116,7 @@ Hay varios métodos de pago disponibles. Todo pago que sea cobrado en el termina
         const name = reservation.clientName || 'cliente';
         const date = this.normalizeEventDate(reservation.eventDate);
         const msg = `Hola ${name}, le escribimos de La Antesala sobre su reservación${date ? ` del ${date}` : ''}.`;
-        const wa = this.getWhatsAppUrl(reservation.clientPhone, msg);
+        const rid = esc(reservation.id);
         const mail = this.getMailtoUrl(
             reservation.clientEmail,
             `Reservación La Antesala${date ? ` — ${date}` : ''}`,
@@ -9067,11 +9124,12 @@ Hay varios métodos de pago disponibles. Todo pago que sea cobrado en el termina
         );
         const menuClass = options.menu ? ' reservation-more-item' : '';
         const buttons = [];
-        if (wa) {
-            buttons.push(`<a class="btn btn-small btn-outline${menuClass}" href="${esc(wa)}" target="_blank" rel="noopener noreferrer" title="WhatsApp">
-                <i class="fab fa-whatsapp"></i> WhatsApp
-            </a>`);
-        }
+        buttons.push(`<button type="button" class="btn btn-small btn-whatsapp${menuClass}" onclick="exportReservationInvoice('${rid}', { whatsapp: true })" title="Descargar la factura y enviarla por WhatsApp">
+                <i class="fab fa-whatsapp"></i> Enviar factura
+            </button>`);
+        buttons.push(`<button type="button" class="btn btn-small btn-export${menuClass}" onclick="exportReservationInvoice('${rid}')" title="Solo descargar el PDF">
+                <i class="fas fa-file-invoice"></i> Solo PDF
+            </button>`);
         if (mail) {
             buttons.push(`<a class="btn btn-small btn-outline${menuClass}" href="${esc(mail)}" title="Correo">
                 <i class="fas fa-envelope"></i> Correo
@@ -9443,7 +9501,7 @@ function nextMonth() {
     }
 }
 
-async function exportReservationInvoice(id) {
+async function exportReservationInvoice(id, options) {
     appDebug('Export button clicked, ID:', id);
     
     if (!reservationManager) {
@@ -9464,5 +9522,5 @@ async function exportReservationInvoice(id) {
         return;
     }
     
-    reservationManager.exportReservationInvoice(id);
+    reservationManager.exportReservationInvoice(id, options);
 }
