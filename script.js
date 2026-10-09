@@ -1001,6 +1001,7 @@ class ReservationManager {
             e.preventDefault();
             void this.openPendingDeposits();
         });
+        document.getElementById('analyticsPendingCard')?.addEventListener('click', () => this.openPendingDeposits());
         todayEventsCloseBtn?.addEventListener('click', () => this.closeTodayEventsModal());
         todayEventsCloseBtn2?.addEventListener('click', () => this.closeTodayEventsModal());
         
@@ -5187,9 +5188,25 @@ class ReservationManager {
 
     // Update analytics
     updateAnalytics() {
+        const active = this.getActiveReservations();
+        const ym = this.getTodayDateString().slice(0, 7);
+        const thisMonth = active.filter(r => this.normalizeEventDate(r.eventDate).startsWith(ym));
+        const monthRevenue = thisMonth.reduce((sum, r) => sum + (r.pricing?.totalCost || 0), 0);
+        const pending = active.filter(r => (r.pricing?.depositAmount || 0) > 0 && !r.depositPaid);
+        const pendingTotal = pending.reduce((sum, r) => sum + (r.pricing?.depositAmount || 0), 0);
+        const guests = active.reduce((sum, r) => sum + (Number(r.guestCount) || 0), 0);
+        const setText = (id, text) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = text;
+        };
+        setText('analyticsMonthRevenue', `$${monthRevenue.toFixed(2)}`);
+        setText('analyticsPendingTotal', `$${pendingTotal.toFixed(2)}`);
+        setText('analyticsPendingCount', pending.length === 0
+            ? 'Nada por cobrar'
+            : `${pending.length} depósito${pending.length === 1 ? '' : 's'}`);
+        setText('analyticsMonthEvents', String(thisMonth.length));
+        setText('analyticsAvgGuests', active.length ? (guests / active.length).toFixed(1) : '0');
         this.updateRevenueByMonthTable();
-        this.updateRoomStats();
-        this.updateGuestStats();
         this.updatePendingDepositsStats();
         this.updateRoomUtilizationStats();
     }
@@ -5202,7 +5219,6 @@ class ReservationManager {
             const deposit = r.pricing?.depositAmount || 0;
             return deposit > 0 && !r.depositPaid;
         });
-        const totalPending = pending.reduce((sum, r) => sum + (r.pricing?.depositAmount || 0), 0);
         const esc = (s) => this.escapeHtml(s);
 
         if (pending.length === 0) {
@@ -5210,28 +5226,19 @@ class ReservationManager {
             return;
         }
 
-        const list = pending
+        container.innerHTML = pending
             .sort((a, b) => this.compareEventDates(a.eventDate, b.eventDate))
-            .slice(0, 8)
             .map(r => {
                 const date = this.parseEventDateLocal(r.eventDate);
                 const formatted = Number.isNaN(date.getTime())
                     ? '—'
                     : `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}/${date.getFullYear()}`;
-                return `<div class="stat-item">
+                return `<button type="button" class="analytics-pending-row" onclick="reservationManager.showReservationDetails('${esc(r.id)}')">
                     <span>${esc(r.clientName)} · ${formatted}</span>
                     <strong>$${(r.pricing?.depositAmount || 0).toFixed(2)}</strong>
-                </div>`;
+                </button>`;
             })
             .join('');
-
-        container.innerHTML = `
-            <div class="stats-details" style="margin-bottom:12px;">
-                <div><strong>${pending.length}</strong> depósito${pending.length === 1 ? '' : 's'} pendiente${pending.length === 1 ? '' : 's'}</div>
-                <div>Total por cobrar: <strong>$${totalPending.toFixed(2)}</strong></div>
-            </div>
-            ${list}
-        `;
     }
 
     updateRoomUtilizationStats() {
@@ -5255,21 +5262,28 @@ class ReservationManager {
         const monthLabel = new Date(y, m - 1, 1).toLocaleDateString('es', { month: 'long', year: 'numeric' });
         const title = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
-        if (thisMonth.length === 0) {
-            container.innerHTML = `<p class="analytics-empty">No hay eventos en ${this.escapeHtml(title)}.</p>`;
-            return;
-        }
-
+        const allCounts = { 'grand-hall': 0, 'intimate-room': 0, 'outdoor-terrace': 0 };
+        this.getActiveReservations().forEach(r => {
+            if (allCounts.hasOwnProperty(r.roomType)) allCounts[r.roomType]++;
+        });
+        const maxCount = Math.max(...Object.values(counts), 1);
+        const salonClass = {
+            'grand-hall': 'salon-1',
+            'intimate-room': 'salon-2',
+            'outdoor-terrace': 'salon-3'
+        };
         container.innerHTML = `
-            <p style="margin-bottom:10px;color:var(--text-muted);font-size:0.9rem;">${this.escapeHtml(title)} · ${thisMonth.length} evento${thisMonth.length === 1 ? '' : 's'}</p>
-            ${Object.entries(counts)
-                .sort(([, a], [, b]) => b - a)
-                .map(([room, count]) => `
-                    <div class="stat-item">
-                        <span>${this.escapeHtml(roomNames[room] || room)}</span>
-                        <strong>${count} ${count === 1 ? 'evento' : 'eventos'}</strong>
+            <p class="analytics-card-note">${this.escapeHtml(title)} · ${thisMonth.length} evento${thisMonth.length === 1 ? '' : 's'}</p>
+            ${Object.keys(counts).map(room => `
+                <div class="analytics-bar-row">
+                    <span class="analytics-bar-label">${this.escapeHtml(roomNames[room] || room)}</span>
+                    <div class="analytics-bar-track" aria-hidden="true">
+                        <span class="analytics-bar-fill analytics-bar-fill--${salonClass[room] || 'salon-1'}" style="width:${Math.round((counts[room] / maxCount) * 100)}%"></span>
                     </div>
-                `).join('')}
+                    <strong>${counts[room]} <span class="analytics-bar-all">/ ${allCounts[room] || 0}</span></strong>
+                </div>
+            `).join('')}
+            <p class="analytics-card-note">La barra es este mes. El número después de / es el total.</p>
         `;
     }
 
@@ -5288,29 +5302,32 @@ class ReservationManager {
             el.innerHTML = '<p class="analytics-empty">No hay datos de ingresos por mes todavía.</p>';
             return;
         }
-        const monthLabel = (ym) => {
+        const recent = rows.slice(-8);
+        const max = Math.max(...recent.map(([, total]) => total), 1);
+        const shortMonth = (ym) => {
             const [y, m] = ym.split('-').map(Number);
-            const d = new Date(y, m - 1, 1);
-            const s = d.toLocaleDateString('es', { month: 'long', year: 'numeric' });
+            const s = new Date(y, m - 1, 1).toLocaleDateString('es', { month: 'short', year: 'numeric' });
             return s.charAt(0).toUpperCase() + s.slice(1);
         };
         el.innerHTML = `
-            <table class="analytics-revenue-table">
-                <thead><tr><th>Mes</th><th>Ingresos</th></tr></thead>
-                <tbody>
-                    ${rows
-                        .map(
-                            ([ym, total]) =>
-                                `<tr><td>${monthLabel(ym)}</td><td>$${total.toFixed(2)}</td></tr>`
-                        )
-                        .join('')}
-                </tbody>
-            </table>`;
+            <div class="analytics-bars">
+                ${recent.map(([ym, total]) => `
+                    <div class="analytics-bar-row">
+                        <span class="analytics-bar-label">${shortMonth(ym)}</span>
+                        <div class="analytics-bar-track" aria-hidden="true">
+                            <span class="analytics-bar-fill" style="width:${Math.max(4, Math.round((total / max) * 100))}%"></span>
+                        </div>
+                        <strong>$${total.toFixed(2)}</strong>
+                    </div>
+                `).join('')}
+            </div>
+            ${rows.length > recent.length ? `<p class="analytics-card-note">Últimos ${recent.length} meses con ingresos. El historial completo tiene ${rows.length}.</p>` : ''}`;
     }
 
     // Update room statistics
     updateRoomStats() {
         const container = document.getElementById('roomStats');
+        if (!container) return;
         const roomCounts = {};
         
         this.getActiveReservations().forEach(res => {
@@ -5341,6 +5358,7 @@ class ReservationManager {
     // Update guest statistics
     updateGuestStats() {
         const container = document.getElementById('guestStats');
+        if (!container) return;
         const active = this.getActiveReservations();
         const totalGuests = active.reduce((sum, res) => sum + res.guestCount, 0);
         const avgGuests = active.length > 0 ? totalGuests / active.length : 0;

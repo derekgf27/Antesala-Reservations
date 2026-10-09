@@ -2606,6 +2606,67 @@ button.reservation-client--link:hover {
 }
 
 /* Analytics Styles */
+.analytics-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.analytics-kpi {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    text-align: left;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: inherit;
+    font: inherit;
+    box-shadow: 0 4px 20px var(--shadow);
+}
+
+button.analytics-kpi {
+    cursor: pointer;
+    width: 100%;
+}
+
+button.analytics-kpi:hover {
+    border-color: #e53e3e;
+}
+
+.analytics-kpi strong {
+    font-size: 1.45rem;
+    line-height: 1.15;
+    color: var(--text-secondary);
+}
+
+.analytics-kpi-label,
+.analytics-kpi-sub {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.analytics-kpi--alert {
+    border-left: 4px solid #e53e3e;
+}
+
+.analytics-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.analytics-side {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
 .analytics-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -3927,6 +3988,93 @@ button.reservation-client--link:hover {
     margin: 0;
     color: var(--text-muted, #888);
     font-size: 0.95rem;
+}
+
+.analytics-card-note {
+    margin: 0 0 12px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.analytics-card-note:last-child {
+    margin: 12px 0 0;
+}
+
+.analytics-bar-row {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.analytics-bar-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.analytics-bar-track {
+    height: 10px;
+    background: var(--bg-tertiary);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.analytics-bar-fill {
+    display: block;
+    height: 100%;
+    min-width: 0;
+    background: #F27B21;
+    border-radius: 99px;
+}
+
+.analytics-bar-fill--salon-1 { background: #F27B21; }
+.analytics-bar-fill--salon-2 { background: #2563eb; }
+.analytics-bar-fill--salon-3 { background: #16a34a; }
+
+.analytics-bar-all {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.analytics-pending-list {
+    max-height: 420px;
+    overflow: auto;
+}
+
+.analytics-pending-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 0;
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.analytics-pending-row:hover {
+    color: #F27B21;
+}
+
+.analytics-pending-row strong {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+}
+
+@media (max-width: 900px) {
+    .analytics-kpis,
+    .analytics-layout {
+        grid-template-columns: 1fr;
+    }
 }
 
 .today-event-item .today-event-head {

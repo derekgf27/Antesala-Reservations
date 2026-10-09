@@ -7,7 +7,7 @@
     <meta name="description" content="Sistema interno de reservaciones de La Antesala">
     <title>Antesala Reservaciones - Sistema de Reservación de Espacios</title>
     <!-- Updated: Added Desayuno Continental option and improved dropdown styling -->
-    <link rel="stylesheet" href="styles.css?v=calendar-ui-4">
+    <link rel="stylesheet" href="styles.css?v=analytics-ui-1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -613,38 +613,41 @@
 
             <!-- Analytics Section -->
             <section id="analytics" class="content-section">
-                <div class="section-header">
-                    <h1>Análisis e Informes</h1>
+                <div class="section-header dashboard-header">
+                    <h1>Análisis</h1>
                 </div>
-                <div class="analytics-grid">
-                    <div class="analytics-card">
-                        <h3>Ingresos por Mes</h3>
-                        <div id="revenueChart" class="chart-placeholder">
-                            <p>El gráfico de ingresos se mostrará aquí</p>
-                        </div>
+                <div class="analytics-kpis">
+                    <div class="analytics-kpi">
+                        <span class="analytics-kpi-label">Ingresos este mes</span>
+                        <strong id="analyticsMonthRevenue">$0.00</strong>
                     </div>
-                    <div class="analytics-card">
-                        <h3>Depósitos pendientes</h3>
-                        <div id="pendingDepositsStats" class="stats-list">
-                            <!-- Pending deposits -->
-                        </div>
+                    <button type="button" class="analytics-kpi analytics-kpi--alert" id="analyticsPendingCard" title="Ver depósitos pendientes">
+                        <span class="analytics-kpi-label">Por cobrar</span>
+                        <strong id="analyticsPendingTotal">$0.00</strong>
+                        <span id="analyticsPendingCount" class="analytics-kpi-sub">Sin depósitos pendientes</span>
+                    </button>
+                    <div class="analytics-kpi">
+                        <span class="analytics-kpi-label">Eventos este mes</span>
+                        <strong id="analyticsMonthEvents">0</strong>
                     </div>
-                    <div class="analytics-card">
-                        <h3>Uso de salones este mes</h3>
-                        <div id="roomUtilizationStats" class="stats-list">
-                            <!-- Room utilization -->
-                        </div>
+                    <div class="analytics-kpi">
+                        <span class="analytics-kpi-label">Invitados promedio</span>
+                        <strong id="analyticsAvgGuests">0</strong>
                     </div>
+                </div>
+                <div class="analytics-layout">
                     <div class="analytics-card">
-                        <h3>Espacios Populares</h3>
-                        <div id="roomStats" class="stats-list">
-                            <!-- Room statistics -->
-                        </div>
+                        <h3>Ingresos por mes</h3>
+                        <div id="revenueChart"></div>
                     </div>
-                    <div class="analytics-card">
-                        <h3>Tamaño Promedio de Eventos</h3>
-                        <div id="guestStats" class="stats-display">
-                            <!-- Guest statistics will be populated here -->
+                    <div class="analytics-side">
+                        <div class="analytics-card">
+                            <h3>Depósitos pendientes</h3>
+                            <div id="pendingDepositsStats" class="analytics-pending-list"></div>
+                        </div>
+                        <div class="analytics-card">
+                            <h3>Salones</h3>
+                            <div id="roomUtilizationStats"></div>
                         </div>
                     </div>
                 </div>
@@ -2008,6 +2011,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=calendar-ui-3"></script>
+    <script src="script.js?v=analytics-ui-1"></script>
 </body>
 </html>
