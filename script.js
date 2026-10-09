@@ -9124,9 +9124,6 @@ Hay varios métodos de pago disponibles. Todo pago que sea cobrado en el termina
         );
         const menuClass = options.menu ? ' reservation-more-item' : '';
         const buttons = [];
-        buttons.push(`<button type="button" class="btn btn-small btn-whatsapp${menuClass}" onclick="exportReservationInvoice('${rid}', { whatsapp: true })" title="Descargar la factura y enviarla por WhatsApp">
-                <i class="fab fa-whatsapp"></i> Enviar factura
-            </button>`);
         buttons.push(`<button type="button" class="btn btn-small btn-export${menuClass}" onclick="exportReservationInvoice('${rid}')" title="Solo descargar el PDF">
                 <i class="fas fa-file-invoice"></i> Solo PDF
             </button>`);
