@@ -4988,9 +4988,26 @@ class ReservationManager {
     openTodayEventsModal() {
         const modal = document.getElementById('todayEventsModal');
         if (!modal) return;
-        
-        // Populate the modal with today's events
-        this.populateTodayEventsModal();
+        const title = document.getElementById('todayEventsTitle');
+        if (title) title.textContent = 'Eventos de Hoy';
+        this.populateDayEvents(this.getTodayDateString(), 'No hay eventos programados para hoy');
+        this.openOverlayWithFocusTrap(modal);
+    }
+
+    openDayEvents(dateStr, clickEvent) {
+        if (clickEvent) {
+            clickEvent.preventDefault();
+            clickEvent.stopPropagation();
+        }
+        const modal = document.getElementById('todayEventsModal');
+        if (!modal) return;
+        const title = document.getElementById('todayEventsTitle');
+        const date = this.parseEventDateLocal(dateStr);
+        if (title && !Number.isNaN(date.getTime())) {
+            const label = date.toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
+            title.textContent = label.charAt(0).toUpperCase() + label.slice(1);
+        }
+        this.populateDayEvents(dateStr, 'No hay eventos en este día');
         this.openOverlayWithFocusTrap(modal);
     }
 
@@ -5002,12 +5019,15 @@ class ReservationManager {
 
     // Populate today's events modal
     populateTodayEventsModal() {
+        this.populateDayEvents(this.getTodayDateString(), 'No hay eventos programados para hoy');
+    }
+
+    populateDayEvents(dateStr, emptyMessage) {
         const container = document.getElementById('todayEventsList');
         if (!container) return;
-        
-        const today = this.getTodayDateString();
+
         const todayEvents = this.getActiveReservations()
-            .filter(res => this.normalizeEventDate(res.eventDate) === today)
+            .filter(res => this.normalizeEventDate(res.eventDate) === this.normalizeEventDate(dateStr))
             .sort((a, b) => {
                 // Sort by time
                 const timeA = this.eventTimeToMinutes(a.eventTime);
@@ -5016,7 +5036,7 @@ class ReservationManager {
             });
 
         if (todayEvents.length === 0) {
-            container.innerHTML = '<p class="empty-state today-events-empty">No hay eventos programados para hoy</p>';
+            container.innerHTML = `<p class="empty-state today-events-empty">${this.escapeHtml(emptyMessage)}</p>`;
             return;
         }
 
@@ -5029,7 +5049,7 @@ class ReservationManager {
             const formattedDate = `${month}/${day}/${year}`;
             
             return `
-            <div class="today-event-item">
+            <div class="today-event-item today-event-item--action" role="button" tabindex="0" onclick="reservationManager.showReservationDetails('${esc(reservation.id)}', event)">
                 <div class="today-event-head">
                     <div>
                         <strong class="today-event-client">${esc(reservation.clientName)}</strong>
@@ -5111,17 +5131,23 @@ class ReservationManager {
             
             if (isCurrentMonth) {
                 const dateStr = `${this.currentCalendarYear}-${String(this.currentCalendarMonth + 1).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
-                const dayReservations = this.getActiveReservations().filter(res => res.eventDate === dateStr);
-                
+                const dayReservations = this.getActiveReservations()
+                    .filter(res => this.normalizeEventDate(res.eventDate) === dateStr)
+                    .sort((a, b) => this.eventTimeToMinutes(a.eventTime) - this.eventTimeToMinutes(b.eventTime));
+                const visible = dayReservations.slice(0, 2);
+                const hiddenCount = dayReservations.length - visible.length;
+                const esc = (s) => this.escapeHtml(s);
+
                 calendarHTML += `
                     <div class="calendar-day ${isToday ? 'today' : ''}" onclick="reservationManager.selectDateFromCalendar('${dateStr}', event)">
                         <div class="calendar-day-number">${dayNumber}</div>
-                        ${dayReservations.map(res => `
-                            <div class="calendar-event" onclick="reservationManager.showReservationDetails('${this.escapeHtml(res.id)}', event)">
-                                ${this.escapeHtml(res.clientName)} - ${this.formatTime12Hour(res.eventTime)}<br>
-                                <small>${this.escapeHtml(this.getRoomDisplayName(res.roomType))}</small>
+                        ${visible.map(res => `
+                            <div class="calendar-event calendar-event--${this.getRoomCalendarClass(res.roomType)}" onclick="reservationManager.showReservationDetails('${esc(res.id)}', event)">
+                                <span class="calendar-event-name">${esc(res.clientName)}</span>
+                                <small>${esc(this.formatTime12Hour(res.eventTime))} · ${esc(this.getRoomDisplayName(res.roomType))}</small>
                             </div>
                         `).join('')}
+                        ${hiddenCount > 0 ? `<button type="button" class="calendar-more" onclick="reservationManager.openDayEvents('${dateStr}', event)">+${hiddenCount}</button>` : ''}
                     </div>
                 `;
             } else {
@@ -5336,7 +5362,7 @@ class ReservationManager {
     // Select date from calendar and navigate to reservation form
     async selectDateFromCalendar(dateStr, clickEvent) {
         // If clicking on a reservation event, don't select the date
-        if (clickEvent && clickEvent.target.closest('.calendar-event')) {
+        if (clickEvent && clickEvent.target.closest('.calendar-event, .calendar-more')) {
             return;
         }
         
@@ -5364,6 +5390,9 @@ class ReservationManager {
         // Stop event propagation to prevent date selection
         if (clickEvent) {
             clickEvent.stopPropagation();
+            if (clickEvent.target?.closest?.('.today-event-item')) {
+                this.closeTodayEventsModal();
+            }
         }
         
         const reservation = this.findReservationById(id);
@@ -7414,6 +7443,12 @@ class ReservationManager {
     }
 
     // Get display names for dropdown values
+    getRoomCalendarClass(roomType) {
+        if (roomType === 'intimate-room') return 'salon-2';
+        if (roomType === 'outdoor-terrace') return 'salon-3';
+        return 'salon-1';
+    }
+
     getRoomDisplayName(roomType) {
         const roomNames = {
             'grand-hall': 'Salon 1',

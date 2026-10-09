@@ -2219,9 +2219,52 @@ button.reservation-client--link:hover {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 20px;
-    font-size: 0.95rem;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    width: auto;
+    margin-bottom: 0;
 }
+
+.calendar-nav-btn {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1.5px solid var(--border-color);
+    box-shadow: none;
+}
+
+.calendar-nav-btn:hover {
+    background: transparent;
+    color: #F27B21;
+    border-color: #F27B21;
+    transform: none;
+    box-shadow: none;
+}
+
+.calendar-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 18px;
+    margin: -8px 0 16px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.calendar-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.calendar-legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.calendar-legend-swatch--1 { background: #F27B21; }
+.calendar-legend-swatch--2 { background: #2563eb; }
+.calendar-legend-swatch--3 { background: #16a34a; }
 
 .calendar-grid {
     display: grid;
@@ -2250,13 +2293,16 @@ button.reservation-client--link:hover {
 
 .calendar-day {
     background: var(--bg-secondary);
-    padding: 12px;
-    min-height: 100px;
+    padding: 8px;
+    height: 132px;
+    min-height: 132px;
+    max-height: 132px;
     display: flex;
     flex-direction: column;
     border: 1px solid var(--border-color);
     cursor: pointer;
     transition: background-color 0.2s ease;
+    overflow: hidden;
 }
 
 .calendar-day:hover {
@@ -2294,55 +2340,59 @@ button.reservation-client--link:hover {
 }
 
 .calendar-event {
-    background: linear-gradient(135deg, #F27B21 0%, #D4A04B 100%);
     color: white;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 0.95rem;
-    font-weight: 700;
-    margin-bottom: 4px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin-bottom: 3px;
     cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 4px rgba(242, 123, 33, 0.2);
-    position: relative;
     overflow: hidden;
-    border: 2px solid transparent;
-    line-height: 1.4;
+    line-height: 1.25;
+    border: none;
+}
+
+.calendar-event--salon-1 { background: #F27B21; }
+.calendar-event--salon-2 { background: #2563eb; }
+.calendar-event--salon-3 { background: #16a34a; }
+
+.calendar-event-name,
+.calendar-event small {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .calendar-event small {
-    display: block;
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: 0.66rem;
+    font-weight: 500;
     opacity: 0.95;
-    margin-top: 3px;
-}
-
-.calendar-event::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-    transition: left 0.5s ease;
+    margin-top: 1px;
 }
 
 .calendar-event:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(242, 123, 33, 0.4);
-    border-color: rgba(255, 255, 255, 0.3);
-    background: linear-gradient(135deg, #D4A04B 0%, #F27B21 100%);
+    filter: brightness(1.08);
 }
 
-.calendar-event:hover::before {
-    left: 100%;
+.calendar-more {
+    align-self: flex-start;
+    margin-top: auto;
+    padding: 1px 6px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
 }
 
-.calendar-event:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 6px rgba(242, 123, 33, 0.3);
+.calendar-more:hover {
+    color: #F27B21;
+}
+
+.today-event-item--action {
+    cursor: pointer;
 }
 
 /* Reservation Details Modal Styles */

@@ -7,7 +7,7 @@
     <meta name="description" content="Sistema interno de reservaciones de La Antesala">
     <title>Antesala Reservaciones - Sistema de Reservación de Espacios</title>
     <!-- Updated: Added Desayuno Continental option and improved dropdown styling -->
-    <link rel="stylesheet" href="styles.css?v=menu-colors-1">
+    <link rel="stylesheet" href="styles.css?v=calendar-ui-1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -584,26 +584,26 @@
 
             <!-- Calendar View Section -->
             <section id="calendar" class="content-section">
-                <div class="section-header">
-                    <h1>Vista de Calendario</h1>
-                    <div class="header-actions">
-                        <button class="btn btn-primary" onclick="showSection('new-reservation')">
-                            <i class="fas fa-plus"></i> Nueva Reservación
-                        </button>
-                    </div>
+                <div class="section-header dashboard-header">
+                    <h1>Calendario</h1>
                 </div>
                 <div class="calendar-container">
                     <div class="calendar-navigation">
-                        <button type="button" class="btn btn-outline" onclick="previousMonth()" id="prevMonthBtn">
+                        <button type="button" class="btn calendar-nav-btn" onclick="previousMonth()" id="prevMonthBtn">
                             <i class="fas fa-chevron-left"></i> Anterior
                         </button>
-                        <button type="button" class="btn btn-outline" id="calendarTodayBtn" title="Ir al mes actual">
+                        <button type="button" class="btn btn-primary calendar-nav-today" id="calendarTodayBtn" title="Ir al mes actual">
                             Hoy
                         </button>
                         <h2 id="calendarMonthYear">Mes Actual</h2>
-                        <button type="button" class="btn btn-outline" onclick="nextMonth()" id="nextMonthBtn">
+                        <button type="button" class="btn calendar-nav-btn" onclick="nextMonth()" id="nextMonthBtn">
                             Siguiente <i class="fas fa-chevron-right"></i>
                         </button>
+                    </div>
+                    <div class="calendar-legend" aria-label="Colores de salón">
+                        <span><i class="calendar-legend-swatch calendar-legend-swatch--1"></i> Salón 1</span>
+                        <span><i class="calendar-legend-swatch calendar-legend-swatch--2"></i> Salón 2</span>
+                        <span><i class="calendar-legend-swatch calendar-legend-swatch--3"></i> Salón 3</span>
                     </div>
                     <div id="calendarView" class="calendar-grid">
                         <!-- Calendar will be populated here -->
@@ -1979,7 +1979,7 @@
     <div id="todayEventsModal" class="modal-overlay hidden">
         <div class="modal">
             <div class="modal-header">
-                <h3>Eventos de Hoy</h3>
+                <h3 id="todayEventsTitle">Eventos de Hoy</h3>
                 <button type="button" class="modal-close" id="todayEventsCloseBtn" aria-label="Cerrar">×</button>
             </div>
             <div class="modal-body">
@@ -2008,6 +2008,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=menu-colors-1"></script>
+    <script src="script.js?v=calendar-ui-1"></script>
 </body>
 </html>
