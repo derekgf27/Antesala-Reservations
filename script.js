@@ -5147,7 +5147,7 @@ class ReservationManager {
                                 <small>${esc(this.formatTime12Hour(res.eventTime))}</small>
                             </div>
                         `).join('')}
-                        ${hiddenCount > 0 ? `<button type="button" class="calendar-more" onclick="reservationManager.openDayEvents('${dateStr}', event)">+${hiddenCount}</button>` : ''}
+                        ${hiddenCount > 0 ? `<button type="button" class="calendar-more" onclick="reservationManager.openDayEvents('${dateStr}', event)">Ver todos · ${dayReservations.length}</button>` : ''}
                     </div>
                 `;
             } else {

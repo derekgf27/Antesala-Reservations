@@ -2294,9 +2294,9 @@ button.reservation-client--link:hover {
 .calendar-day {
     background: var(--bg-secondary);
     padding: 8px;
-    height: 132px;
-    min-height: 132px;
-    max-height: 132px;
+    height: 168px;
+    min-height: 168px;
+    max-height: 168px;
     display: flex;
     flex-direction: column;
     border: 1px solid var(--border-color);
@@ -2347,9 +2347,9 @@ button.reservation-client--link:hover {
     min-width: 0;
     max-width: 100%;
     color: white;
-    padding: 4px 6px;
-    border-radius: 4px;
-    font-size: 0.72rem;
+    padding: 8px 8px;
+    border-radius: 6px;
+    font-size: 0.84rem;
     font-weight: 600;
     margin-bottom: 3px;
     cursor: pointer;
@@ -2373,7 +2373,7 @@ button.reservation-client--link:hover {
 
 .calendar-event small {
     flex: 0 0 auto;
-    font-size: 0.66rem;
+    font-size: 0.75rem;
     font-weight: 500;
     opacity: 0.95;
     margin: 0;
@@ -2385,19 +2385,23 @@ button.reservation-client--link:hover {
 }
 
 .calendar-more {
-    align-self: flex-start;
+    align-self: stretch;
     margin-top: auto;
-    padding: 1px 6px;
-    border: none;
-    background: transparent;
+    padding: 5px 8px;
+    border: 1px solid var(--border-color);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    background: var(--bg-tertiary);
     color: var(--text-secondary);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 700;
     cursor: pointer;
+    flex-shrink: 0;
 }
 
 .calendar-more:hover {
     color: #F27B21;
+    border-color: #F27B21;
 }
 
 .today-event-item--action {
