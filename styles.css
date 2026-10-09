@@ -2387,21 +2387,22 @@ button.reservation-client--link:hover {
 .calendar-more {
     align-self: stretch;
     margin-top: auto;
-    padding: 5px 8px;
-    border: 1px solid var(--border-color);
-    border-bottom: none;
-    border-radius: 8px 8px 0 0;
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-    font-size: 0.75rem;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 6px;
+    background: #F27B21;
+    color: #fff;
+    font-size: 0.78rem;
     font-weight: 700;
+    letter-spacing: 0.01em;
     cursor: pointer;
     flex-shrink: 0;
+    box-shadow: 0 1px 4px rgba(242, 123, 33, 0.45);
 }
 
 .calendar-more:hover {
-    color: #F27B21;
-    border-color: #F27B21;
+    background: #e06d1a;
+    color: #fff;
 }
 
 .today-event-item--action {
