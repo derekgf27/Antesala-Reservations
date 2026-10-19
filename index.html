@@ -7,7 +7,7 @@
     <meta name="description" content="Sistema interno de reservaciones de La Antesala">
     <title>Antesala Reservaciones - Sistema de Reservación de Espacios</title>
     <!-- Updated: Added Desayuno Continental option and improved dropdown styling -->
-    <link rel="stylesheet" href="styles.css?v=analytics-ui-1">
+    <link rel="stylesheet" href="styles.css?v=payment-ui-1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1937,11 +1937,21 @@
                                 <i class="fas fa-check-circle"></i> Pagar Balance Completo
                             </button>
                         </div>
-                        <small class="form-help">Ingrese el monto que el cliente está pagando o use el botón para pagar el balance completo</small>
+                        <small class="form-help">Marcar depósito pagado registra solo el depósito. Pagar Balance Completo llena lo que todavía falta.</small>
                     </div>
                     <div class="form-group">
                         <label for="paymentDate">Fecha del Pago</label>
                         <input type="date" id="paymentDate" name="paymentDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="paymentMethod">Método de pago <span class="optional-label">(opcional)</span></label>
+                        <select id="paymentMethod" name="paymentMethod">
+                            <option value="">No especificado</option>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="ath">ATH</option>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="cheque">Cheque</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="paymentNotes">Notas (Opcional)</label>
@@ -1952,9 +1962,12 @@
                             <span>Costo Total:</span>
                             <span id="paymentTotalCost">$0.00</span>
                         </div>
-                        <div class="payment-summary-row">
+                        <div class="payment-summary-row" id="paymentDepositRow">
                             <span>Depósito:</span>
-                            <span id="paymentDepositAmount">$0.00</span>
+                            <span class="payment-deposit-actions">
+                                <span id="paymentDepositAmount">$0.00</span>
+                                <button type="button" class="btn btn-small btn-success" id="markDepositPaidBtn">Marcar depósito pagado</button>
+                            </span>
                         </div>
                         <div class="payment-summary-row">
                             <span>Total Pagado:</span>
@@ -2011,6 +2024,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=analytics-ui-1"></script>
+    <script src="script.js?v=payment-ui-2"></script>
 </body>
 </html>

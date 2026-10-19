@@ -1002,6 +1002,10 @@ class ReservationManager {
             void this.openPendingDeposits();
         });
         document.getElementById('analyticsPendingCard')?.addEventListener('click', () => this.openPendingDeposits());
+        document.getElementById('markDepositPaidBtn')?.addEventListener('click', () => {
+            if (!this.currentPaymentReservationId) return;
+            this.toggleDepositStatus(this.currentPaymentReservationId);
+        });
         todayEventsCloseBtn?.addEventListener('click', () => this.closeTodayEventsModal());
         todayEventsCloseBtn2?.addEventListener('click', () => this.closeTodayEventsModal());
         
@@ -5670,29 +5674,7 @@ class ReservationManager {
                             </button>
                         </div>
                         ${(() => {
-                            const additionalPayments = reservation.additionalPayments || [];
-                            const depositAmount = reservation.pricing?.depositAmount || 0;
-                            const depositPaid = reservation.depositPaid && depositAmount > 0;
-                            
-                            // Build payment history array
-                            const paymentHistory = [];
-                            
-                            // Add deposit if paid
-                            if (depositPaid) {
-                                const depositDate = reservation.depositPaymentDate || reservation.eventDate || reservation.createdAt || this.getTodayDateString();
-                                paymentHistory.push({
-                                    amount: depositAmount,
-                                    date: depositDate,
-                                    notes: 'Deposit',
-                                    isDeposit: true
-                                });
-                            }
-                            
-                            // Add additional payments
-                            additionalPayments.forEach(payment => {
-                                paymentHistory.push(payment);
-                            });
-                            
+                            const paymentHistory = this.listReservationPayments(reservation);
                             if (paymentHistory.length === 0) return '';
                             
                             return `
@@ -5715,9 +5697,10 @@ class ReservationManager {
                                         const year = date.getFullYear();
                                         formattedDate = `${month}/${day}/${year}`;
                                     }
-                                    const notes = payment.notes || (payment.isDeposit ? 'Deposit' : '');
+                                    const notes = payment.isDeposit ? 'Depósito' : (payment.notes || '');
+                                    const method = this.paymentMethodLabel(payment.method);
                                     const depositClass = payment.isDeposit ? ' class="deposit-payment-item"' : '';
-                                    return `<li${depositClass}>$${payment.amount.toFixed(2)} - ${formattedDate}${notes ? ` (${esc(notes)})` : ''}</li>`;
+                                    return `<li${depositClass}>$${payment.amount.toFixed(2)} - ${formattedDate}${method ? ` · ${esc(method)}` : ''}${notes ? ` (${esc(notes)})` : ''}</li>`;
                                 }).join('')}
                             </ul>
                         </div>
@@ -6612,50 +6595,90 @@ class ReservationManager {
         this.closeOverlayWithFocusTrap(modal);
     }
 
+    paymentMethodLabel(method) {
+        const labels = {
+            efectivo: 'Efectivo',
+            ath: 'ATH',
+            transferencia: 'Transferencia',
+            cheque: 'Cheque'
+        };
+        return labels[method] || '';
+    }
+
+    hasDepositPaymentRecord(reservation) {
+        return (reservation?.additionalPayments || []).some(payment => payment && payment.isDeposit);
+    }
+
+    listReservationPayments(reservation) {
+        const payments = (reservation?.additionalPayments || []).map((payment, index) => ({
+            ...payment,
+            index,
+            synthetic: false
+        }));
+        const depositAmount = reservation?.pricing?.depositAmount || 0;
+        if (reservation?.depositPaid && depositAmount > 0 && !this.hasDepositPaymentRecord(reservation)) {
+            payments.unshift({
+                amount: depositAmount,
+                date: reservation.depositPaymentDate || reservation.eventDate || this.getTodayDateString(),
+                notes: 'Depósito',
+                isDeposit: true,
+                synthetic: true,
+                index: -1
+            });
+        }
+        return payments;
+    }
+
+    selectedPaymentDate() {
+        return document.getElementById('paymentDate')?.value || this.getTodayDateString();
+    }
+
+    selectedPaymentMethod() {
+        return document.getElementById('paymentMethod')?.value || '';
+    }
+
     toggleDepositStatus(id) {
         const reservation = this.findReservationById(id);
         if (!reservation) return;
-        
-        // Check if reservation is fully paid - if so, prevent any deposit toggle
-        const remainingBalance = this.calculateRemainingBalance(reservation);
-        if (remainingBalance <= 0.01) { // Allow small tolerance for floating point
-            this.showNotification(
-                'No se puede modificar el depósito. La reservación está completamente pagada.',
-                'error'
-            );
+
+        const depositAmount = reservation.pricing?.depositAmount || 0;
+        if (depositAmount <= 0) {
+            this.showNotification('Esta reservación no tiene depósito.', 'error');
             return;
         }
-        
-        // Calculate current total paid (excluding deposit)
-        const additionalPayments = reservation.additionalPayments || [];
-        const additionalTotal = additionalPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
-        const totalCost = reservation.pricing?.totalCost || 0;
-        const depositAmount = reservation.pricing?.depositAmount || 0;
-        
-        // If trying to mark deposit as paid, check if it would cause overpayment
-        if (!reservation.depositPaid) {
-            const totalPaidWithDeposit = additionalTotal + depositAmount;
-            if (totalPaidWithDeposit > totalCost + 0.01) { // Allow small tolerance for floating point
+
+        this.isUpdatingDeposit = true;
+        const marked = !!reservation.depositPaid || this.hasDepositPaymentRecord(reservation);
+
+        if (marked) {
+            reservation.additionalPayments = (reservation.additionalPayments || []).filter(payment => !payment.isDeposit);
+            reservation.depositPaid = false;
+            reservation.depositPaymentDate = null;
+        } else {
+            const remainingBalance = this.calculateRemainingBalance(reservation);
+            if (depositAmount > remainingBalance + 0.01) {
+                this.isUpdatingDeposit = false;
                 this.showNotification(
-                    `No se puede marcar el depósito como pagado. El total pagado ($${totalPaidWithDeposit.toFixed(2)}) excedería el costo total ($${totalCost.toFixed(2)}).`,
+                    `El depósito de $${depositAmount.toFixed(2)} es mayor que el balance restante de $${remainingBalance.toFixed(2)}.`,
                     'error'
                 );
                 return;
             }
+            const date = this.selectedPaymentDate();
+            const method = this.selectedPaymentMethod();
+            if (!reservation.additionalPayments) reservation.additionalPayments = [];
+            reservation.additionalPayments.push({
+                amount: depositAmount,
+                date,
+                timestamp: new Date().toISOString(),
+                notes: 'Depósito',
+                method,
+                isDeposit: true
+            });
+            reservation.depositPaid = true;
+            reservation.depositPaymentDate = date;
         }
-        
-        // Set flag to prevent re-sorting
-        this.isUpdatingDeposit = true;
-        
-        // Toggle the status
-        const wasPaid = reservation.depositPaid;
-        reservation.depositPaid = !reservation.depositPaid;
-        
-        // If marking as paid, store the payment date (use today's date)
-        if (reservation.depositPaid && !wasPaid) {
-            reservation.depositPaymentDate = this.getTodayDateString();
-        }
-        
+
         this.appendReservationAudit(reservation, 'deposit', reservation.depositPaid ? 'Pagado' : 'No pagado');
         this.markReservationDirty(id);
         this.saveReservations();
@@ -6715,10 +6738,12 @@ class ReservationManager {
     // Calculate total paid amount (deposit + additional payments)
     calculateTotalPaid(reservation) {
         if (!reservation) return 0;
-        const depositPaid = reservation.depositPaid ? (reservation.pricing?.depositAmount || 0) : 0;
-        const additionalPayments = reservation.additionalPayments || [];
-        const additionalTotal = additionalPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
-        return depositPaid + additionalTotal;
+        const paymentsTotal = (reservation.additionalPayments || []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+        const depositAmount = reservation.pricing?.depositAmount || 0;
+        if (reservation.depositPaid && depositAmount > 0 && !this.hasDepositPaymentRecord(reservation)) {
+            return paymentsTotal + depositAmount;
+        }
+        return paymentsTotal;
     }
 
     // Calculate remaining balance
@@ -6747,9 +6772,11 @@ class ReservationManager {
         // Clear payment amount and notes
         const paymentAmount = document.getElementById('paymentAmount');
         const paymentNotes = document.getElementById('paymentNotes');
+        const paymentMethod = document.getElementById('paymentMethod');
         const payFullBalanceBtn = document.getElementById('payFullBalanceBtn');
         if (paymentAmount) paymentAmount.value = '';
         if (paymentNotes) paymentNotes.value = '';
+        if (paymentMethod) paymentMethod.value = '';
 
         // Enable/disable pay full balance button based on remaining balance
         const remainingBalance = this.calculateRemainingBalance(reservation);
@@ -6822,6 +6849,17 @@ class ReservationManager {
 
         if (paymentTotalCost) paymentTotalCost.textContent = `$${totalCost.toFixed(2)}`;
         if (paymentDepositAmount) paymentDepositAmount.textContent = `$${depositAmount.toFixed(2)}`;
+        const paymentDepositRow = document.getElementById('paymentDepositRow');
+        const markDepositPaidBtn = document.getElementById('markDepositPaidBtn');
+        if (paymentDepositRow) paymentDepositRow.classList.toggle('hidden', depositAmount <= 0);
+        if (markDepositPaidBtn) {
+            const paid = !!reservation.depositPaid || this.hasDepositPaymentRecord(reservation);
+            const remainingBalanceForDeposit = this.calculateRemainingBalance(reservation);
+            markDepositPaidBtn.disabled = !paid && depositAmount > remainingBalanceForDeposit + 0.01;
+            markDepositPaidBtn.classList.toggle('btn-success', !paid);
+            markDepositPaidBtn.classList.toggle('btn-outline', paid);
+            markDepositPaidBtn.textContent = paid ? 'Depósito pagado — deshacer' : 'Marcar depósito pagado';
+        }
         if (paymentTotalPaid) paymentTotalPaid.textContent = `$${totalPaid.toFixed(2)}`;
         if (paymentRemainingBalance) {
             paymentRemainingBalance.textContent = `$${newRemainingBalance.toFixed(2)}`;
@@ -6854,69 +6892,39 @@ class ReservationManager {
         const paymentHistoryList = document.getElementById('paymentHistoryList');
         if (!paymentHistoryList) return;
 
-        const additionalPayments = reservation.additionalPayments || [];
-        const depositAmount = reservation.pricing?.depositAmount || 0;
-        const depositPaid = reservation.depositPaid && depositAmount > 0;
-        
-        // Build payment history array
-        const paymentHistory = [];
-        
-        // Add deposit if paid
-        if (depositPaid) {
-            // Use event date or creation date for deposit payment date
-            const depositDate = reservation.depositPaymentDate || reservation.eventDate || reservation.createdAt || this.getTodayDateString();
-            paymentHistory.push({
-                amount: depositAmount,
-                date: depositDate,
-                notes: 'Deposit',
-                isDeposit: true
-            });
-        }
-        
-        // Add additional payments
-        additionalPayments.forEach(payment => {
-            paymentHistory.push({
-                ...payment,
-                isDeposit: false
-            });
-        });
-        
+        const paymentHistory = this.listReservationPayments(reservation);
         if (paymentHistory.length === 0) {
             paymentHistoryList.innerHTML = '<p class="no-payments">No hay pagos registrados.</p>';
             return;
         }
 
-        const historyHTML = paymentHistory.map((payment, index) => {
-            // Parse date string (YYYY-MM-DD) to avoid timezone issues
+        const historyHTML = paymentHistory.map((payment) => {
             let formattedDate;
             if (payment.date && typeof payment.date === 'string' && payment.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                // Date is in YYYY-MM-DD format, parse it directly to avoid timezone shift
                 const [year, month, day] = payment.date.split('-');
-                // Format as month/day/year
                 formattedDate = `${month}/${day}/${year}`;
             } else {
-                // Fallback to timestamp or current date
                 const date = new Date(payment.timestamp || Date.now());
                 const month = String(date.getMonth() + 1).padStart(2, '0');
                 const day = String(date.getDate()).padStart(2, '0');
                 const year = date.getFullYear();
                 formattedDate = `${month}/${day}/${year}`;
             }
-            
-            // Calculate the actual index for additional payments (for delete button)
-            const actualIndex = payment.isDeposit ? -1 : (depositPaid ? index - 1 : index);
-            const deleteButton = payment.isDeposit ? '' : `
-                <button class="btn btn-small btn-danger" onclick="reservationManager.deletePayment('${reservation.id}', ${actualIndex})" title="Eliminar pago">
-                    <i class="fas fa-trash"></i>
-                </button>
-            `;
-            
+
+            const note = payment.isDeposit ? 'Depósito' : (payment.notes || '');
+            const method = this.paymentMethodLabel(payment.method);
+            const deleteAction = payment.synthetic || payment.isDeposit
+                ? `reservationManager.toggleDepositStatus('${reservation.id}')`
+                : `reservationManager.deletePayment('${reservation.id}', ${payment.index})`;
+
             return `
                 <div class="payment-history-item ${payment.isDeposit ? 'payment-deposit-item' : ''}">
-                    <div class="payment-history-amount">$${payment.amount.toFixed(2)}</div>
+                    <div class="payment-history-amount">$${Number(payment.amount || 0).toFixed(2)}</div>
                     <div class="payment-history-date">${formattedDate}</div>
-                    <div class="payment-history-notes ${payment.isDeposit ? 'deposit-label' : ''}">${this.escapeHtml(payment.notes || (payment.isDeposit ? 'Deposit' : ''))}</div>
-                    ${deleteButton}
+                    <div class="payment-history-notes ${payment.isDeposit ? 'deposit-label' : ''}">${this.escapeHtml([method, note].filter(Boolean).join(' · '))}</div>
+                    <button class="btn btn-small btn-danger" onclick="${deleteAction}" title="Eliminar pago">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
             `;
         }).join('');
@@ -6937,6 +6945,7 @@ class ReservationManager {
         const amount = parseFloat(paymentAmount?.value || 0);
         const date = paymentDate?.value || this.getTodayDateString();
         const notes = paymentNotes?.value?.trim() || '';
+        const method = this.selectedPaymentMethod();
 
         if (!amount || amount <= 0) {
             this.showNotification('Por favor ingrese un monto válido', 'error');
@@ -6964,21 +6973,12 @@ class ReservationManager {
             amount: actualAmount,
             date: date,
             timestamp: new Date().toISOString(),
-            notes: notes
+            notes: notes,
+            method
         });
 
-        // Calculate what the total paid will be after this payment
-        const totalPaidAfterPayment = this.calculateTotalPaid(reservation) + actualAmount;
-        const totalCost = reservation.pricing?.totalCost || 0;
-        
-        // If the total paid equals or exceeds the total cost, automatically mark deposit as paid
-        // This prevents the issue where deposit can still be toggled after full payment
-        if (totalPaidAfterPayment >= totalCost && !reservation.depositPaid) {
-            reservation.depositPaid = true;
-            reservation.depositPaymentDate = date; // Use the payment date
-        }
-
-        this.appendReservationAudit(reservation, 'payment', `$${actualAmount.toFixed(2)}`);
+        const methodLabel = this.paymentMethodLabel(method);
+        this.appendReservationAudit(reservation, 'payment', methodLabel ? `$${actualAmount.toFixed(2)} · ${methodLabel}` : `$${actualAmount.toFixed(2)}`);
         this.markReservationDirty(reservation.id);
         this.saveReservations();
 
@@ -7016,6 +7016,13 @@ class ReservationManager {
         const reservation = this.findReservationById(reservationId);
         if (!reservation || !reservation.additionalPayments) return;
 
+        const payment = reservation.additionalPayments[paymentIndex];
+        if (payment?.isDeposit) {
+            const removeDeposit = await this.appConfirm('¿Quitar el pago del depósito?', { title: 'Eliminar depósito' });
+            if (!removeDeposit) return;
+            this.toggleDepositStatus(reservationId);
+            return;
+        }
         const ok = await this.appConfirm('¿Eliminar este pago del historial?', { title: 'Eliminar pago' });
         if (!ok) return;
         reservation.additionalPayments.splice(paymentIndex, 1);

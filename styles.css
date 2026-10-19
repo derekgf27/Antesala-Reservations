@@ -3192,6 +3192,19 @@ button.analytics-kpi:hover {
     border: 1px solid var(--border-color);
 }
 
+.payment-deposit-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.payment-deposit-actions .btn {
+    width: auto;
+    margin-bottom: 0;
+}
+
 .payment-summary-row {
     display: flex;
     justify-content: space-between;
