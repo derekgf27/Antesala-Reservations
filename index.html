@@ -7,7 +7,7 @@
     <meta name="description" content="Sistema interno de reservaciones de La Antesala">
     <title>Antesala Reservaciones - Sistema de Reservación de Espacios</title>
     <!-- Updated: Added Desayuno Continental option and improved dropdown styling -->
-    <link rel="stylesheet" href="styles.css?v=suite-2">
+    <link rel="stylesheet" href="styles.css?v=suite-3">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -18,11 +18,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
-    <script src="js/antesala-utils.js?v=suite-2"></script>
-    <script src="js/invoice-counter.js?v=suite-2"></script>
-    <script src="js/audit-trail.js?v=suite-2"></script>
-    <script src="js/app-check.js?v=suite-2"></script>
-    <script src="firebase-config.js?v=suite-2"></script>
+    <script src="js/antesala-utils.js?v=suite-3"></script>
+    <script src="js/invoice-counter.js?v=suite-3"></script>
+    <script src="js/audit-trail.js?v=suite-3"></script>
+    <script src="js/app-check.js?v=suite-3"></script>
+    <script src="firebase-config.js?v=suite-3"></script>
 </head>
 <body>
     <!-- Google Sign-In gate (session persists — staff sign in once per device) -->
@@ -1968,10 +1968,7 @@
                         </div>
                         <div class="payment-summary-row" id="paymentDepositRow">
                             <span>Depósito:</span>
-                            <span class="payment-deposit-actions">
-                                <button type="button" class="btn btn-small btn-success" id="markDepositPaidBtn">Marcar depósito pagado</button>
-                                <span id="paymentDepositAmount">$0.00</span>
-                            </span>
+                            <span id="paymentDepositAmount">$0.00</span>
                         </div>
                         <div class="payment-summary-row">
                             <span>Total Pagado:</span>
@@ -2028,6 +2025,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=suite-2"></script>
+    <script src="script.js?v=suite-3"></script>
 </body>
 </html>

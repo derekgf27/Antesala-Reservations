@@ -1023,10 +1023,6 @@ class ReservationManager {
             void this.openPendingDeposits();
         });
         document.getElementById('analyticsPendingCard')?.addEventListener('click', () => this.openPendingDeposits());
-        document.getElementById('markDepositPaidBtn')?.addEventListener('click', () => {
-            if (!this.currentPaymentReservationId) return;
-            this.toggleDepositStatus(this.currentPaymentReservationId);
-        });
         todayEventsCloseBtn?.addEventListener('click', () => this.closeTodayEventsModal());
         todayEventsCloseBtn2?.addEventListener('click', () => this.closeTodayEventsModal());
         
@@ -7282,18 +7278,14 @@ class ReservationManager {
         const paymentRemainingBalance = document.getElementById('paymentRemainingBalance');
 
         if (paymentTotalCost) paymentTotalCost.textContent = `$${totalCost.toFixed(2)}`;
-        if (paymentDepositAmount) paymentDepositAmount.textContent = `$${depositAmount.toFixed(2)}`;
-        const paymentDepositRow = document.getElementById('paymentDepositRow');
-        const markDepositPaidBtn = document.getElementById('markDepositPaidBtn');
-        if (paymentDepositRow) paymentDepositRow.classList.toggle('hidden', depositAmount <= 0);
-        if (markDepositPaidBtn) {
-            const paid = !!reservation.depositPaid || this.hasDepositPaymentRecord(reservation);
-            const remainingBalanceForDeposit = this.calculateRemainingBalance(reservation);
-            markDepositPaidBtn.disabled = !paid && depositAmount > remainingBalanceForDeposit + 0.01;
-            markDepositPaidBtn.classList.toggle('btn-success', !paid);
-            markDepositPaidBtn.classList.toggle('btn-outline', paid);
-            markDepositPaidBtn.textContent = paid ? 'Depósito pagado — deshacer' : 'Marcar depósito pagado';
+        if (paymentDepositAmount) {
+            const paid = this.isDepositMarkedPaid(reservation);
+            paymentDepositAmount.textContent = paid
+                ? `$${depositAmount.toFixed(2)} (pagado)`
+                : `$${depositAmount.toFixed(2)}`;
         }
+        const paymentDepositRow = document.getElementById('paymentDepositRow');
+        if (paymentDepositRow) paymentDepositRow.classList.toggle('hidden', depositAmount <= 0);
         if (paymentTotalPaid) paymentTotalPaid.textContent = `$${totalPaid.toFixed(2)}`;
         if (paymentRemainingBalance) {
             paymentRemainingBalance.textContent = `$${newRemainingBalance.toFixed(2)}`;
