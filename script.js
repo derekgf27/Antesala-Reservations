@@ -957,6 +957,7 @@ class ReservationManager {
         paymentSaveBtn?.addEventListener('click', () => this.savePayment());
         paymentAmount?.addEventListener('input', () => this.updatePaymentSummary());
         payFullBalanceBtn?.addEventListener('click', () => this.fillFullBalance());
+        document.getElementById('payDepositAmountBtn')?.addEventListener('click', () => this.fillDepositAmount());
         if (paymentModal) {
             paymentModal.addEventListener('click', (e) => {
                 if (e.target === paymentModal) {
@@ -6808,6 +6809,19 @@ class ReservationManager {
         setTimeout(() => {
             this.currentPaymentReservationId = null;
         }, 220);
+    }
+
+    fillDepositAmount() {
+        if (!this.currentPaymentReservationId) return;
+        const reservation = this.findReservationById(this.currentPaymentReservationId);
+        if (!reservation) return;
+        const depositAmount = reservation.pricing?.depositAmount || 0;
+        const paymentAmountInput = document.getElementById('paymentAmount');
+        if (!paymentAmountInput || depositAmount <= 0) return;
+        paymentAmountInput.value = depositAmount.toFixed(2);
+        this.updatePaymentSummary();
+        paymentAmountInput.focus();
+        paymentAmountInput.select();
     }
 
     // Fill payment amount with full remaining balance

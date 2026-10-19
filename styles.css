@@ -3162,6 +3162,27 @@ button.analytics-kpi:hover {
     min-width: 0;
 }
 
+.payment-amount-container {
+    flex-wrap: wrap;
+}
+
+.btn-pay-deposit {
+    white-space: nowrap;
+    padding: 10px 16px;
+    font-size: 0.9rem;
+    background: #F27B21;
+    color: white;
+    border: none;
+    box-shadow: 0 2px 8px rgba(242, 123, 33, 0.3);
+    flex-shrink: 0;
+    margin-bottom: 0;
+}
+
+.btn-pay-deposit:hover {
+    background: #e06d1a;
+    color: white;
+}
+
 .btn-pay-full {
     white-space: nowrap;
     padding: 10px 16px;

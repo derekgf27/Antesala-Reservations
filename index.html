@@ -7,7 +7,7 @@
     <meta name="description" content="Sistema interno de reservaciones de La Antesala">
     <title>Antesala Reservaciones - Sistema de Reservación de Espacios</title>
     <!-- Updated: Added Desayuno Continental option and improved dropdown styling -->
-    <link rel="stylesheet" href="styles.css?v=payment-ui-1">
+    <link rel="stylesheet" href="styles.css?v=payment-ui-3">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1933,11 +1933,14 @@
                         <label for="paymentAmount">Monto del Pago ($)</label>
                         <div class="payment-amount-container">
                             <input type="number" id="paymentAmount" name="paymentAmount" min="0.01" step="0.01" placeholder="0.00" required>
+                            <button type="button" class="btn btn-pay-deposit" id="payDepositAmountBtn">
+                                Monto del depósito
+                            </button>
                             <button type="button" class="btn btn-outline btn-pay-full" id="payFullBalanceBtn">
                                 <i class="fas fa-check-circle"></i> Pagar Balance Completo
                             </button>
                         </div>
-                        <small class="form-help">Marcar depósito pagado registra solo el depósito. Pagar Balance Completo llena lo que todavía falta.</small>
+                        <small class="form-help">Monto del depósito llena el campo con el depósito. Pagar Balance Completo llena lo que todavía falta.</small>
                     </div>
                     <div class="form-group">
                         <label for="paymentDate">Fecha del Pago</label>
@@ -2024,6 +2027,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=payment-ui-2"></script>
+    <script src="script.js?v=payment-ui-3"></script>
 </body>
 </html>
