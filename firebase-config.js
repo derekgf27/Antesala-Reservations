@@ -19,7 +19,7 @@ const FIREBASE_ENABLED = true;
 /**
  * Staff Google accounts allowed to use the app (lowercase).
  * Example: 'antesala.ponce@gmail.com'
- * If empty, ANY Google account that can sign in is allowed (not recommended for production).
+ * If empty, no Google account is allowed (fail closed). Keep in sync with firestore.rules.
  */
 const ALLOWED_STAFF_EMAILS = [
     'kaleferr@gmail.com',
@@ -50,8 +50,9 @@ function normalizeEmail(email) {
 function isStaffEmailAllowed(email) {
     const normalized = normalizeEmail(email);
     if (!normalized) return false;
+    // Fail closed when the allowlist is empty (do not open the UI to any Google user)
     if (!Array.isArray(ALLOWED_STAFF_EMAILS) || ALLOWED_STAFF_EMAILS.length === 0) {
-        return true; // open to any signed-in Google user until allowlist is filled
+        return false;
     }
     return ALLOWED_STAFF_EMAILS.map(normalizeEmail).includes(normalized);
 }

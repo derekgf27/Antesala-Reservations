@@ -20,6 +20,8 @@ class ReservationManager {
         this.firebaseUnsubscribe = null;
         this.menuConfigUnsubscribe = null;
         this.menuConfigPendingChanges = false;
+        this.menuConfigSaveFailed = false;
+        this.skippedMenuConfigSnapshot = false;
         this.sortOption = 'createdAt'; // Default sort by recently created
         this.sortDirection = 'desc'; // 'desc' for descending (most recent first)
         this.reservationsListView = 'upcoming'; // 'upcoming' | 'archive' | 'trash'
@@ -33,6 +35,9 @@ class ReservationManager {
         this.editingReservationId = null; // Track which reservation is being edited
         this.dirtyReservationIds = new Set(); // Per-doc Firestore writes (create/update)
         this.deletedReservationIds = new Set(); // Per-doc Firestore deletes (if batched)
+        this.isSavingReservation = false; // Guard against double Guardar / duplicate creates
+        this.cloudSaveFailed = false; // Block cloud overwrite while local dirty after failed sync
+        this.cloudSaveRetryCount = 0;
         this.initializeEventListeners();
         this.initializeNavigation();
         this.updateGuestCountDisplay();
@@ -70,18 +75,23 @@ class ReservationManager {
         }
 
         // Remap colliding custom beverage ids onto reservations after both catalogs + bookings are loaded
-        const remappedBeverages = this.normalizeCustomBeverageIds();
-        const migratedSelections = this.migrateCustomBeverageSelectionsOnReservations();
-        const prunedDuplicates = this.pruneDuplicateBeverageSelectionsEverywhere();
+        const remappedIds = this.normalizeCustomBeverageIds();
+        const migratedIds = this.migrateCustomBeverageSelectionsOnReservations();
+        const prunedIds = this.pruneDuplicateBeverageSelectionsEverywhere();
+        const startupDirtyIds = new Set([
+            ...(Array.isArray(remappedIds) ? remappedIds : []),
+            ...(Array.isArray(migratedIds) ? migratedIds : []),
+            ...(Array.isArray(prunedIds) ? prunedIds : [])
+        ]);
         
         this.displayReservations();
         this.updateDashboard();
         
         setTimeout(async () => {
             this.isInitializing = false;
-            if (remappedBeverages || migratedSelections || prunedDuplicates) {
+            if (startupDirtyIds.size > 0) {
                 try {
-                    (this.reservations || []).forEach((r) => this.markReservationDirty(r.id));
+                    startupDirtyIds.forEach((id) => this.markReservationDirty(id));
                     await this.saveReservations();
                 } catch (_) { /* non-blocking */ }
             }
@@ -158,9 +168,13 @@ class ReservationManager {
             }
             
             const previousCount = this.reservations.length;
-            this.reservations = reservations;
-            if (!this.isInitializing) {
-                this.scheduleUiRefresh();
+            if (this.dirtyReservationIds.size > 0 || this.deletedReservationIds.size > 0 || this.cloudSaveFailed) {
+                this.mergeRemoteReservations(reservations);
+            } else {
+                this.reservations = reservations;
+                if (!this.isInitializing) {
+                    this.scheduleUiRefresh();
+                }
             }
             appDebug(`Reservations synced from Firestore: ${reservations.length} (was ${previousCount})`);
 
@@ -383,16 +397,19 @@ class ReservationManager {
     async showSection(sectionId) {
         if (
             this.currentSection === 'new-reservation' &&
-            sectionId !== 'new-reservation' &&
-            this.reservationFormDirty
+            sectionId !== 'new-reservation'
         ) {
-            const ok = await this.appConfirm(
-                'Hay cambios sin guardar en la reservación. ¿Deseas salir?',
-                { title: 'Cambios sin guardar' }
-            );
-            if (!ok) return;
-            // Discard dirty edit so a later Guardar cannot overwrite the wrong booking
-            this.clearForm();
+            if (this.reservationFormDirty) {
+                const ok = await this.appConfirm(
+                    'Hay cambios sin guardar en la reservación. ¿Deseas salir?',
+                    { title: 'Cambios sin guardar' }
+                );
+                if (!ok) return;
+            }
+            // Always leave create/edit mode when navigating away so Guardar cannot overwrite later
+            if (this.reservationFormDirty || this.isEditingReservation) {
+                this.clearForm();
+            }
         }
 
         // Hide all sections
@@ -1876,6 +1893,7 @@ class ReservationManager {
         this.menuConfigPendingChanges = true;
         const syncBanner = document.getElementById('syncStatusBanner');
         syncBanner?.classList.remove('hidden');
+        let savedOk = false;
 
         try {
             this.ensureCustomMenuOptionsStructure();
@@ -1886,15 +1904,38 @@ class ReservationManager {
                 menuConfigLastModified: this.menuConfigLastModified || null,
                 updatedAt: new Date().toISOString()
             }, { merge: true });
+            savedOk = true;
+            this.menuConfigSaveFailed = false;
             appDebug('Menu config saved to Firestore');
         } catch (error) {
             console.error('Error saving menu config to Firestore:', error);
+            this.menuConfigSaveFailed = true;
             this.showNotification('No se pudo guardar en la nube. Los cambios quedaron en este dispositivo.', 'error');
         } finally {
             setTimeout(() => {
                 this.menuConfigPendingChanges = false;
-                syncBanner?.classList.add('hidden');
+                if (savedOk) syncBanner?.classList.add('hidden');
+                if (this.skippedMenuConfigSnapshot) {
+                    this.skippedMenuConfigSnapshot = false;
+                    if (!this.menuConfigSaveFailed) {
+                        this.refreshMenuConfigFromFirestoreOnce();
+                    }
+                }
             }, 2000);
+        }
+    }
+
+    async refreshMenuConfigFromFirestoreOnce() {
+        if (this.menuConfigPendingChanges || this.menuConfigSaveFailed || !window.FIREBASE_LOADED || !window.firestore) {
+            return;
+        }
+        try {
+            const doc = await window.firestore.collection('menuConfig').doc('shared').get();
+            if (!doc.exists) return;
+            this.applyMenuConfigData(doc.data());
+            appDebug('Menu config refreshed after skipped snapshot');
+        } catch (error) {
+            console.warn('Could not refresh menu config:', error);
         }
     }
 
@@ -1908,7 +1949,8 @@ class ReservationManager {
 
         this.menuConfigUnsubscribe = window.firestore.collection('menuConfig').doc('shared')
             .onSnapshot((doc) => {
-                if (this.menuConfigPendingChanges) {
+                if (this.menuConfigPendingChanges || this.menuConfigSaveFailed) {
+                    this.skippedMenuConfigSnapshot = true;
                     appDebug('Skipping menu config sync - pending local changes');
                     return;
                 }
@@ -2474,17 +2516,16 @@ class ReservationManager {
 
     hasActiveBeverageQty(qty) {
         if (qty === true) return true;
-        if (typeof qty === 'number') return qty > 0;
-        if (typeof qty === 'object' && qty !== null && 'qty' in qty) {
-            return (parseInt(qty.qty, 10) || 0) > 0;
-        }
-        return false;
+        return this.getSelectionQty(qty) > 0;
     }
 
-    /** Read numeric qty from a plain number or frozen { qty, ... } selection. */
+    /** Read numeric qty from a plain number, numeric string, or frozen { qty, ... } selection. */
     getSelectionQty(qty) {
         if (qty === true) return 1;
         if (typeof qty === 'number') return qty;
+        if (typeof qty === 'string' && qty.trim() !== '' && Number.isFinite(Number(qty))) {
+            return parseInt(qty, 10) || 0;
+        }
         if (typeof qty === 'object' && qty !== null && qty.qty != null) {
             return parseInt(qty.qty, 10) || 0;
         }
@@ -2554,11 +2595,14 @@ class ReservationManager {
     }
 
     pruneDuplicateBeverageSelectionsEverywhere() {
-        let changed = this.pruneDuplicateBeverageSelections(this.beverageSelections);
+        this.pruneDuplicateBeverageSelections(this.beverageSelections);
+        const changedIds = [];
         (this.reservations || []).forEach((res) => {
-            if (this.pruneDuplicateBeverageSelections(res.beverages)) changed = true;
+            if (this.pruneDuplicateBeverageSelections(res.beverages)) {
+                changedIds.push(res.id);
+            }
         });
-        return changed;
+        return changedIds;
     }
 
     /**
@@ -2822,9 +2866,9 @@ class ReservationManager {
         return reservation.invoiceNumber;
     }
 
-    /** Ensure custom beverage ids never collide with built-in ones (e.g. corona). */
+    /** Ensure custom beverage ids never collide with built-in ones (e.g. corona). Returns changed reservation ids. */
     normalizeCustomBeverageIds() {
-        if (!Array.isArray(this.customBeverages) || this.customBeverages.length === 0) return false;
+        if (!Array.isArray(this.customBeverages) || this.customBeverages.length === 0) return [];
 
         const reserved = this.getStandardBeverageIds();
         const idMap = {};
@@ -2860,10 +2904,11 @@ class ReservationManager {
             used.add(id);
         });
 
-        if (!changed) return false;
+        if (!changed) return [];
 
         const remapBeverageMap = (map, { onlyCustomObjects = false } = {}) => {
-            if (!map || typeof map !== 'object') return;
+            if (!map || typeof map !== 'object') return false;
+            let mapChanged = false;
             Object.entries(idMap).forEach(([oldId, newId]) => {
                 if (!Object.prototype.hasOwnProperty.call(map, oldId)) return;
                 const val = map[oldId];
@@ -2875,23 +2920,30 @@ class ReservationManager {
                     map[newId] = val;
                 }
                 delete map[oldId];
+                mapChanged = true;
             });
+            return mapChanged;
         };
 
         // Form state: always remap
         remapBeverageMap(this.beverageSelections, { onlyCustomObjects: false });
         // Saved reservations: only remap object selections (custom catalog items)
-        (this.reservations || []).forEach(res => remapBeverageMap(res.beverages, { onlyCustomObjects: true }));
+        const changedIds = [];
+        (this.reservations || []).forEach((res) => {
+            if (remapBeverageMap(res.beverages, { onlyCustomObjects: true })) {
+                changedIds.push(res.id);
+            }
+        });
 
         this.saveCustomBeverages();
-        return true;
+        return changedIds;
     }
 
-    /** Move custom beverage selections off colliding built-in keys onto current catalog ids. */
+    /** Move custom beverage selections off colliding built-in keys. Returns changed reservation ids. */
     migrateCustomBeverageSelectionsOnReservations() {
-        if (!Array.isArray(this.reservations) || !Array.isArray(this.customBeverages)) return false;
-        let changed = false;
+        if (!Array.isArray(this.reservations) || !Array.isArray(this.customBeverages)) return [];
         const reserved = this.getStandardBeverageIds();
+        const changedIds = [];
 
         const findCatalogId = (key, val) => {
             if ((this.customBeverages || []).some(b => b.id === key)) return key;
@@ -2913,7 +2965,8 @@ class ReservationManager {
         };
 
         const migrateMap = (map) => {
-            if (!map || typeof map !== 'object') return;
+            if (!map || typeof map !== 'object') return false;
+            let changed = false;
             Object.entries({ ...map }).forEach(([key, val]) => {
                 // Object qty on a reserved id (e.g. custom "Mimosa" saved as mimosa: {qty,name,price})
                 const isCustomSelection = typeof val === 'object' && val !== null &&
@@ -2929,11 +2982,14 @@ class ReservationManager {
             });
             // Drop leftover duplicates that share the same drink name
             if (this.pruneDuplicateBeverageSelections(map)) changed = true;
+            return changed;
         };
 
         migrateMap(this.beverageSelections);
-        this.reservations.forEach(res => migrateMap(res.beverages));
-        return changed;
+        this.reservations.forEach((res) => {
+            if (migrateMap(res.beverages)) changedIds.push(res.id);
+        });
+        return changedIds;
     }
 
     toTitleCase(text) {
@@ -3936,19 +3992,14 @@ class ReservationManager {
 
         if (!container) return;
 
-        // Only show if individual-plates is selected
-        if (foodType?.value !== 'individual-plates') {
-            container.classList.add('hidden');
-            container.innerHTML = '';
-            editBtn?.classList.add('hidden');
-            return;
-        }
-
+        // Show whenever plates exist (including alongside buffet), not only when type is individual-plates
         if (this.individualPlatesSelections.length === 0) {
             container.classList.add('hidden');
             container.innerHTML = '';
             editBtn?.classList.add('hidden');
-            addBtn?.classList.remove('hidden');
+            if (foodType?.value === 'individual-plates' || foodType?.value === 'buffet') {
+                addBtn?.classList.remove('hidden');
+            }
             return;
         }
 
@@ -4642,14 +4693,16 @@ class ReservationManager {
         if (depositPercentage === 'custom') {
             // Use custom amount
             const customAmount = parseFloat(document.getElementById('depositCustomAmount')?.value || 0);
-            depositAmount = Math.min(customAmount, totalCost); // Don't allow deposit to exceed total
+            const safeCustom = Number.isFinite(customAmount) && customAmount > 0 ? customAmount : 0;
+            depositAmount = Math.min(safeCustom, totalCost); // Don't allow deposit to exceed total
             depositDisplayText = `$${depositAmount.toFixed(2)} (Personalizado)`;
         } else {
             // Use percentage
             const percentage = parseFloat(depositPercentage);
-            depositAmount = totalCost * (percentage / 100);
-            if (percentage > 0) {
-                depositDisplayText = `$${depositAmount.toFixed(2)} (${percentage}%)`;
+            const safePct = Number.isFinite(percentage) ? percentage : 0;
+            depositAmount = totalCost * (safePct / 100);
+            if (safePct > 0) {
+                depositDisplayText = `$${depositAmount.toFixed(2)} (${safePct}%)`;
             } else {
                 depositDisplayText = '$0.00';
             }
@@ -4690,6 +4743,16 @@ class ReservationManager {
 
     // Save reservation
     async saveReservation() {
+        if (this.isSavingReservation) return false;
+        this.isSavingReservation = true;
+        try {
+            return await this._saveReservationInner();
+        } finally {
+            this.isSavingReservation = false;
+        }
+    }
+
+    async _saveReservationInner() {
         const formEl = document.getElementById('reservationForm');
         const formData = new FormData(formEl);
         this.freezePricingSelections();
@@ -4849,7 +4912,7 @@ class ReservationManager {
 
         // Create reservation object
         const reservation = {
-            id: Date.now().toString(),
+            id: this.newReservationId(),
             clientName: formData.get('clientName'),
             clientEmail: formData.get('clientEmail'),
             clientPhone: formData.get('clientPhone'),
@@ -4962,6 +5025,14 @@ class ReservationManager {
                 }
                 this.appendReservationAudit(reservation, 'updated', reservation.clientName || '');
                 this.syncDepositPaymentAmount(reservation);
+                const paidAfterSync = this.calculateTotalPaid(reservation);
+                if (paidAfterSync > (reservation.pricing?.totalCost || 0) + 0.01) {
+                    const okOverpay = await this.appConfirm(
+                        `Los pagos registrados ($${paidAfterSync.toFixed(2)}) superan el nuevo total ($${(reservation.pricing?.totalCost || 0).toFixed(2)}). ¿Guardar de todos modos?`,
+                        { title: 'Pagos mayores al total', okText: 'Guardar de todos modos' }
+                    );
+                    if (!okOverpay) return false;
+                }
                 
                 // Update the reservation in place
                 this.reservations[existingIndex] = reservation;
@@ -5093,7 +5164,11 @@ class ReservationManager {
         }
 
         const pending = active.filter(r => this.isDepositPending(r));
-        const pendingTotal = pending.reduce((sum, r) => sum + (r.pricing?.depositAmount || 0), 0);
+        const pendingTotal = pending.reduce((sum, r) => {
+            const deposit = r.pricing?.depositAmount || 0;
+            const remaining = this.calculateRemainingBalance(r);
+            return sum + Math.min(deposit, remaining);
+        }, 0);
         const pendingTotalEl = document.getElementById('pendingDepositsTotal');
         const pendingNoteEl = document.getElementById('pendingDepositsNote');
         if (pending.length === 0) {
@@ -5405,7 +5480,11 @@ class ReservationManager {
         const thisMonth = active.filter(r => this.normalizeEventDate(r.eventDate).startsWith(ym));
         const monthRevenue = thisMonth.reduce((sum, r) => sum + (r.pricing?.totalCost || 0), 0);
         const pending = active.filter(r => this.isDepositPending(r));
-        const pendingTotal = pending.reduce((sum, r) => sum + (r.pricing?.depositAmount || 0), 0);
+        const pendingTotal = pending.reduce((sum, r) => {
+            const deposit = r.pricing?.depositAmount || 0;
+            const remaining = this.calculateRemainingBalance(r);
+            return sum + Math.min(deposit, remaining);
+        }, 0);
         const guests = thisMonth.reduce((sum, r) => sum + (Number(r.guestCount) || 0), 0);
         const setText = (id, text) => {
             const el = document.getElementById(id);
@@ -5502,7 +5581,7 @@ class ReservationManager {
         const byMonth = new Map();
         this.getActiveReservations().forEach((res) => {
             if (!res.eventDate || !res.pricing) return;
-            const key = res.eventDate.slice(0, 7);
+            const key = this.normalizeEventDate(res.eventDate).slice(0, 7);
             const add = typeof res.pricing.totalCost === 'number' ? res.pricing.totalCost : 0;
             byMonth.set(key, (byMonth.get(key) || 0) + add);
         });
@@ -6785,12 +6864,7 @@ class ReservationManager {
         }
         const items = this.getEntremesesItems();
         const entremesesList = Object.entries(entremesesMap)
-            .filter(([, qty]) => {
-                if (qty === true) return true;
-                if (typeof qty === 'number' && qty > 0) return true;
-                if (typeof qty === 'object' && qty !== null && 'qty' in qty) return (parseInt(qty.qty) || 0) > 0;
-                return false;
-            })
+            .filter(([, qty]) => qty === true || this.getSelectionQty(qty) > 0)
             .map(([id, qty]) => {
                 // Handle Asopao, Caldo de Gallego, and Ceviche separately - they're per person
                 if (id === 'asopao' && qty === true) {
@@ -6801,16 +6875,12 @@ class ReservationManager {
                     return '<li>Caldo de Gallego (por persona)</li>';
                 } else if (id === 'ceviche' && qty === true) {
                     return '<li>Ceviche (por persona)</li>';
-                } else if (typeof qty === 'number' && qty > 0) {
-                    const item = items.find(i => i.id === id);
-                    return `<li>${qty} x ${item ? item.name : id}</li>`;
-                } else if (typeof qty === 'object' && qty !== null && 'qty' in qty) {
-                    const n = parseInt(qty.qty) || 0;
-                    if (n <= 0) return '';
-                    const item = items.find(i => i.id === id);
-                    return `<li>${n} x ${item ? item.name : id}</li>`;
                 }
-                return '';
+                const n = this.getSelectionQty(qty);
+                if (n <= 0) return '';
+                const frozenName = (typeof qty === 'object' && qty !== null && qty.name) ? qty.name : null;
+                const item = items.find(i => i.id === id);
+                return `<li>${n} x ${this.escapeHtml(frozenName || (item ? item.name : id))}</li>`;
             })
             .filter(item => item !== '');
         return entremesesList.length > 0 
@@ -6882,7 +6952,11 @@ class ReservationManager {
             .some((id) => !!document.getElementById(id)?.checked);
     }
 
-    /** Sync isDeposit payment amount to current pricing.depositAmount after edits. */
+    /**
+     * Keep deposit payment records consistent after edits.
+     * Never increases an existing isDeposit amount (no phantom cash).
+     * Converts a matching non-deposit payment before inserting a new row.
+     */
     syncDepositPaymentAmount(reservation) {
         if (!reservation || !this.isDepositMarkedPaid(reservation)) return;
         const depositAmount = reservation.pricing?.depositAmount || 0;
@@ -6890,6 +6964,22 @@ class ReservationManager {
         if (!reservation.additionalPayments) reservation.additionalPayments = [];
         let dep = reservation.additionalPayments.find((p) => p && p.isDeposit);
         if (!dep) {
+            const matchIdx = reservation.additionalPayments.findIndex(
+                (p) => p && !p.isDeposit && Math.abs((Number(p.amount) || 0) - depositAmount) < 0.02
+            );
+            if (matchIdx >= 0) {
+                reservation.additionalPayments[matchIdx].isDeposit = true;
+                if (!reservation.additionalPayments[matchIdx].notes) {
+                    reservation.additionalPayments[matchIdx].notes = 'Depósito';
+                }
+                reservation.depositPaid = true;
+                reservation.depositPaymentDate =
+                    reservation.additionalPayments[matchIdx].date ||
+                    reservation.depositPaymentDate ||
+                    this.getTodayDateString();
+                return;
+            }
+            // Flag-only legacy path: materialize a deposit row (synthetic had been added on top of payments)
             reservation.additionalPayments.push({
                 amount: depositAmount,
                 date: reservation.depositPaymentDate || this.getTodayDateString(),
@@ -6904,7 +6994,40 @@ class ReservationManager {
             .filter((p) => p && !p.isDeposit)
             .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
         const maxOk = Math.max(0, (reservation.pricing?.totalCost || 0) - otherPaid);
-        dep.amount = Math.min(depositAmount, maxOk);
+        const current = Number(dep.amount) || 0;
+        const target = Math.min(depositAmount, maxOk);
+        // Never raise recorded deposit above what was already paid
+        dep.amount = Math.min(current, target);
+    }
+
+    /** After a payment that clears the balance, mark deposit paid for PDF/WhatsApp consistency. */
+    ensureDepositMarkedIfFullyPaid(reservation, date, method) {
+        if (!reservation) return;
+        const depositAmount = reservation.pricing?.depositAmount || 0;
+        if (depositAmount <= 0 || this.isDepositMarkedPaid(reservation)) return;
+        if (this.calculateRemainingBalance(reservation) > 0.01) return;
+        if (!reservation.additionalPayments) reservation.additionalPayments = [];
+        const matchIdx = reservation.additionalPayments.findIndex(
+            (p) => p && !p.isDeposit && Math.abs((Number(p.amount) || 0) - depositAmount) < 0.02
+        );
+        if (matchIdx >= 0) {
+            reservation.additionalPayments[matchIdx].isDeposit = true;
+            if (!reservation.additionalPayments[matchIdx].notes) {
+                reservation.additionalPayments[matchIdx].notes = 'Depósito';
+            }
+        }
+        reservation.depositPaid = true;
+        reservation.depositPaymentDate = date || this.getTodayDateString();
+        if (method && matchIdx >= 0 && !reservation.additionalPayments[matchIdx].method) {
+            reservation.additionalPayments[matchIdx].method = method;
+        }
+    }
+
+    newReservationId() {
+        if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+            return crypto.randomUUID();
+        }
+        return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     }
 
     listReservationPayments(reservation) {
@@ -6994,33 +7117,7 @@ class ReservationManager {
         this.appendReservationAudit(reservation, 'deposit', reservation.depositPaid ? 'Pagado' : 'No pagado');
         this.markReservationDirty(id);
         this.saveReservations();
-        
-        // Update only the specific card elements without re-rendering all cards
-        const depositToggle = document.querySelector(`[data-reservation-id="${id}"].deposit-status-toggle`);
-        if (depositToggle) {
-            // Update the toggle button
-            depositToggle.className = `deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}`;
-            depositToggle.textContent = reservation.depositPaid ? '✓ Pagado' : 'No Pagado';
-            
-            // Update the balance text in the same card
-            const card = depositToggle.closest('.reservation-card');
-            if (card) {
-                // Find and update "Total Pagado" and "Balance Restante" elements
-                const detailSpans = card.querySelectorAll('.reservation-detail strong');
-                detailSpans.forEach(strong => {
-                    const text = strong.textContent.trim();
-                    const span = strong.nextElementSibling;
-                    if (span && span.tagName === 'SPAN') {
-                        if (text === 'Total Pagado:') {
-                            span.textContent = `$${this.calculateTotalPaid(reservation).toFixed(2)}`;
-                        } else if (text === 'Balance Restante:') {
-                            span.textContent = `$${this.calculateRemainingBalance(reservation).toFixed(2)}`;
-                        }
-                    }
-                });
-            }
-        }
-        
+
         // If payment modal is open, refresh payment history
         const paymentModal = document.getElementById('paymentModal');
         if (paymentModal && !paymentModal.classList.contains('hidden') && this.currentPaymentReservationId === id) {
@@ -7042,10 +7139,11 @@ class ReservationManager {
         );
         this.updateDashboard();
         
-        // Reset flag after a short delay to allow Firebase sync to complete
+        // Re-render list after short delay so sort/filter/badges stay consistent
         setTimeout(() => {
             this.isUpdatingDeposit = false;
-        }, 1000);
+            this.displayReservations();
+        }, 200);
     }
 
     // Calculate total paid amount (deposit + additional payments)
@@ -7130,7 +7228,17 @@ class ReservationManager {
         const depositAmount = reservation.pricing?.depositAmount || 0;
         const paymentAmountInput = document.getElementById('paymentAmount');
         if (!paymentAmountInput || depositAmount <= 0) return;
-        paymentAmountInput.value = depositAmount.toFixed(2);
+        if (this.isDepositMarkedPaid(reservation)) {
+            this.showNotification('El depósito ya está marcado como pagado.', 'info');
+            return;
+        }
+        const remaining = this.calculateRemainingBalance(reservation);
+        if (remaining <= 0.01) {
+            this.showNotification('No hay balance restante por cobrar.', 'info');
+            return;
+        }
+        const fill = Math.min(depositAmount, remaining);
+        paymentAmountInput.value = fill.toFixed(2);
         this.updatePaymentSummary();
         paymentAmountInput.focus();
         paymentAmountInput.select();
@@ -7311,6 +7419,8 @@ class ReservationManager {
         if (treatAsDeposit) {
             reservation.depositPaid = true;
             reservation.depositPaymentDate = date;
+        } else {
+            this.ensureDepositMarkedIfFullyPaid(reservation, date, method);
         }
 
         const methodLabel = this.paymentMethodLabel(method);
@@ -7508,15 +7618,14 @@ class ReservationManager {
     }
 
     isPastReservation(reservation) {
-        const eventDate = reservation?.eventDate || '';
-        return eventDate < this.getTodayDateString();
+        return this.normalizeEventDate(reservation?.eventDate) < this.getTodayDateString();
     }
 
     updateReservationsViewTabs() {
         const today = this.getTodayDateString();
         const active = this.getActiveReservations();
-        const upcomingCount = active.filter(r => (r.eventDate || '') >= today).length;
-        const archiveCount = active.filter(r => (r.eventDate || '') < today).length;
+        const upcomingCount = active.filter(r => this.normalizeEventDate(r.eventDate) >= today).length;
+        const archiveCount = active.filter(r => this.normalizeEventDate(r.eventDate) < today).length;
         const trashCount = this.getDeletedReservations().length;
 
         const upcomingCountEl = document.getElementById('upcomingReservationsCount');
@@ -7555,7 +7664,7 @@ class ReservationManager {
         } else {
             const active = this.getActiveReservations();
             viewReservations = active.filter(r => {
-                const eventDate = r.eventDate || '';
+                const eventDate = this.normalizeEventDate(r.eventDate);
                 return this.reservationsListView === 'archive'
                     ? eventDate < today
                     : eventDate >= today;
@@ -7646,7 +7755,7 @@ class ReservationManager {
         const filteredReservations = sortedReservations.filter(r => {
             if (queryLower && !this.reservationMatchesSearchQuery(r, queryLower)) return false;
             if (filterRoom && r.roomType !== filterRoom) return false;
-            if (filterDate && r.eventDate !== filterDate) return false;
+            if (filterDate && this.normalizeEventDate(r.eventDate) !== this.normalizeEventDate(filterDate)) return false;
             if (filterDeposit) {
                 const depositAmount = r.pricing?.depositAmount || 0;
                 if (filterDeposit === 'none' && depositAmount > 0) return false;
@@ -8333,11 +8442,18 @@ class ReservationManager {
 
         const reservationId = String(reservation.id);
         const previous = this.reservations;
+        const wasInDeletedSet = this.deletedReservationIds.has(reservationId);
         this.reservations = this.reservations.filter(r => String(r.id) !== reservationId);
         this.markReservationDeleted(reservationId);
         try {
             if (window.FIREBASE_LOADED && window.firestore) {
-                await window.firestore.collection('reservations').doc(reservationId).delete();
+                // Ensure soft-delete is on the cloud doc before hard delete (rules require deletedAt)
+                const docRef = window.firestore.collection('reservations').doc(reservationId);
+                const snap = await docRef.get();
+                if (snap.exists && !snap.data()?.deletedAt) {
+                    await docRef.set({ deletedAt: reservation.deletedAt || new Date().toISOString() }, { merge: true });
+                }
+                await docRef.delete();
             }
             this.deletedReservationIds.delete(reservationId);
             this.saveReservationsToLocalStorage();
@@ -8347,8 +8463,9 @@ class ReservationManager {
         } catch (error) {
             console.error('Error purging reservation:', error);
             this.reservations = previous;
+            if (!wasInDeletedSet) this.deletedReservationIds.delete(reservationId);
             this.displayReservations();
-            this.showNotification('Error al borrar permanentemente.', 'error');
+            this.showNotification('Error al borrar permanentemente. Verifique que el borrado suave se haya sincronizado.', 'error');
         }
     }
 
@@ -8507,11 +8624,14 @@ class ReservationManager {
             }
             this.saveReservationsToLocalStorage();
             savedOk = true;
+            this.cloudSaveFailed = false;
+            this.cloudSaveRetryCount = 0;
         } catch (error) {
             console.error('Error saving reservations:', error);
+            this.cloudSaveFailed = true;
             this.saveReservationsToLocalStorage();
             this.showNotification(
-                'No se pudo guardar en la nube. Los cambios quedaron en este dispositivo.',
+                'No se pudo guardar en la nube. Los cambios quedaron en este dispositivo y se reintentarán.',
                 'error',
                 5500
             );
@@ -8519,14 +8639,61 @@ class ReservationManager {
             const delay = savedOk ? 1500 : 5000;
             setTimeout(() => {
                 this.pendingChanges = false;
-                syncBanner?.classList.add('hidden');
+                if (savedOk) {
+                    syncBanner?.classList.add('hidden');
+                }
                 appDebug('Pending changes flag reset - sync will resume');
                 if (this.skippedSnapshotWhilePending) {
                     this.skippedSnapshotWhilePending = false;
+                    // Never full-replace from cloud while local dirty / failed save
                     this.refreshReservationsFromFirestoreOnce();
+                }
+                if (
+                    !savedOk &&
+                    this.cloudSaveRetryCount < 2 &&
+                    this.dirtyReservationIds.size + this.deletedReservationIds.size > 0
+                ) {
+                    this.cloudSaveRetryCount += 1;
+                    this.saveReservations().catch(() => {});
                 }
             }, delay);
         }
+    }
+
+    /**
+     * Merge remote reservations without clobbering local dirty/deleted docs.
+     */
+    mergeRemoteReservations(remoteList) {
+        const dirty = this.dirtyReservationIds;
+        const deleted = this.deletedReservationIds;
+        const localById = new Map((this.reservations || []).map((r) => [String(r.id), r]));
+        const merged = [];
+        const seen = new Set();
+
+        (remoteList || []).forEach((remote) => {
+            const id = String(remote.id);
+            if (deleted.has(id)) return;
+            if (dirty.has(id)) {
+                merged.push(localById.get(id) || remote);
+            } else {
+                merged.push(remote);
+            }
+            seen.add(id);
+        });
+
+        // Keep new local creates not yet on remote
+        (this.reservations || []).forEach((local) => {
+            const id = String(local.id);
+            if (seen.has(id) || deleted.has(id)) return;
+            if (dirty.has(id) || this.cloudSaveFailed) {
+                merged.push(local);
+                seen.add(id);
+            }
+        });
+
+        this.reservations = merged;
+        this.saveReservationsToLocalStorage();
+        this.scheduleUiRefresh();
     }
 
     /** One-shot pull after a skipped snapshot so multi-tab updates are not lost. */
@@ -8543,6 +8710,10 @@ class ReservationManager {
                 reservations.push(reservation);
             });
             if (reservations.length === 0 && this.reservations.length > 0) return;
+            if (this.dirtyReservationIds.size > 0 || this.deletedReservationIds.size > 0 || this.cloudSaveFailed) {
+                this.mergeRemoteReservations(reservations);
+                return;
+            }
             this.reservations = reservations;
             this.saveReservationsToLocalStorage();
             this.scheduleUiRefresh();
@@ -8577,8 +8748,8 @@ class ReservationManager {
         });
 
         if (ops.length === 0) {
-            this.dirtyReservationIds.clear();
-            this.deletedReservationIds.clear();
+            dirtyIds.forEach((id) => this.dirtyReservationIds.delete(String(id)));
+            deletedIds.forEach((id) => this.deletedReservationIds.delete(String(id)));
             return;
         }
 
@@ -8598,8 +8769,9 @@ class ReservationManager {
             await batch.commit();
         }
 
-        this.dirtyReservationIds.clear();
-        this.deletedReservationIds.clear();
+        // Only clear IDs that were in this committed batch (keep ones marked dirty during await)
+        dirtyIds.forEach((id) => this.dirtyReservationIds.delete(String(id)));
+        deletedIds.forEach((id) => this.deletedReservationIds.delete(String(id)));
         appDebug(`Synced ${ops.length} reservation document(s) to Firestore (per-doc)`);
     }
 
@@ -9400,18 +9572,20 @@ class ReservationManager {
         doc.text(`$${reservation.pricing.totalCost.toFixed(2)}`, 190, yPos, { align: 'right' });
         yPos += 6;
 
-        doc.setFontSize(14);
-        doc.setTextColor(242, 123, 33);
         const depositAmount = reservation.pricing.depositAmount || 0;
-        const isCustomDeposit = reservation.depositPercentage === 'custom' || reservation.pricing?.depositPercentage === 'custom';
-        const depositLabel = isCustomDeposit ? 'Depósito a Pagar (Personalizado)' : `Depósito a Pagar (${reservation.depositPercentage || reservation.pricing?.depositPercentage || 20}%)`;
-        doc.text(depositLabel, 20, yPos);
-        let depositText = `$${depositAmount.toFixed(2)}`;
-        if (this.isDepositMarkedPaid(reservation)) {
-            depositText += ' - PAGADO';
+        if (depositAmount > 0) {
+            doc.setFontSize(14);
+            doc.setTextColor(242, 123, 33);
+            const isCustomDeposit = reservation.depositPercentage === 'custom' || reservation.pricing?.depositPercentage === 'custom';
+            const depositLabel = isCustomDeposit ? 'Depósito a Pagar (Personalizado)' : `Depósito a Pagar (${reservation.depositPercentage || reservation.pricing?.depositPercentage || 20}%)`;
+            doc.text(depositLabel, 20, yPos);
+            let depositText = `$${depositAmount.toFixed(2)}`;
+            if (this.isDepositMarkedPaid(reservation)) {
+                depositText += ' - PAGADO';
+            }
+            doc.text(depositText, 190, yPos, { align: 'right' });
+            yPos += 6;
         }
-        doc.text(depositText, 190, yPos, { align: 'right' });
-        yPos += 6;
 
         // Total Pagado line
         const totalPaid = this.calculateTotalPaid(reservation);
@@ -9584,12 +9758,14 @@ Hay varios métodos de pago disponibles. Todo pago que sea cobrado en el termina
         const invoice = reservation.invoiceNumber ? ` ${reservation.invoiceNumber}` : '';
         const total = reservation.pricing?.totalCost;
         const deposit = reservation.pricing?.depositAmount || 0;
+        const totalPaid = this.calculateTotalPaid(reservation);
         const balance = this.calculateRemainingBalance(reservation);
         const moneyBits = [];
         if (typeof total === 'number') moneyBits.push(`Total: $${total.toFixed(2)}`);
         if (deposit > 0) {
             moneyBits.push(`Depósito: $${deposit.toFixed(2)}${this.isDepositMarkedPaid(reservation) ? ' (pagado)' : ''}`);
         }
+        if (typeof total === 'number') moneyBits.push(`Total pagado: $${totalPaid.toFixed(2)}`);
         if (typeof total === 'number') moneyBits.push(`Balance: $${balance.toFixed(2)}`);
         const moneyLine = moneyBits.length ? ` ${moneyBits.join(' · ')}.` : '';
         return `Hola ${name}, le enviamos la factura${invoice} de La Antesala${date ? ` para su reservación del ${date}` : ''}.${moneyLine}`;

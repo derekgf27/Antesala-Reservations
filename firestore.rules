@@ -23,6 +23,7 @@ service cloud.firestore {
                     && request.resource.data.keys().hasAll(['id', 'eventDate'])
                     && request.resource.data.id is string
                     && request.resource.data.id.size() > 0
+                    && request.resource.data.id == reservationId
                     && request.resource.data.eventDate is string;
 
       allow update: if isStaff()
@@ -30,10 +31,13 @@ service cloud.firestore {
                     && request.resource.data.id is string
                     && request.resource.data.id.size() > 0
                     && request.resource.data.eventDate is string
-                    && request.resource.data.id == resource.data.id;
+                    && request.resource.data.id == resource.data.id
+                    && request.resource.data.id == reservationId;
 
-      // Soft-delete preferred; hard delete allowed for trash purge
-      allow delete: if isStaff();
+      // Hard delete only after soft-delete (Papelera purge)
+      allow delete: if isStaff()
+                    && resource.data.keys().hasAny(['deletedAt'])
+                    && resource.data.deletedAt != null;
     }
 
     match /menuConfig/{docId} {

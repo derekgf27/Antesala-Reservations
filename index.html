@@ -7,7 +7,7 @@
     <meta name="description" content="Sistema interno de reservaciones de La Antesala">
     <title>Antesala Reservaciones - Sistema de Reservación de Espacios</title>
     <!-- Updated: Added Desayuno Continental option and improved dropdown styling -->
-    <link rel="stylesheet" href="styles.css?v=consistency-1">
+    <link rel="stylesheet" href="styles.css?v=suite-2">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -18,11 +18,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
-    <script src="js/antesala-utils.js"></script>
-    <script src="js/invoice-counter.js"></script>
-    <script src="js/audit-trail.js"></script>
-    <script src="js/app-check.js"></script>
-    <script src="firebase-config.js"></script>
+    <script src="js/antesala-utils.js?v=suite-2"></script>
+    <script src="js/invoice-counter.js?v=suite-2"></script>
+    <script src="js/audit-trail.js?v=suite-2"></script>
+    <script src="js/app-check.js?v=suite-2"></script>
+    <script src="firebase-config.js?v=suite-2"></script>
 </head>
 <body>
     <!-- Google Sign-In gate (session persists — staff sign in once per device) -->
@@ -150,7 +150,7 @@
                         </div>
                         <div class="stat-content">
                             <h3 id="totalRevenue">$0</h3>
-                            <p>Ingresos Totales</p>
+                            <p>Valor reservado</p>
                         </div>
                     </div>
                     <div class="stat-card stat-card--compact">
@@ -522,8 +522,8 @@
                         <button type="button" class="btn btn-primary" onclick="showSection('new-reservation')">
                             <i class="fas fa-plus"></i> Nueva Reservación
                         </button>
-                        <button type="button" class="btn btn-outline" id="exportReservationsBtn" onclick="exportReservations()" title="Descargar respaldo JSON">
-                            <i class="fas fa-download"></i> Exportar respaldo
+                        <button type="button" class="btn btn-outline" id="exportReservationsBtn" onclick="exportReservations()" title="Descargar copia JSON (solo exportación; no restaura automáticamente)">
+                            <i class="fas fa-download"></i> Exportar copia
                         </button>
                         <select id="reservationSort" class="sort-select" aria-label="Ordenar reservaciones">
                             <option value="eventDate">Ordenar por Fecha del Evento</option>
@@ -619,7 +619,7 @@
                 </div>
                 <div class="analytics-kpis">
                     <div class="analytics-kpi">
-                        <span class="analytics-kpi-label">Ingresos este mes</span>
+                        <span class="analytics-kpi-label">Valor reservado (mes)</span>
                         <strong id="analyticsMonthRevenue">$0.00</strong>
                     </div>
                     <button type="button" class="analytics-kpi analytics-kpi--alert" id="analyticsPendingCard" title="Ver depósitos pendientes">
@@ -638,7 +638,7 @@
                 </div>
                 <div class="analytics-layout">
                     <div class="analytics-card">
-                        <h3>Ingresos por mes</h3>
+                        <h3>Valor reservado por mes</h3>
                         <div id="revenueChart"></div>
                     </div>
                     <div class="analytics-side">
@@ -2028,6 +2028,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=consistency-1"></script>
+    <script src="script.js?v=suite-2"></script>
 </body>
 </html>
