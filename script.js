@@ -1369,7 +1369,7 @@ class ReservationManager {
             }
             customList.forEach(item => {
                 const inputId = `dessert-custom-${item.id}`;
-                const qty = this.dessertCustomSelections[item.id] || 0;
+                const qty = this.getSelectionQty(this.dessertCustomSelections[item.id]);
                 const price = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
                 const name = item.name || item.id;
                 const div = document.createElement('div');
@@ -1646,10 +1646,12 @@ class ReservationManager {
                 this.ensureCustomMenuOptionsStructure();
                 const postresList = this.customMenuOptions.postres || [];
                 Object.entries(this.dessertCustomSelections).forEach(([id, qty]) => {
-                    if (qty <= 0) return;
+                    const numQty = this.getSelectionQty(qty);
+                    if (numQty <= 0) return;
                     const item = postresList.find(p => p.id === id);
-                    const name = item ? (item.name || id) : id;
-                    items.push(`<li>${this.escapeHtml(name)} × ${this.escapeHtml(qty)}</li>`);
+                    const frozenName = (typeof qty === 'object' && qty !== null && qty.name) ? qty.name : null;
+                    const name = frozenName || (item ? (item.name || id) : id);
+                    items.push(`<li>${this.escapeHtml(name)} × ${this.escapeHtml(String(numQty))}</li>`);
                 });
             }
 
@@ -2347,6 +2349,123 @@ class ReservationManager {
         return this.getStandardBeverageList().find(b => b.id === id) || null;
     }
 
+    /**
+     * Freeze beverage name/price/alcohol onto each selection so invoices and
+     * later catalog edits cannot change a saved reservation's math.
+     */
+    snapshotBeverageSelections(map = this.beverageSelections) {
+        const out = {};
+        Object.entries(this.dedupeBeverageMap(map || {})).forEach(([id, qty]) => {
+            if ((id === 'mimosa' || id === 'mimosa-395') && qty === true) {
+                out[id] = true;
+                return;
+            }
+            let numQty = 0;
+            let notes;
+            let name;
+            let price;
+            let alcohol;
+            if (typeof qty === 'object' && qty !== null) {
+                numQty = parseInt(qty.qty, 10) || 0;
+                notes = qty.notes || undefined;
+                name = qty.name;
+                if (qty.price !== undefined && qty.price !== null && qty.price !== '') {
+                    price = parseFloat(qty.price);
+                }
+                if (qty.alcohol !== undefined) alcohol = !!qty.alcohol;
+            } else if (typeof qty === 'number') {
+                numQty = qty;
+            } else {
+                return;
+            }
+            if (numQty <= 0) return;
+            const item = this.findBeverageById(id);
+            out[id] = {
+                qty: numQty,
+                name: name || item?.name || id,
+                price: (price != null && !Number.isNaN(price))
+                    ? price
+                    : (typeof item?.price === 'number' ? item.price : parseFloat(item?.price) || 0),
+                alcohol: alcohol !== undefined ? alcohol : !!item?.alcohol
+            };
+            if (notes) out[id].notes = notes;
+        });
+        return out;
+    }
+
+    snapshotEntremesesSelections(map = this.entremesesSelections) {
+        const catalog = this.getEntremesesItems();
+        const out = {};
+        Object.entries(map || {}).forEach(([id, qty]) => {
+            if (qty === true && ['asopao', 'asopao-495', 'caldo-gallego', 'ceviche'].includes(id)) {
+                out[id] = true;
+                return;
+            }
+            let numQty = 0;
+            let name;
+            let price;
+            if (typeof qty === 'object' && qty !== null) {
+                numQty = parseInt(qty.qty, 10) || 0;
+                name = qty.name;
+                if (qty.price !== undefined && qty.price !== null && qty.price !== '') {
+                    price = parseFloat(qty.price);
+                }
+            } else if (typeof qty === 'number') {
+                numQty = qty;
+            } else {
+                return;
+            }
+            if (numQty <= 0) return;
+            const item = catalog.find(e => e.id === id);
+            out[id] = {
+                qty: numQty,
+                name: name || item?.name || id,
+                price: (price != null && !Number.isNaN(price))
+                    ? price
+                    : (typeof item?.price === 'number' ? item.price : parseFloat(item?.price) || 0)
+            };
+        });
+        return out;
+    }
+
+    snapshotCustomPostresSelections(map = this.dessertCustomSelections) {
+        this.ensureCustomMenuOptionsStructure();
+        const postresList = this.customMenuOptions.postres || [];
+        const out = {};
+        Object.entries(map || {}).forEach(([id, qty]) => {
+            let numQty = 0;
+            let name;
+            let price;
+            if (typeof qty === 'object' && qty !== null) {
+                numQty = parseInt(qty.qty, 10) || 0;
+                name = qty.name;
+                if (qty.price !== undefined && qty.price !== null && qty.price !== '') {
+                    price = parseFloat(qty.price);
+                }
+            } else if (typeof qty === 'number') {
+                numQty = qty;
+            } else {
+                return;
+            }
+            if (numQty <= 0) return;
+            const item = postresList.find(p => p.id === id);
+            out[id] = {
+                qty: numQty,
+                name: name || item?.name || id,
+                price: (price != null && !Number.isNaN(price))
+                    ? price
+                    : (typeof item?.price === 'number' ? item.price : parseFloat(item?.price) || 0)
+            };
+        });
+        return out;
+    }
+
+    freezePricingSelections() {
+        this.beverageSelections = this.snapshotBeverageSelections();
+        this.entremesesSelections = this.snapshotEntremesesSelections();
+        this.dessertCustomSelections = this.snapshotCustomPostresSelections();
+    }
+
     hasActiveBeverageQty(qty) {
         if (qty === true) return true;
         if (typeof qty === 'number') return qty > 0;
@@ -2354,6 +2473,16 @@ class ReservationManager {
             return (parseInt(qty.qty, 10) || 0) > 0;
         }
         return false;
+    }
+
+    /** Read numeric qty from a plain number or frozen { qty, ... } selection. */
+    getSelectionQty(qty) {
+        if (qty === true) return 1;
+        if (typeof qty === 'number') return qty;
+        if (typeof qty === 'object' && qty !== null && qty.qty != null) {
+            return parseInt(qty.qty, 10) || 0;
+        }
+        return 0;
     }
 
     /** Stable identity for deduping (same drink under mimosa + custom-* keys, etc.). */
@@ -2510,7 +2639,10 @@ class ReservationManager {
         const lines = this.getReservationBeverageInvoiceLines(reservation);
         if (lines.length === 0) return null;
 
-        const total = lines.reduce((sum, line) => sum + (line.total || 0), 0);
+        const lineSum = lines.reduce((sum, line) => sum + (line.total || 0), 0);
+        // Prefer frozen pricing.drinkCost so line group matches SUB-TOTAL / TOTAL
+        const stored = reservation.pricing?.drinkCost;
+        const total = (typeof stored === 'number' && !Number.isNaN(stored)) ? stored : lineSum;
         const qtyUnits = lines.reduce((sum, line) => sum + (parseInt(line.qty, 10) || 0), 0);
         // Buffet-style bullets: name + [Cant. N], no per-item dollar amounts
         const bullets = lines.map((line) => {
@@ -2584,7 +2716,10 @@ class ReservationManager {
         const lines = this.getReservationEntremesesInvoiceLines(reservation);
         if (lines.length === 0) return null;
 
-        const total = lines.reduce((sum, line) => sum + (line.total || 0), 0);
+        const lineSum = lines.reduce((sum, line) => sum + (line.total || 0), 0);
+        // Prefer frozen pricing.entremesesCost so line group matches SUB-TOTAL / TOTAL
+        const stored = reservation.pricing?.entremesesCost;
+        const total = (typeof stored === 'number' && !Number.isNaN(stored)) ? stored : lineSum;
         const qtyUnits = lines.reduce((sum, line) => sum + (parseInt(line.qty, 10) || 0), 0);
         const bullets = lines.map((line) => {
             const label = this.stripBeveragePriceFromLabel(line.description || 'Entremés') || 'Entremés';
@@ -2598,6 +2733,47 @@ class ReservationManager {
             qtyUnits,
             lines
         };
+    }
+
+    /** Resolve custom postres selections using frozen name/price when present. */
+    getReservationCustomPostresInvoiceLines(reservation) {
+        const map = reservation?.dessert?.customPostres;
+        if (!map || typeof map !== 'object') return [];
+        this.ensureCustomMenuOptionsStructure();
+        const postresList = this.customMenuOptions.postres || [];
+        const lines = [];
+        Object.entries(map).forEach(([id, qty]) => {
+            let numQty = 0;
+            let name;
+            let price = null;
+            if (typeof qty === 'object' && qty !== null) {
+                numQty = parseInt(qty.qty, 10) || 0;
+                name = qty.name;
+                if (qty.price !== undefined && qty.price !== null && qty.price !== '') {
+                    price = parseFloat(qty.price);
+                }
+            } else if (typeof qty === 'number') {
+                numQty = qty;
+            }
+            if (numQty <= 0) return;
+            const item = postresList.find(p => p.id === id);
+            if (name == null || name === '') name = item?.name || id;
+            if (price == null || Number.isNaN(price)) {
+                price = typeof item?.price === 'number' ? item.price : parseFloat(item?.price) || 0;
+            }
+            lines.push({ description: name, qty: numQty, total: price * numQty, id });
+        });
+        return lines;
+    }
+
+    buildCustomPostresInvoiceGroup(reservation) {
+        const lines = this.getReservationCustomPostresInvoiceLines(reservation);
+        if (lines.length === 0) return null;
+        const lineSum = lines.reduce((sum, line) => sum + (line.total || 0), 0);
+        const stored = reservation.pricing?.postresCost;
+        const total = (typeof stored === 'number' && !Number.isNaN(stored) && stored > 0) ? stored : lineSum;
+        if (!(total > 0) && !(reservation.pricing?.postresCost > 0)) return null;
+        return { lines, total };
     }
 
     isReservationDeleted(reservation) {
@@ -3278,7 +3454,7 @@ class ReservationManager {
         Object.entries(map).forEach(([inputId, key]) => {
             const el = document.getElementById(inputId);
             if (el) {
-                const qty = this.entremesesSelections[key] || 0;
+                const qty = this.getSelectionQty(this.entremesesSelections[key]);
                 el.value = qty;
                 const quantitySelector = el.parentElement;
                 const wrapper = quantitySelector ? quantitySelector.parentElement : null;
@@ -3296,7 +3472,7 @@ class ReservationManager {
             customContainer.innerHTML = '';
             customList.forEach(item => {
                 const inputId = `entr-custom-${item.id}`;
-                const qty = typeof this.entremesesSelections[item.id] === 'number' ? this.entremesesSelections[item.id] : 0;
+                const qty = this.getSelectionQty(this.entremesesSelections[item.id]);
                 const price = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
                 const name = item.name || item.id;
                 const div = document.createElement('div');
@@ -4217,6 +4393,9 @@ class ReservationManager {
 
     // Calculate pricing in real-time
     calculatePrice() {
+        // Keep selection maps price-frozen so form math matches what will be saved/invoiced
+        this.freezePricingSelections();
+
         const guestCountManual = document.getElementById('guestCountManual');
         const guestCount = parseInt(guestCountManual.value) || parseInt(document.getElementById('guestCount').value);
         const roomType = document.getElementById('roomType');
@@ -4287,17 +4466,23 @@ class ReservationManager {
                 
                 if (typeof qty === 'object' && qty !== null && qty.qty) {
                     actualQty = qty.qty;
-                    // Check if this is a custom beverage with stored price
-                    if (qty.price !== undefined) {
-                        itemPrice = qty.price;
-                        // For custom beverages, check if they're marked as alcoholic
-                        // We'll need to check the current custom beverages list or assume based on context
-                        isAlcoholic = qty.alcohol !== undefined ? qty.alcohol : false;
+                    if (qty.price !== undefined && qty.price !== null && qty.price !== '') {
+                        itemPrice = parseFloat(qty.price);
+                    }
+                    if (qty.alcohol !== undefined) {
+                        isAlcoholic = !!qty.alcohol;
                     }
                 }
                 
-                // If we have a stored price (custom beverage), use it
-                if (itemPrice !== null && actualQty > 0) {
+                // Prefer frozen selection price/alcohol; fall back to catalog
+                const item = this.findBeverageById(id) || beverages.find(b => b.id === id);
+                if (actualQty > 0) {
+                    if (itemPrice === null || Number.isNaN(itemPrice)) {
+                        itemPrice = typeof item?.price === 'number' ? item.price : parseFloat(item?.price) || 0;
+                    }
+                    if (typeof qty !== 'object' || qty?.alcohol === undefined) {
+                        isAlcoholic = !!item?.alcohol;
+                    }
                     const itemCost = itemPrice * actualQty;
                     drinkCost += itemCost;
                     if (isAlcoholic) {
@@ -4305,19 +4490,6 @@ class ReservationManager {
                         alcoholicQty += actualQty;
                     } else {
                         nonAlcoholicDrinkCost += itemCost;
-                    }
-                } else {
-                    // Look up catalog item (custom first, then built-in)
-                    const item = this.findBeverageById(id) || beverages.find(b => b.id === id);
-                    if (item && actualQty > 0) {
-                        const itemCost = item.price * actualQty;
-                        drinkCost += itemCost;
-                        if (item.alcohol) {
-                            alcoholicDrinkCost += itemCost;
-                            alcoholicQty += actualQty;
-                        } else {
-                            nonAlcoholicDrinkCost += itemCost;
-                        }
                     }
                 }
             }
@@ -4336,10 +4508,22 @@ class ReservationManager {
             } else if (id === 'ceviche' && qty === true) {
                 entremesesCost += 3.95 * guestCount;
             } else {
-                const item = entremeses.find(e => e.id === id);
-                if (item && qty > 0) {
-                    entremesesCost += item.price * qty;
+                let numQty = 0;
+                let unitPrice = null;
+                if (typeof qty === 'object' && qty !== null) {
+                    numQty = parseInt(qty.qty, 10) || 0;
+                    if (qty.price !== undefined && qty.price !== null && qty.price !== '') {
+                        unitPrice = parseFloat(qty.price);
+                    }
+                } else if (typeof qty === 'number') {
+                    numQty = qty;
                 }
+                if (numQty <= 0) return;
+                const item = entremeses.find(e => e.id === id);
+                if (unitPrice == null || Number.isNaN(unitPrice)) {
+                    unitPrice = typeof item?.price === 'number' ? item.price : parseFloat(item?.price) || 0;
+                }
+                entremesesCost += unitPrice * numQty;
             }
         });
 
@@ -4350,12 +4534,22 @@ class ReservationManager {
             this.ensureCustomMenuOptionsStructure();
             const postresList = this.customMenuOptions.postres || [];
             Object.entries(this.dessertCustomSelections).forEach(([id, qty]) => {
-                if (qty <= 0) return;
-                const item = postresList.find(p => p.id === id);
-                if (item) {
-                    const price = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
-                    postresCost += price * qty;
+                let numQty = 0;
+                let unitPrice = null;
+                if (typeof qty === 'object' && qty !== null) {
+                    numQty = parseInt(qty.qty, 10) || 0;
+                    if (qty.price !== undefined && qty.price !== null && qty.price !== '') {
+                        unitPrice = parseFloat(qty.price);
+                    }
+                } else if (typeof qty === 'number') {
+                    numQty = qty;
                 }
+                if (numQty <= 0) return;
+                const item = postresList.find(p => p.id === id);
+                if (unitPrice == null || Number.isNaN(unitPrice)) {
+                    unitPrice = typeof item?.price === 'number' ? item.price : parseFloat(item?.price) || 0;
+                }
+                postresCost += unitPrice * numQty;
             });
         }
 
@@ -4479,6 +4673,7 @@ class ReservationManager {
     async saveReservation() {
         const formEl = document.getElementById('reservationForm');
         const formData = new FormData(formEl);
+        this.freezePricingSelections();
         const pricing = this.calculatePrice();
 
         // Validate required fields (marked with * / [required]) — not optional ones
@@ -8532,24 +8727,17 @@ class ReservationManager {
             `;
         }
 
-        // Postres (custom from Anadir Items)
-        if (reservation.dessert?.customPostres && Object.keys(reservation.dessert.customPostres).length > 0 && (reservation.pricing.postresCost || 0) > 0) {
-            this.ensureCustomMenuOptionsStructure();
-            const postresList = this.customMenuOptions.postres || [];
-            Object.entries(reservation.dessert.customPostres).forEach(([id, qty]) => {
-                if (typeof qty !== 'number' || qty <= 0) return;
-                const item = postresList.find(p => p.id === id);
-                if (item) {
-                    const total = (typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0) * qty;
-                    const name = item.name || id;
-                    itemsHTML += `
-                        <tr>
-                            <td><strong>${name}</strong></td>
-                            <td>${qty}</td>
-                            <td>$${total.toFixed(2)}</td>
-                        </tr>
-                    `;
-                }
+        // Postres (custom from Anadir Items) — frozen prices preferred
+        const postresGroupHtml = this.buildCustomPostresInvoiceGroup(reservation);
+        if (postresGroupHtml) {
+            postresGroupHtml.lines.forEach((line) => {
+                itemsHTML += `
+                    <tr>
+                        <td><strong>${line.description}</strong></td>
+                        <td>${line.qty}</td>
+                        <td>$${line.total.toFixed(2)}</td>
+                    </tr>
+                `;
             });
         }
 
@@ -8703,7 +8891,7 @@ class ReservationManager {
         }
         
         // Show other food types if neither buffet nor individual plates
-        if (!hasBuffet && !hasIndividualPlates && reservation.pricing.foodCost > 0 && reservation.foodType && reservation.foodType !== 'no-food') {
+        if (!hasBuffetPDF && !hasIndividualPlatesPDF && reservation.pricing.foodCost > 0 && reservation.foodType && reservation.foodType !== 'no-food') {
             itemsData.push({
                 description: this.getFoodDisplayName(reservation.foodType, reservation),
                 qty: reservation.guestCount.toString(),
@@ -8792,21 +8980,15 @@ class ReservationManager {
             });
         }
 
-        // Postres (custom from Anadir Items)
-        if (reservation.dessert?.customPostres && Object.keys(reservation.dessert.customPostres).length > 0 && (reservation.pricing.postresCost || 0) > 0) {
-            this.ensureCustomMenuOptionsStructure();
-            const postresList = this.customMenuOptions.postres || [];
-            Object.entries(reservation.dessert.customPostres).forEach(([id, qty]) => {
-                if (typeof qty !== 'number' || qty <= 0) return;
-                const item = postresList.find(p => p.id === id);
-                if (item) {
-                    const total = (typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0) * qty;
-                    itemsData.push({
-                        description: item.name || id,
-                        qty: qty.toString(),
-                        total: `$${total.toFixed(2)}`
-                    });
-                }
+        // Postres (custom from Anadir Items) — frozen prices preferred
+        const postresGroupPdf = this.buildCustomPostresInvoiceGroup(reservation);
+        if (postresGroupPdf) {
+            postresGroupPdf.lines.forEach((line) => {
+                itemsData.push({
+                    description: line.description,
+                    qty: line.qty.toString(),
+                    total: `$${line.total.toFixed(2)}`
+                });
             });
         }
 
