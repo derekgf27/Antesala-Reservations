@@ -123,6 +123,7 @@ class ReservationManager {
         this.firebaseUnsubscribe = reservationsRef.onSnapshot((snapshot) => {
             // Don't overwrite local changes if there are pending changes
             if (this.pendingChanges) {
+                this.skippedSnapshotWhilePending = true;
                 appDebug('Skipping Firestore sync - pending local changes');
                 if (!gotFirst && resolveFirst) {
                     gotFirst = true;
@@ -390,6 +391,8 @@ class ReservationManager {
                 { title: 'Cambios sin guardar' }
             );
             if (!ok) return;
+            // Discard dirty edit so a later Guardar cannot overwrite the wrong booking
+            this.clearForm();
         }
 
         // Hide all sections
@@ -1108,6 +1111,9 @@ class ReservationManager {
 
     // Launch modal when breakfast is selected (fixed options only; custom items have no modal)
     handleBreakfastTypeChange() {
+        // Catalog changed — drop frozen unit price so live option price applies
+        const frozenBreakfast = document.getElementById('breakfastFrozenUnitPrice');
+        if (frozenBreakfast) frozenBreakfast.value = '';
         const breakfastType = document.getElementById('breakfastType');
         const isCustomBreakfast = breakfastType?.value?.startsWith('custom-');
         if (breakfastType && this.isBreakfast(breakfastType.value) && !isCustomBreakfast) {
@@ -1478,11 +1484,11 @@ class ReservationManager {
         const foodTypeEl = document.getElementById('foodType');
         const foodType = foodTypeEl?.value || '';
         
-        const hasBuffet = this.isBuffet(foodType);
+        const hasBuffet = this.isBuffet(foodType) || this.hasActiveBuffetFormData();
         const hasIndividualPlates = this.individualPlatesSelections.length > 0;
         const items = [];
         
-        // Display buffet items if buffet is selected
+        // Display buffet items if buffet is configured (including alongside individual plates)
         if (hasBuffet) {
             const platoMexicanoCheckbox = document.getElementById('buffetPlatoMexicano');
             const platoMexicanoIsSelected = platoMexicanoCheckbox?.checked || false;
@@ -4408,10 +4414,11 @@ class ReservationManager {
         // Food cost - can include both buffet and individual plates
         let foodCost = 0;
         
-        // Calculate buffet cost if buffet is selected
-        if (this.isBuffet(foodType.value)) {
-            const buffetPriceInput = document.getElementById('buffetPricePerPerson');
-            const buffetPricePerPerson = parseFloat(buffetPriceInput?.value || 0);
+        // Calculate buffet cost whenever buffet is configured (incl. alongside individual plates)
+        const buffetPriceInput = document.getElementById('buffetPricePerPerson');
+        const buffetPricePerPerson = parseFloat(buffetPriceInput?.value || 0);
+        const chargingBuffet = this.isBuffet(foodType.value) || this.hasActiveBuffetFormData();
+        if (chargingBuffet && buffetPricePerPerson > 0) {
             foodCost += buffetPricePerPerson * guestCount;
         }
         
@@ -4427,15 +4434,19 @@ class ReservationManager {
         }
         
         // If neither buffet nor individual plates, use default price
-        if (!this.isBuffet(foodType.value) && foodType.value !== 'individual-plates' && this.individualPlatesSelections.length === 0) {
+        if (!chargingBuffet && foodType.value !== 'individual-plates' && this.individualPlatesSelections.length === 0) {
             const foodPrice = foodType.selectedOptions[0]?.dataset.price || 0;
             foodCost = parseFloat(foodPrice) * guestCount;
         }
 
-        // Breakfast cost (separate from food cost)
+        // Breakfast cost (separate from food cost) — prefer frozen unit price when editing
         const breakfastType = document.getElementById('breakfastType');
-        const breakfastPrice = breakfastType?.selectedOptions[0]?.dataset.price || 0;
-        const breakfastCost = parseFloat(breakfastPrice) * guestCount;
+        const frozenBreakfastRaw = document.getElementById('breakfastFrozenUnitPrice')?.value;
+        const liveBreakfastUnit = parseFloat(breakfastType?.selectedOptions[0]?.dataset.price || 0);
+        const breakfastUnitPrice = (frozenBreakfastRaw !== undefined && frozenBreakfastRaw !== null && frozenBreakfastRaw !== '')
+            ? (parseFloat(frozenBreakfastRaw) || 0)
+            : liveBreakfastUnit;
+        const breakfastCost = breakfastUnitPrice * guestCount;
 
         // Drink cost
         // Beverage cost from selections
@@ -4575,10 +4586,16 @@ class ReservationManager {
         
         const additionalServices = ['audioVisual', 'sillas', 'mesas', 'decorations', 'waitstaff', 'valet'];
         let additionalCost = 0;
+        const editingExisting = (this.isEditingReservation && this.editingReservationId)
+            ? this.findReservationById(this.editingReservationId)
+            : null;
         
         additionalServices.forEach(service => {
             const checkbox = document.getElementById(service);
-            if (checkbox && checkbox.checked) {
+            if (checkbox) {
+                if (checkbox.checked) additionalCost += servicePrices[service] || 0;
+            } else if (editingExisting?.additionalServices?.[service]) {
+                // Preserve legacy paid services removed from the form (decorations/waitstaff/valet)
                 additionalCost += servicePrices[service] || 0;
             }
         });
@@ -4664,6 +4681,8 @@ class ReservationManager {
             depositAmount,
             depositPercentage: depositPercentage === 'custom' ? 'custom' : parseFloat(depositPercentage),
             depositCustomAmount: depositPercentage === 'custom' ? depositAmount : null,
+            breakfastUnitPrice,
+            buffetPricePerPerson: buffetPricePerPerson > 0 ? buffetPricePerPerson : null,
             guestCount,
             eventDuration
         };
@@ -4711,32 +4730,9 @@ class ReservationManager {
         if (hasBuffetData) {
             const isPlatoMexicanoSelected = platoMexicanoCheckbox?.checked || false;
             
-            // Get buffet price (required for both regular buffet and plato mexicano)
-            const buffetCustomPriceInput = document.getElementById('buffetCustomPrice');
-            let buffetPricePerPerson = 0;
-            
-            if (buffetPriceInput?.value === 'custom') {
-                // Use custom price if selected
-                buffetPricePerPerson = parseFloat(buffetCustomPriceInput?.value || 0);
-                // Validate custom price
-                if (!buffetPricePerPerson || buffetPricePerPerson <= 0) {
-                    if (!missingFields.includes('buffetCustomPrice')) {
-                        missingFields.push('buffetCustomPrice');
-                    }
-                }
-            } else {
-                // Use preset price from dropdown or direct input
-                buffetPricePerPerson = parseFloat(buffetPriceInput?.value || 0);
-                // Validate price (required for both regular buffet and plato mexicano)
-                if (!buffetPriceInput?.value || buffetPricePerPerson <= 0) {
-                    if (!missingFields.includes('buffetPricePerPerson')) {
-                        missingFields.push('buffetPricePerPerson');
-                    }
-                }
-            }
-            
-            // Make sure buffet price is required when buffet is selected
-            if (buffetPriceInput && !buffetPriceInput.value) {
+            // Buffet price from the number input (legacy "custom" dropdown path removed)
+            let buffetPricePerPerson = parseFloat(buffetPriceInput?.value || 0);
+            if (!buffetPriceInput?.value || buffetPricePerPerson <= 0) {
                 if (!missingFields.includes('buffetPricePerPerson')) {
                     missingFields.push('buffetPricePerPerson');
                 }
@@ -4914,9 +4910,16 @@ class ReservationManager {
                 audioVisual: formData.get('audioVisual') === 'on',
                 sillas: formData.get('sillas') === 'on',
                 mesas: formData.get('mesas') === 'on',
-                decorations: formData.get('decorations') === 'on',
-                waitstaff: formData.get('waitstaff') === 'on',
-                valet: formData.get('valet') === 'on'
+                // Legacy paid services: keep prior values when inputs are gone from the form
+                decorations: document.getElementById('decorations')
+                    ? formData.get('decorations') === 'on'
+                    : false,
+                waitstaff: document.getElementById('waitstaff')
+                    ? formData.get('waitstaff') === 'on'
+                    : false,
+                valet: document.getElementById('valet')
+                    ? formData.get('valet') === 'on'
+                    : false
             },
             tipPercentage: parseFloat(formData.get('tipPercentage') || 0),
             depositPercentage: pricing.depositPercentage === 'custom' ? 'custom' : parseFloat(formData.get('depositPercentage') || 20),
@@ -4945,6 +4948,12 @@ class ReservationManager {
                 reservation.auditTrail = Array.isArray(existing.auditTrail) ? [...existing.auditTrail] : [];
                 reservation.deletedAt = existing.deletedAt || null;
                 reservation.deletedBy = existing.deletedBy || null;
+                // Preserve legacy paid services not present on the current form
+                ['decorations', 'waitstaff', 'valet'].forEach((key) => {
+                    if (!document.getElementById(key) && existing.additionalServices?.[key]) {
+                        reservation.additionalServices[key] = true;
+                    }
+                });
                 // Keep stable invoice number (assign once if older reservation lacks one)
                 reservation.invoiceNumber = existing.invoiceNumber || null;
                 if (!reservation.invoiceNumber) {
@@ -4952,6 +4961,7 @@ class ReservationManager {
                     this.appendReservationAudit(reservation, 'invoice', reservation.invoiceNumber);
                 }
                 this.appendReservationAudit(reservation, 'updated', reservation.clientName || '');
+                this.syncDepositPaymentAmount(reservation);
                 
                 // Update the reservation in place
                 this.reservations[existingIndex] = reservation;
@@ -5048,6 +5058,8 @@ class ReservationManager {
         this.updateEntremesesSummary();
         this.individualPlatesSelections = [];
         this.updateIndividualPlatesSummary();
+        const frozenBreakfastClear = document.getElementById('breakfastFrozenUnitPrice');
+        if (frozenBreakfastClear) frozenBreakfastClear.value = '';
         this.reservationFormDirty = false;
     }
 
@@ -5080,7 +5092,7 @@ class ReservationManager {
             todayNoteEl?.classList.add('hidden');
         }
 
-        const pending = active.filter(r => (r.pricing?.depositAmount || 0) > 0 && !r.depositPaid);
+        const pending = active.filter(r => this.isDepositPending(r));
         const pendingTotal = pending.reduce((sum, r) => sum + (r.pricing?.depositAmount || 0), 0);
         const pendingTotalEl = document.getElementById('pendingDepositsTotal');
         const pendingNoteEl = document.getElementById('pendingDepositsNote');
@@ -5172,7 +5184,7 @@ class ReservationManager {
     getDepositStatusLabel(reservation) {
         const deposit = reservation.pricing?.depositAmount || 0;
         if (deposit <= 0) return { text: 'Sin depósito', tone: 'none' };
-        if (reservation.depositPaid || this.calculateRemainingBalance(reservation) <= 0.01) {
+        if (this.isDepositMarkedPaid(reservation) || this.calculateRemainingBalance(reservation) <= 0.01) {
             return { text: 'Pagado', tone: 'paid' };
         }
         return { text: 'No pagado', tone: 'unpaid' };
@@ -5392,9 +5404,9 @@ class ReservationManager {
         const ym = this.getTodayDateString().slice(0, 7);
         const thisMonth = active.filter(r => this.normalizeEventDate(r.eventDate).startsWith(ym));
         const monthRevenue = thisMonth.reduce((sum, r) => sum + (r.pricing?.totalCost || 0), 0);
-        const pending = active.filter(r => (r.pricing?.depositAmount || 0) > 0 && !r.depositPaid);
+        const pending = active.filter(r => this.isDepositPending(r));
         const pendingTotal = pending.reduce((sum, r) => sum + (r.pricing?.depositAmount || 0), 0);
-        const guests = active.reduce((sum, r) => sum + (Number(r.guestCount) || 0), 0);
+        const guests = thisMonth.reduce((sum, r) => sum + (Number(r.guestCount) || 0), 0);
         const setText = (id, text) => {
             const el = document.getElementById(id);
             if (el) el.textContent = text;
@@ -5405,7 +5417,7 @@ class ReservationManager {
             ? 'Nada por cobrar'
             : `${pending.length} depósito${pending.length === 1 ? '' : 's'}`);
         setText('analyticsMonthEvents', String(thisMonth.length));
-        setText('analyticsAvgGuests', active.length ? (guests / active.length).toFixed(1) : '0');
+        setText('analyticsAvgGuests', thisMonth.length ? (guests / thisMonth.length).toFixed(1) : '0');
         this.updateRevenueByMonthTable();
         this.updatePendingDepositsStats();
         this.updateRoomUtilizationStats();
@@ -5415,10 +5427,7 @@ class ReservationManager {
         const container = document.getElementById('pendingDepositsStats');
         if (!container) return;
 
-        const pending = this.getActiveReservations().filter(r => {
-            const deposit = r.pricing?.depositAmount || 0;
-            return deposit > 0 && !r.depositPaid;
-        });
+        const pending = this.getActiveReservations().filter(r => this.isDepositPending(r));
         const esc = (s) => this.escapeHtml(s);
 
         if (pending.length === 0) {
@@ -5696,21 +5705,22 @@ class ReservationManager {
                     </div>
                 </div>
                 
-                ${(reservation.foodType && reservation.foodType !== 'no-food') || (reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => this.hasActiveBeverageQty(qty))) || (reservation.breakfastType && this.isBreakfast(reservation.breakfastType)) || (reservation.dessertType && this.isDessert(reservation.dessertType)) || (reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => (typeof qty === 'number' && qty > 0) || qty === true)) ? `
+                ${(reservation.foodType && reservation.foodType !== 'no-food') || this.reservationHasBuffet(reservation) || (reservation.individualPlates || []).some(p => (p.quantity || 0) > 0) || (reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => this.hasActiveBeverageQty(qty))) || (reservation.breakfastType && this.isBreakfast(reservation.breakfastType)) || (reservation.dessertType && this.isDessert(reservation.dessertType)) || (reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => this.getSelectionQty(qty) > 0 || qty === true)) ? `
                 <div class="detail-section">
                     <h4><i class="fas fa-utensils"></i> Comida y Bebidas</h4>
                     <div class="food-beverage-content">
-                        ${reservation.foodType && reservation.foodType !== 'no-food' ? `
+                        ${reservation.foodType && reservation.foodType !== 'no-food' || this.reservationHasBuffet(reservation) || (reservation.individualPlates || []).some(p => (p.quantity || 0) > 0) ? `
                         <div class="food-service-section">
                             <span class="detail-label">Servicio de Comida:</span>
                             <span class="detail-value">${esc(this.getFoodDisplayName(reservation.foodType, reservation))}</span>
-                            ${this.isBuffet(reservation.foodType) && reservation.buffet ? `
+                            ${this.reservationHasBuffet(reservation) ? `
                             ${reservation.buffet.platoMexicano ? `
                             <ul class="detail-bullet-list">
                                 <li>Plato Mexicano ($${reservation.buffet.pricePerPerson?.toFixed(2) || '0.00'} por persona)</li>
                             </ul>
                             ` : `
                             <ul class="detail-bullet-list">
+                                ${reservation.buffet.pricePerPerson ? `<li><strong>Buffet:</strong> $${Number(reservation.buffet.pricePerPerson).toFixed(2)} por persona</li>` : '<li><strong>Buffet</strong></li>'}
                                 ${reservation.buffet.rice ? `<li>${esc(this.getBuffetItemName('rice', reservation.buffet.rice))}</li>` : ''}
                                 ${reservation.buffet.rice2 ? `<li>${esc(this.getBuffetItemName('rice', reservation.buffet.rice2))}</li>` : ''}
                 ${reservation.buffet.protein1 ? `<li>${esc(this.getBuffetItemName('protein', reservation.buffet.protein1))}</li>` : ''}
@@ -5724,6 +5734,19 @@ class ReservationManager {
                                 ${reservation.buffet.pasteles ? `<li>Pasteles</li>` : ''}
                             </ul>
                             `}
+                            ` : ''}
+                            ${(reservation.individualPlates || []).filter(p => (p.quantity || 0) > 0).length > 0 ? `
+                            <ul class="detail-bullet-list">
+                                <li><strong>Platos Individuales:</strong></li>
+                                ${(reservation.individualPlates || []).filter(p => (p.quantity || 0) > 0).map(plate => {
+                                    const complementos = Array.isArray(plate.complementos) ? plate.complementos :
+                                        (plate.complementos ? [{ name: plate.complementos, price: plate.complementosPrice || 0 }] : []);
+                                    const compText = complementos.length
+                                        ? ` — Complementos: ${complementos.map(c => esc(c.name)).join(', ')}`
+                                        : '';
+                                    return `<li>${esc(plate.name)} × ${esc(plate.quantity)} ($${Number(plate.price || 0).toFixed(2)})${compText}</li>`;
+                                }).join('')}
+                            </ul>
                             ` : ''}
                         </div>
                         ` : ''}
@@ -5761,16 +5784,18 @@ class ReservationManager {
                                 ${(reservation.dessert.customPostres && Object.keys(reservation.dessert.customPostres).length > 0) ? (() => {
                                     const list = this.customMenuOptions?.postres || [];
                                     return Object.entries(reservation.dessert.customPostres)
-                                        .filter(([, qty]) => typeof qty === 'number' && qty > 0)
+                                        .filter(([, qty]) => this.getSelectionQty(qty) > 0)
                                         .map(([id, qty]) => {
+                                            const numQty = this.getSelectionQty(qty);
+                                            const frozenName = (typeof qty === 'object' && qty !== null && qty.name) ? qty.name : null;
                                             const item = list.find(p => p.id === id);
-                                            return `<li>${esc(item ? item.name : id)} × ${esc(qty)}</li>`;
+                                            return `<li>${esc(frozenName || (item ? item.name : id))} × ${esc(String(numQty))}</li>`;
                                         }).join('');
                                 })() : ''}
                             </ul>
                         </div>
                         ` : ''}
-                        ${reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => (typeof qty === 'number' && qty > 0) || qty === true) ? `
+                        ${reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => this.getSelectionQty(qty) > 0 || qty === true) ? `
                         <div class="food-service-section">
                             <span class="detail-label">Entremeses:</span>
                             ${this.getEntremesesBulletList(reservation.entremeses)}
@@ -5782,9 +5807,21 @@ class ReservationManager {
                             ${this.getBeverageBulletList(reservation.beverages)}
                         </div>
                         ` : ''}
+                        ${this.getAdditionalServicesDetailBlock(reservation.additionalServices)}
                     </div>
                 </div>
                 ` : ''}
+                ${!(
+                    (reservation.foodType && reservation.foodType !== 'no-food') ||
+                    this.reservationHasBuffet(reservation) ||
+                    (reservation.individualPlates || []).some(p => (p.quantity || 0) > 0) ||
+                    (reservation.beverages && Object.keys(reservation.beverages).length > 0 && Object.values(reservation.beverages).some(qty => this.hasActiveBeverageQty(qty))) ||
+                    (reservation.breakfastType && this.isBreakfast(reservation.breakfastType)) ||
+                    (reservation.dessertType && this.isDessert(reservation.dessertType)) ||
+                    (reservation.entremeses && Object.keys(reservation.entremeses).length > 0 && Object.values(reservation.entremeses).some(qty => this.getSelectionQty(qty) > 0 || qty === true))
+                ) && this.getAdditionalServicesDetailBlock(reservation.additionalServices)
+                    ? `<div class="detail-section"><h4><i class="fas fa-plus-circle"></i> Servicios</h4>${this.getAdditionalServicesDetailBlock(reservation.additionalServices)}</div>`
+                    : ''}
                 
                 <div class="detail-section pricing-section">
                     <h4><i class="fas fa-calculator"></i> Resumen de Precios</h4>
@@ -5847,11 +5884,12 @@ class ReservationManager {
                                 ${(() => {
                                     const remainingBalance = this.calculateRemainingBalance(reservation);
                                     const isFullyPaid = remainingBalance <= 0.01; // Allow small tolerance
+                                    const paid = !this.isDepositPending(reservation);
                                     // Disable deposit toggle when balance is fully paid
                                     if (isFullyPaid) {
-                                        return `<span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;" title="Reservación completamente pagada - El depósito no se puede modificar">${reservation.depositPaid ? '✓ Pagado' : 'No Pagado'}</span>`;
+                                        return `<span class="deposit-status-toggle ${paid ? 'paid' : 'unpaid'}" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;" title="Reservación completamente pagada - El depósito no se puede modificar">${paid ? '✓ Pagado' : 'No Pagado'}</span>`;
                                     }
-                                    return `<span class="deposit-status-toggle ${reservation.depositPaid ? 'paid' : 'unpaid'}" onclick="reservationManager.toggleDepositStatus('${reservation.id}')" data-reservation-id="${reservation.id}">${reservation.depositPaid ? '✓ Pagado' : 'No Pagado'}</span>`;
+                                    return `<span class="deposit-status-toggle ${paid ? 'paid' : 'unpaid'}" onclick="reservationManager.toggleDepositStatus('${reservation.id}')" data-reservation-id="${reservation.id}">${paid ? '✓ Pagado' : 'No Pagado'}</span>`;
                                 })()}
                             </span>
                         </div>
@@ -6516,12 +6554,12 @@ class ReservationManager {
         if (category === 'entremeses') {
             this.reservations.forEach(res => {
                 const qty = res.entremeses?.[id];
-                if ((typeof qty === 'number' && qty > 0) || qty === true) count++;
+                if (qty === true || this.getSelectionQty(qty) > 0) count++;
             });
         } else if (category === 'postres') {
             this.reservations.forEach(res => {
                 const qty = res.dessert?.customPostres?.[id];
-                if (typeof qty === 'number' && qty > 0) count++;
+                if (this.getSelectionQty(qty) > 0) count++;
             });
         } else if (category === 'desayuno') {
             this.reservations.forEach(res => {
@@ -6805,6 +6843,70 @@ class ReservationManager {
         return (reservation?.additionalPayments || []).some(payment => payment && payment.isDeposit);
     }
 
+    /** Deposit marked paid via flag or an isDeposit payment record. */
+    isDepositMarkedPaid(reservation) {
+        return !!reservation?.depositPaid || this.hasDepositPaymentRecord(reservation);
+    }
+
+    /**
+     * Pending deposit for KPIs/filters: has a deposit, not marked paid,
+     * and the event is not already fully paid via other payments.
+     */
+    isDepositPending(reservation) {
+        const deposit = reservation?.pricing?.depositAmount || 0;
+        if (deposit <= 0) return false;
+        if (this.isDepositMarkedPaid(reservation)) return false;
+        if (this.calculateRemainingBalance(reservation) <= 0.01) return false;
+        return true;
+    }
+
+    /** Buffet is active on a saved reservation (even if foodType is individual-plates). */
+    reservationHasBuffet(reservation) {
+        const b = reservation?.buffet;
+        if (!b || typeof b !== 'object') return false;
+        if (typeof b.pricePerPerson === 'number' && b.pricePerPerson > 0) return true;
+        if (b.platoMexicano) return true;
+        return !!(b.rice || b.rice2 || b.protein1 || b.protein2 || b.side || b.side2 ||
+            b.salad || b.salad2 || b.panecillos || b.aguaRefresco || b.pasteles);
+    }
+
+    /** Buffet configured on the live form (price, plato mexicano, or menu picks). */
+    hasActiveBuffetFormData() {
+        const price = parseFloat(document.getElementById('buffetPricePerPerson')?.value || 0);
+        if (price > 0) return true;
+        if (document.getElementById('buffetPlatoMexicano')?.checked) return true;
+        const selectIds = ['buffetRice', 'buffetRice2', 'buffetProtein1', 'buffetProtein2',
+            'buffetSide', 'buffetSide2', 'buffetSalad', 'buffetSalad2'];
+        if (selectIds.some((id) => !!document.getElementById(id)?.value)) return true;
+        return ['buffetPanecillos', 'buffetAguaRefresco', 'buffetPasteles']
+            .some((id) => !!document.getElementById(id)?.checked);
+    }
+
+    /** Sync isDeposit payment amount to current pricing.depositAmount after edits. */
+    syncDepositPaymentAmount(reservation) {
+        if (!reservation || !this.isDepositMarkedPaid(reservation)) return;
+        const depositAmount = reservation.pricing?.depositAmount || 0;
+        if (depositAmount <= 0) return;
+        if (!reservation.additionalPayments) reservation.additionalPayments = [];
+        let dep = reservation.additionalPayments.find((p) => p && p.isDeposit);
+        if (!dep) {
+            reservation.additionalPayments.push({
+                amount: depositAmount,
+                date: reservation.depositPaymentDate || this.getTodayDateString(),
+                timestamp: new Date().toISOString(),
+                notes: 'Depósito',
+                isDeposit: true
+            });
+            reservation.depositPaid = true;
+            return;
+        }
+        const otherPaid = reservation.additionalPayments
+            .filter((p) => p && !p.isDeposit)
+            .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        const maxOk = Math.max(0, (reservation.pricing?.totalCost || 0) - otherPaid);
+        dep.amount = Math.min(depositAmount, maxOk);
+    }
+
     listReservationPayments(reservation) {
         const payments = (reservation?.additionalPayments || []).map((payment, index) => ({
             ...payment,
@@ -6844,35 +6946,49 @@ class ReservationManager {
         }
 
         this.isUpdatingDeposit = true;
-        const marked = !!reservation.depositPaid || this.hasDepositPaymentRecord(reservation);
+        const marked = this.isDepositMarkedPaid(reservation);
 
         if (marked) {
             reservation.additionalPayments = (reservation.additionalPayments || []).filter(payment => !payment.isDeposit);
             reservation.depositPaid = false;
             reservation.depositPaymentDate = null;
         } else {
-            const remainingBalance = this.calculateRemainingBalance(reservation);
-            if (depositAmount > remainingBalance + 0.01) {
-                this.isUpdatingDeposit = false;
-                this.showNotification(
-                    `El depósito de $${depositAmount.toFixed(2)} es mayor que el balance restante de $${remainingBalance.toFixed(2)}.`,
-                    'error'
-                );
-                return;
-            }
-            const date = this.selectedPaymentDate();
-            const method = this.selectedPaymentMethod();
             if (!reservation.additionalPayments) reservation.additionalPayments = [];
-            reservation.additionalPayments.push({
-                amount: depositAmount,
-                date,
-                timestamp: new Date().toISOString(),
-                notes: 'Depósito',
-                method,
-                isDeposit: true
-            });
-            reservation.depositPaid = true;
-            reservation.depositPaymentDate = date;
+            // Prefer converting an existing payment that already matches the deposit
+            // (avoids double-count after "Monto del depósito" + Registrar Pago)
+            const matchIdx = reservation.additionalPayments.findIndex(
+                (p) => p && !p.isDeposit && Math.abs((Number(p.amount) || 0) - depositAmount) < 0.02
+            );
+            if (matchIdx >= 0) {
+                reservation.additionalPayments[matchIdx].isDeposit = true;
+                if (!reservation.additionalPayments[matchIdx].notes) {
+                    reservation.additionalPayments[matchIdx].notes = 'Depósito';
+                }
+                reservation.depositPaid = true;
+                reservation.depositPaymentDate = reservation.additionalPayments[matchIdx].date || this.selectedPaymentDate();
+            } else {
+                const remainingBalance = this.calculateRemainingBalance(reservation);
+                if (depositAmount > remainingBalance + 0.01) {
+                    this.isUpdatingDeposit = false;
+                    this.showNotification(
+                        `El depósito de $${depositAmount.toFixed(2)} es mayor que el balance restante de $${remainingBalance.toFixed(2)}.`,
+                        'error'
+                    );
+                    return;
+                }
+                const date = this.selectedPaymentDate();
+                const method = this.selectedPaymentMethod();
+                reservation.additionalPayments.push({
+                    amount: depositAmount,
+                    date,
+                    timestamp: new Date().toISOString(),
+                    notes: 'Depósito',
+                    method,
+                    isDeposit: true
+                });
+                reservation.depositPaid = true;
+                reservation.depositPaymentDate = date;
+            }
         }
 
         this.appendReservationAudit(reservation, 'deposit', reservation.depositPaid ? 'Pagado' : 'No pagado');
@@ -6924,6 +7040,7 @@ class ReservationManager {
             `Depósito marcado como ${reservation.depositPaid ? 'Pagado' : 'No Pagado'}`,
             notificationType
         );
+        this.updateDashboard();
         
         // Reset flag after a short delay to allow Firebase sync to complete
         setTimeout(() => {
@@ -7177,22 +7294,36 @@ class ReservationManager {
             reservation.additionalPayments = [];
         }
 
+        const depositAmount = reservation.pricing?.depositAmount || 0;
+        const treatAsDeposit = !this.isDepositMarkedPaid(reservation)
+            && depositAmount > 0
+            && Math.abs(actualAmount - depositAmount) < 0.02;
+
         // Add payment (use actualAmount to avoid precision issues)
         reservation.additionalPayments.push({
             amount: actualAmount,
             date: date,
             timestamp: new Date().toISOString(),
-            notes: notes,
-            method
+            notes: treatAsDeposit ? (notes || 'Depósito') : notes,
+            method,
+            ...(treatAsDeposit ? { isDeposit: true } : {})
         });
+        if (treatAsDeposit) {
+            reservation.depositPaid = true;
+            reservation.depositPaymentDate = date;
+        }
 
         const methodLabel = this.paymentMethodLabel(method);
-        this.appendReservationAudit(reservation, 'payment', methodLabel ? `$${actualAmount.toFixed(2)} · ${methodLabel}` : `$${actualAmount.toFixed(2)}`);
+        const auditLabel = treatAsDeposit
+            ? `Depósito $${actualAmount.toFixed(2)}${methodLabel ? ` · ${methodLabel}` : ''}`
+            : (methodLabel ? `$${actualAmount.toFixed(2)} · ${methodLabel}` : `$${actualAmount.toFixed(2)}`);
+        this.appendReservationAudit(reservation, treatAsDeposit ? 'deposit' : 'payment', auditLabel);
         this.markReservationDirty(reservation.id);
         this.saveReservations();
 
         // Update displays
         this.displayReservations();
+        this.updateDashboard();
         this.updatePaymentSummary();
         this.displayPaymentHistory(reservation);
 
@@ -7496,9 +7627,11 @@ class ReservationManager {
                     result = this.sortDirection === 'asc' ? 1 : -1;
                 } else {
                     // Both have deposits - compare paid status
-                    if (a.depositPaid !== b.depositPaid) {
-                        // unpaid (false) comes before paid (true) in ascending, reverse in descending
-                        result = a.depositPaid ? 1 : -1;
+                    const aPaid = !this.isDepositPending(a);
+                    const bPaid = !this.isDepositPending(b);
+                    if (aPaid !== bPaid) {
+                        // unpaid comes before paid in ascending, reverse in descending
+                        result = aPaid ? 1 : -1;
                     } else {
                         // Same deposit status, sort by event date
                         result = this.compareEventDates(a.eventDate, b.eventDate);
@@ -7517,8 +7650,8 @@ class ReservationManager {
             if (filterDeposit) {
                 const depositAmount = r.pricing?.depositAmount || 0;
                 if (filterDeposit === 'none' && depositAmount > 0) return false;
-                if (filterDeposit === 'paid' && !(depositAmount > 0 && r.depositPaid)) return false;
-                if (filterDeposit === 'unpaid' && !(depositAmount > 0 && !r.depositPaid)) return false;
+                if (filterDeposit === 'paid' && !(depositAmount > 0 && !this.isDepositPending(r))) return false;
+                if (filterDeposit === 'unpaid' && !this.isDepositPending(r)) return false;
             }
             return true;
         });
@@ -7544,7 +7677,7 @@ class ReservationManager {
             const entremesesCount = this.countActiveEntremesesItems(reservation.entremeses);
             const depositBadge = hasDeposit
                 ? (() => {
-                    const paid = !!reservation.depositPaid;
+                    const paid = !this.isDepositPending(reservation);
                     const disabled = isFullyPaid
                         ? ' style="opacity: 0.5; cursor: not-allowed; pointer-events: none;" title="Reservación completamente pagada"'
                         : ` onclick="reservationManager.toggleDepositStatus('${rid}')" data-reservation-id="${rid}" title="Cambiar estado del depósito"`;
@@ -7617,7 +7750,18 @@ class ReservationManager {
                             reservation.dessert.flanVainilla ? 'Flan de Vainilla' : '',
                             reservation.dessert.postresSurtidos ? 'Postres Surtidos' : '',
                             reservation.dessert.tembleque ? 'Tembleque' : '',
-                            reservation.dessert.tresLeches ? 'Tres Leches' : ''
+                            reservation.dessert.tresLeches ? 'Tres Leches' : '',
+                            ...(reservation.dessert.customPostres
+                                ? Object.entries(reservation.dessert.customPostres)
+                                    .filter(([, qty]) => this.getSelectionQty(qty) > 0)
+                                    .map(([id, qty]) => {
+                                        const n = this.getSelectionQty(qty);
+                                        const name = (typeof qty === 'object' && qty?.name)
+                                            || (this.customMenuOptions?.postres || []).find(p => p.id === id)?.name
+                                            || id;
+                                        return `${name} × ${n}`;
+                                    })
+                                : [])
                         ].filter(Boolean).map(esc).join(', ')}</span>
                     </div>
                     ` : ''}
@@ -7788,7 +7932,7 @@ class ReservationManager {
         if (!entremesesMap || Object.keys(entremesesMap).length === 0) return 'Sin Entremeses';
         const items = this.getEntremesesItems();
         const parts = Object.entries(entremesesMap)
-            .filter(([, qty]) => (typeof qty === 'number' && qty > 0) || qty === true)
+            .filter(([, qty]) => qty === true || this.getSelectionQty(qty) > 0)
             .map(([id, qty]) => {
                 // Handle Asopao, Caldo de Gallego, and Ceviche separately - they're per person
                 if (id === 'asopao' && qty === true) {
@@ -7799,11 +7943,12 @@ class ReservationManager {
                     return 'Caldo de Gallego (por persona)';
                 } else if (id === 'ceviche' && qty === true) {
                     return 'Ceviche (por persona)';
-                } else if (typeof qty === 'number' && qty > 0) {
-                    const item = items.find(i => i.id === id);
-                    return `${qty} x ${item ? item.name : id}`;
                 }
-                return '';
+                const numQty = this.getSelectionQty(qty);
+                if (numQty <= 0) return '';
+                const frozenName = (typeof qty === 'object' && qty !== null && qty.name) ? qty.name : null;
+                const item = items.find(i => i.id === id);
+                return `${numQty} x ${frozenName || (item ? item.name : id)}`;
             })
             .filter(part => part !== '');
         return parts.length ? parts.join(', ') : 'Sin Entremeses';
@@ -7827,28 +7972,41 @@ class ReservationManager {
         `;
     }
 
-    // Get additional services display
-    getAdditionalServicesDisplay(services) {
-        const activeServices = Object.entries(services)
-            .filter(([key, value]) => value)
-            .map(([key, value]) => {
-                const serviceNames = {
-                    'audioVisual': 'Manteles',
-                    'sillas': 'Sillas',
-                    'mesas': 'Mesas',
-                    'decorations': 'Decoración básica',
-                    'waitstaff': 'Personal de servicio adicional',
-                    'valet': 'Estacionamiento valet'
-                };
-                return serviceNames[key] || key;
-            });
+    getAdditionalServiceNames(services) {
+        if (!services || typeof services !== 'object') return [];
+        const serviceNames = {
+            audioVisual: 'Manteles',
+            sillas: 'Sillas',
+            mesas: 'Mesas',
+            decorations: 'Decoración básica',
+            waitstaff: 'Personal de servicio adicional',
+            valet: 'Estacionamiento valet'
+        };
+        return Object.entries(services)
+            .filter(([, value]) => value)
+            .map(([key]) => serviceNames[key] || key);
+    }
 
+    getAdditionalServicesDetailBlock(services) {
+        const activeServices = this.getAdditionalServiceNames(services);
+        if (activeServices.length === 0) return '';
+        return `
+            <div class="food-service-section">
+                <span class="detail-label">Servicios Adicionales:</span>
+                <span class="detail-value">${activeServices.map((n) => this.escapeHtml(n)).join(', ')}</span>
+            </div>
+        `;
+    }
+
+    // Get additional services display (cards)
+    getAdditionalServicesDisplay(services) {
+        const activeServices = this.getAdditionalServiceNames(services);
         if (activeServices.length === 0) return '';
 
         return `
             <div class="reservation-detail">
                 <strong>Servicios Adicionales:</strong>
-                <span>${activeServices.join(', ')}</span>
+                <span>${activeServices.map((n) => this.escapeHtml(n)).join(', ')}</span>
             </div>
         `;
     }
@@ -7892,7 +8050,6 @@ class ReservationManager {
         }
         
         document.getElementById('eventDuration').value = reservation.eventDuration;
-        document.getElementById('companyName').value = reservation.companyName || '';
         document.getElementById('roomType').value = reservation.roomType;
         
         // Sync guest count across all inputs (slider, manual input, and display)
@@ -7914,8 +8071,9 @@ class ReservationManager {
         // Set foodType - this will trigger handleFoodTypeChange
         document.getElementById('foodType').value = reservation.foodType;
         
-        // Populate buffet modal fields
-        if (this.isBuffet(reservation.foodType)) {
+        // Populate buffet modal fields whenever saved buffet data exists
+        // (including buffet configured alongside individual plates)
+        if (this.reservationHasBuffet(reservation)) {
             const buffet = reservation.buffet || {};
             const buffetPriceInput = document.getElementById('buffetPricePerPerson');
             const platoMexicanoEl = document.getElementById('buffetPlatoMexicano');
@@ -7951,7 +8109,6 @@ class ReservationManager {
             if (platoMexicanoEl) {
                 platoMexicanoEl.checked = buffet.platoMexicano || false;
             }
-            this.clearBreakfastSelections();
         } else {
             this.clearBuffetSelections();
         }
@@ -7959,6 +8116,19 @@ class ReservationManager {
         // foodType was already set above
         const breakfastTypeEl = document.getElementById('breakfastType');
         if (breakfastTypeEl) breakfastTypeEl.value = reservation.breakfastType || '';
+        const frozenBreakfast = document.getElementById('breakfastFrozenUnitPrice');
+        if (frozenBreakfast) {
+            const unit = reservation.pricing?.breakfastUnitPrice;
+            if (typeof unit === 'number' && !Number.isNaN(unit)) {
+                frozenBreakfast.value = String(unit);
+            } else if ((reservation.pricing?.breakfastCost || 0) > 0 && (reservation.guestCount || 0) > 0) {
+                frozenBreakfast.value = String(
+                    (reservation.pricing.breakfastCost || 0) / (reservation.guestCount || 1)
+                );
+            } else {
+                frozenBreakfast.value = '';
+            }
+        }
         const dessertTypeEl = document.getElementById('dessertType');
         if (dessertTypeEl) dessertTypeEl.value = reservation.dessertType || '';
         // no drinkType select anymore
@@ -8351,7 +8521,33 @@ class ReservationManager {
                 this.pendingChanges = false;
                 syncBanner?.classList.add('hidden');
                 appDebug('Pending changes flag reset - sync will resume');
+                if (this.skippedSnapshotWhilePending) {
+                    this.skippedSnapshotWhilePending = false;
+                    this.refreshReservationsFromFirestoreOnce();
+                }
             }, delay);
+        }
+    }
+
+    /** One-shot pull after a skipped snapshot so multi-tab updates are not lost. */
+    async refreshReservationsFromFirestoreOnce() {
+        if (this.pendingChanges || !window.FIREBASE_LOADED || !window.firestore) return;
+        try {
+            const snapshot = await window.firestore.collection('reservations').get();
+            const reservations = [];
+            snapshot.forEach((doc) => {
+                const reservation = doc.data();
+                if (!reservation.hasOwnProperty('additionalPayments')) {
+                    reservation.additionalPayments = [];
+                }
+                reservations.push(reservation);
+            });
+            if (reservations.length === 0 && this.reservations.length > 0) return;
+            this.reservations = reservations;
+            this.saveReservationsToLocalStorage();
+            this.scheduleUiRefresh();
+        } catch (error) {
+            console.warn('Could not refresh reservations after skipped snapshot:', error);
         }
     }
 
@@ -8542,7 +8738,7 @@ class ReservationManager {
         let itemsHTML = '';
         
         // Food items - can show both buffet and individual plates
-        const hasBuffet = this.isBuffet(reservation.foodType) && reservation.buffet;
+        const hasBuffet = this.reservationHasBuffet(reservation);
         const individualPlatesWithQty = (reservation.individualPlates || []).filter(p => (p.quantity || 0) > 0);
         const hasIndividualPlates = individualPlatesWithQty.length > 0;
 
@@ -8743,7 +8939,7 @@ class ReservationManager {
 
         // Event space (if applicable)
         if (reservation.pricing.roomCost > 0) {
-            const durationText = reservation.eventDuration ? ` - ${reservation.eventDuration} hours` : '';
+            const durationText = reservation.eventDuration ? ` - ${reservation.eventDuration} horas` : '';
             itemsHTML += `
                 <tr>
                     <td><strong>${this.getRoomDisplayName(reservation.roomType)}${durationText}</strong></td>
@@ -8804,7 +9000,7 @@ class ReservationManager {
         const itemsData = [];
         
         // Food items - can show both buffet and individual plates (only plates with quantity > 0)
-        const hasBuffetPDF = this.isBuffet(reservation.foodType) && reservation.buffet;
+        const hasBuffetPDF = this.reservationHasBuffet(reservation);
         const individualPlatesWithQtyPDF = (reservation.individualPlates || []).filter(p => (p.quantity || 0) > 0);
         const hasIndividualPlatesPDF = individualPlatesWithQtyPDF.length > 0;
 
@@ -8994,7 +9190,7 @@ class ReservationManager {
 
         // Event space
         if (reservation.pricing.roomCost > 0) {
-            const durationText = reservation.eventDuration ? ` - ${reservation.eventDuration} hours` : '';
+            const durationText = reservation.eventDuration ? ` - ${reservation.eventDuration} horas` : '';
             itemsData.push({
                 description: `${this.getRoomDisplayName(reservation.roomType)}${durationText}`,
                 qty: '1',
@@ -9211,7 +9407,7 @@ class ReservationManager {
         const depositLabel = isCustomDeposit ? 'Depósito a Pagar (Personalizado)' : `Depósito a Pagar (${reservation.depositPercentage || reservation.pricing?.depositPercentage || 20}%)`;
         doc.text(depositLabel, 20, yPos);
         let depositText = `$${depositAmount.toFixed(2)}`;
-        if (reservation.depositPaid) {
+        if (this.isDepositMarkedPaid(reservation)) {
             depositText += ' - PAGADO';
         }
         doc.text(depositText, 190, yPos, { align: 'right' });
@@ -9247,10 +9443,18 @@ class ReservationManager {
         doc.setFontSize(13);
         doc.setFont(undefined, 'normal');
         doc.setTextColor(0, 0, 0);
+
+        const depositPctRaw = reservation.depositPercentage ?? reservation.pricing?.depositPercentage;
+        const isCustomDepositTerms = depositPctRaw === 'custom' || reservation.depositCustomAmount != null || reservation.pricing?.depositCustomAmount != null;
+        const depositTermsLine = isCustomDepositTerms
+            ? `La reservación se garantiza con un depósito personalizado de $${depositAmount.toFixed(2)}. El balance restante deberá ser pagado en su totalidad a más tardar 1 día antes de la fecha del evento. Todos los pagos realizados son no reembolsables.`
+            : (Number(depositPctRaw) === 0
+                ? `Esta reservación no requiere depósito. El monto total deberá ser pagado a más tardar 1 día antes de la fecha del evento. Todos los pagos realizados son no reembolsables.`
+                : `La reservación se garantiza con un depósito del ${Number(depositPctRaw) || 20}% del monto total del evento. El balance restante deberá ser pagado en su totalidad a más tardar 1 día antes de la fecha del evento. Todos los pagos realizados son no reembolsables.`);
         
         const termsText = `1. Reservación y Pago
 
-La reservación se garantiza con un depósito del 20% del monto total del evento. El balance restante deberá ser pagado en su totalidad a más tardar 1 día antes de la fecha del evento. Todos los pagos realizados son no reembolsables.
+${depositTermsLine}
 
 2. Cambios de Fecha
 
@@ -9378,7 +9582,17 @@ Hay varios métodos de pago disponibles. Todo pago que sea cobrado en el termina
         const name = reservation.clientName || 'cliente';
         const date = this.normalizeEventDate(reservation.eventDate);
         const invoice = reservation.invoiceNumber ? ` ${reservation.invoiceNumber}` : '';
-        return `Hola ${name}, le enviamos la factura${invoice} de La Antesala${date ? ` para su reservación del ${date}` : ''}.`;
+        const total = reservation.pricing?.totalCost;
+        const deposit = reservation.pricing?.depositAmount || 0;
+        const balance = this.calculateRemainingBalance(reservation);
+        const moneyBits = [];
+        if (typeof total === 'number') moneyBits.push(`Total: $${total.toFixed(2)}`);
+        if (deposit > 0) {
+            moneyBits.push(`Depósito: $${deposit.toFixed(2)}${this.isDepositMarkedPaid(reservation) ? ' (pagado)' : ''}`);
+        }
+        if (typeof total === 'number') moneyBits.push(`Balance: $${balance.toFixed(2)}`);
+        const moneyLine = moneyBits.length ? ` ${moneyBits.join(' · ')}.` : '';
+        return `Hola ${name}, le enviamos la factura${invoice} de La Antesala${date ? ` para su reservación del ${date}` : ''}.${moneyLine}`;
     }
 
     async sendInvoicePdfViaWhatsApp(blob, fileName, reservation) {
