@@ -7,7 +7,7 @@
     <meta name="description" content="Sistema interno de reservaciones de La Antesala">
     <title>Antesala Reservaciones - Sistema de Reservación de Espacios</title>
     <!-- Updated: Added Desayuno Continental option and improved dropdown styling -->
-    <link rel="stylesheet" href="styles.css?v=suite-3">
+    <link rel="stylesheet" href="styles.css?v=desayuno-incluido-1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -18,11 +18,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
-    <script src="js/antesala-utils.js?v=suite-3"></script>
-    <script src="js/invoice-counter.js?v=suite-3"></script>
-    <script src="js/audit-trail.js?v=suite-3"></script>
-    <script src="js/app-check.js?v=suite-3"></script>
-    <script src="firebase-config.js?v=suite-3"></script>
+    <script src="js/antesala-utils.js?v=desayuno-incluido-1"></script>
+    <script src="js/invoice-counter.js?v=desayuno-incluido-1"></script>
+    <script src="js/audit-trail.js?v=desayuno-incluido-1"></script>
+    <script src="js/app-check.js?v=desayuno-incluido-1"></script>
+    <script src="firebase-config.js?v=desayuno-incluido-1"></script>
 </head>
 <body>
     <!-- Google Sign-In gate (session persists — staff sign in once per device) -->
@@ -347,6 +347,7 @@
                                         <input type="hidden" id="breakfastFrozenUnitPrice" value="">
                                         <select id="breakfastType" name="breakfastType">
                                             <option value="">Sin Desayuno</option>
+                                            <option value="desayuno-incluido" data-price="0">Desayuno (Incluido)</option>
                                             <option value="desayuno-9.95" data-price="9.95">Desayuno - $9.95</option>
                                             <option value="desayuno-10.95" data-price="10.95">Desayuno - $10.95</option>
                                             <option value="desayuno-12" data-price="12">Desayuno Continental - $12</option>
@@ -2025,6 +2026,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=suite-3"></script>
+    <script src="script.js?v=desayuno-incluido-1"></script>
 </body>
 </html>

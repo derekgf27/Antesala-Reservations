@@ -1617,6 +1617,9 @@ class ReservationManager {
                 if (wrapJamonQueso?.checked) items.push(`<li>Wrap de Jamón y Queso</li>`);
                 if (bocadilloJamonQueso?.checked) items.push(`<li>Bocadillo de Jamón y Queso</li>`);
 
+                if (this.isIncludedBreakfast(breakfastType)) {
+                    items.unshift('<li><strong>Incluido</strong> (sin cargo adicional)</li>');
+                }
                 container.classList.remove('hidden');
                 editBreakfastBtn?.classList.remove('hidden');
                 container.innerHTML = items.length
@@ -4311,6 +4314,16 @@ class ReservationManager {
         return typeof value === 'string' && (value.startsWith('desayuno') || value.startsWith('custom-'));
     }
 
+    /** Built-in breakfast with no extra charge (included in the event). */
+    isIncludedBreakfast(value) {
+        return value === 'desayuno-incluido';
+    }
+
+    breakfastLineAmount(reservation) {
+        const cost = reservation?.pricing?.breakfastCost || 0;
+        return cost > 0 ? `$${cost.toFixed(2)}` : 'Incluido';
+    }
+
     isDessert(value) {
         return typeof value === 'string' && value === 'postres';
     }
@@ -4650,7 +4663,10 @@ class ReservationManager {
         // Update display
         document.getElementById('roomCost').textContent = `$${roomCost.toFixed(2)}`;
         document.getElementById('foodCost').textContent = `$${foodCost.toFixed(2)}`;
-        document.getElementById('breakfastCost').textContent = `$${breakfastCost.toFixed(2)}`;
+        document.getElementById('breakfastCost').textContent =
+            (this.isIncludedBreakfast(breakfastType?.value) && breakfastCost === 0)
+                ? 'Incluido'
+                : `$${breakfastCost.toFixed(2)}`;
         document.getElementById('drinkCost').textContent = `$${drinkCost.toFixed(2)}`;
         document.getElementById('entremesesCost').textContent = `$${entremesesCost.toFixed(2)}`;
         const postresCostEl = document.getElementById('postresCost');
@@ -5909,10 +5925,10 @@ class ReservationManager {
                             <span>Servicio de Comida:</span>
                             <span>$${(reservation.pricing.foodCost || 0).toFixed(2)}</span>
                         </div>
-                        ${(reservation.pricing.breakfastCost || 0) > 0 ? `
+                        ${(reservation.breakfastType && this.isBreakfast(reservation.breakfastType) && ((reservation.pricing.breakfastCost || 0) > 0 || this.isIncludedBreakfast(reservation.breakfastType))) ? `
                         <div class="pricing-row">
                             <span>Desayuno:</span>
-                            <span>$${reservation.pricing.breakfastCost.toFixed(2)}</span>
+                            <span>${this.breakfastLineAmount(reservation)}</span>
                         </div>
                         ` : ''}
                         <div class="pricing-row">
@@ -7954,6 +7970,7 @@ class ReservationManager {
         const foodNames = {
             'individual-plates': 'Platos Individuales',
             'cocktail-reception': 'Recepción de Cóctel',
+            'desayuno-incluido': 'Desayuno',
             'desayuno-9.95': 'Desayuno $9.95',
             'desayuno-10.95': 'Desayuno $10.95',
             'desayuno-12': 'Desayuno Continental $12',
@@ -9013,8 +9030,9 @@ class ReservationManager {
             `;
         }
 
-        // Breakfast (separate from food service)
-        if (reservation.breakfastType && this.isBreakfast(reservation.breakfastType) && reservation.pricing.breakfastCost > 0) {
+        // Breakfast (separate from food service). Included breakfast ($0) still prints as Incluido.
+        if (reservation.breakfastType && this.isBreakfast(reservation.breakfastType) && ((reservation.pricing.breakfastCost || 0) > 0 || this.isIncludedBreakfast(reservation.breakfastType))) {
+            const breakfastAmountHtml = this.breakfastLineAmount(reservation);
             if (reservation.breakfast) {
                 const breakfastItems = [];
                 if (reservation.breakfast.medianochePavo) breakfastItems.push('Medianoche de Pavo');
@@ -9028,12 +9046,10 @@ class ReservationManager {
                 <tr>
                     <td>
                         <strong>Desayuno</strong>
-                        <ul style="margin: 8px 0 0 20px; padding-left: 0; list-style-type: disc;">
-                            ${breakfastOptionsList}
-                        </ul>
+                        ${breakfastItems.length ? `<ul style="margin: 8px 0 0 20px; padding-left: 0; list-style-type: disc;">${breakfastOptionsList}</ul>` : ''}
                     </td>
                     <td>${reservation.guestCount}</td>
-                    <td>$${reservation.pricing.breakfastCost.toFixed(2)}</td>
+                    <td>${breakfastAmountHtml}</td>
                 </tr>
             `;
             } else {
@@ -9041,7 +9057,7 @@ class ReservationManager {
                 <tr>
                     <td><strong>${this.getFoodDisplayName(reservation.breakfastType)}</strong></td>
                     <td>${reservation.guestCount}</td>
-                    <td>$${reservation.pricing.breakfastCost.toFixed(2)}</td>
+                    <td>${breakfastAmountHtml}</td>
                 </tr>
             `;
             }
@@ -9259,8 +9275,9 @@ class ReservationManager {
             });
         }
 
-        // Breakfast (separate from food service)
-        if (reservation.breakfastType && this.isBreakfast(reservation.breakfastType) && reservation.pricing.breakfastCost > 0) {
+        // Breakfast (separate from food service). Included breakfast ($0) still prints as Incluido.
+        if (reservation.breakfastType && this.isBreakfast(reservation.breakfastType) && ((reservation.pricing.breakfastCost || 0) > 0 || this.isIncludedBreakfast(reservation.breakfastType))) {
+            const breakfastAmountPdf = this.breakfastLineAmount(reservation);
             if (reservation.breakfast) {
                 const breakfastItems = [];
                 if (reservation.breakfast.medianochePavo) breakfastItems.push('Medianoche de Pavo');
@@ -9269,18 +9286,20 @@ class ReservationManager {
                 if (reservation.breakfast.avena) breakfastItems.push('Avena');
                 if (reservation.breakfast.wrapJamonQueso) breakfastItems.push('Wrap de Jamón y Queso');
                 if (reservation.breakfast.bocadilloJamonQueso) breakfastItems.push('Bocadillo de Jamón y Queso');
-                const breakfastDesc = 'Desayuno\n' + breakfastItems.map(item => '• ' + item).join('\n');
+                const breakfastDesc = breakfastItems.length
+                    ? 'Desayuno\n' + breakfastItems.map(item => '• ' + item).join('\n')
+                    : 'Desayuno';
                 itemsData.push({
                     description: breakfastDesc,
                     qty: reservation.guestCount.toString(),
-                    total: `$${reservation.pricing.breakfastCost.toFixed(2)}`,
+                    total: breakfastAmountPdf,
                     isBuffet: true
                 });
             } else {
                 itemsData.push({
                     description: this.getFoodDisplayName(reservation.breakfastType),
                     qty: reservation.guestCount.toString(),
-                    total: `$${reservation.pricing.breakfastCost.toFixed(2)}`,
+                    total: breakfastAmountPdf,
                     isBuffet: true
                 });
             }
