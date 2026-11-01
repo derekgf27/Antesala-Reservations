@@ -7,7 +7,7 @@
     <meta name="description" content="Sistema interno de reservaciones de La Antesala">
     <title>Antesala Reservaciones - Sistema de Reservación de Espacios</title>
     <!-- Updated: Added Desayuno Continental option and improved dropdown styling -->
-    <link rel="stylesheet" href="styles.css?v=desayuno-incluido-1">
+    <link rel="stylesheet" href="styles.css?v=taxes-waive-1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -18,11 +18,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
-    <script src="js/antesala-utils.js?v=desayuno-incluido-1"></script>
-    <script src="js/invoice-counter.js?v=desayuno-incluido-1"></script>
-    <script src="js/audit-trail.js?v=desayuno-incluido-1"></script>
-    <script src="js/app-check.js?v=desayuno-incluido-1"></script>
-    <script src="firebase-config.js?v=desayuno-incluido-1"></script>
+    <script src="js/antesala-utils.js?v=taxes-waive-1"></script>
+    <script src="js/invoice-counter.js?v=taxes-waive-1"></script>
+    <script src="js/audit-trail.js?v=taxes-waive-1"></script>
+    <script src="js/app-check.js?v=taxes-waive-1"></script>
+    <script src="firebase-config.js?v=taxes-waive-1"></script>
 </head>
 <body>
     <!-- Google Sign-In gate (session persists — staff sign in once per device) -->
@@ -466,7 +466,10 @@
                                         </div>
                                         <div class="pricing-item">
                                             <span>Subtotal de Impuestos:</span>
-                                            <span id="taxSubtotal">$0</span>
+                                            <span class="tax-subtotal-actions">
+                                                <button type="button" id="waiveTaxesBtn" class="btn btn-outline btn-small" aria-pressed="false">Sin impuestos</button>
+                                                <span id="taxSubtotal">$0</span>
+                                            </span>
                                         </div>
                                         <div class="pricing-item">
                                             <label for="tipPercentage" class="tip-label">Servicio:</label>
@@ -2026,6 +2029,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=desayuno-incluido-1"></script>
+    <script src="script.js?v=taxes-waive-1"></script>
 </body>
 </html>

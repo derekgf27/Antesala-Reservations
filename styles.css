@@ -1668,6 +1668,27 @@ textarea:focus-visible,
     transition: color 0.3s ease;
 }
 
+.tax-subtotal-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.tax-subtotal-actions .btn {
+    width: auto;
+    margin: 0;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+}
+
+#waiveTaxesBtn.is-active {
+    background: var(--bg-tertiary);
+    border-color: var(--text-secondary);
+    color: var(--text-secondary);
+}
+
 .pricing-item.total {
     font-weight: 700;
     font-size: 1.3rem;

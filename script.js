@@ -978,6 +978,12 @@ class ReservationManager {
         paymentAmount?.addEventListener('input', () => this.updatePaymentSummary());
         payFullBalanceBtn?.addEventListener('click', () => this.fillFullBalance());
         document.getElementById('payDepositAmountBtn')?.addEventListener('click', () => this.fillDepositAmount());
+        document.getElementById('waiveTaxesBtn')?.addEventListener('click', () => {
+            const btn = document.getElementById('waiveTaxesBtn');
+            this.setTaxesWaived(btn?.getAttribute('aria-pressed') !== 'true');
+            this.markReservationFormDirty();
+            this.calculatePrice();
+        });
         if (paymentModal) {
             paymentModal.addEventListener('click', (e) => {
                 if (e.target === paymentModal) {
@@ -4319,6 +4325,18 @@ class ReservationManager {
         return value === 'desayuno-incluido';
     }
 
+    taxesAreWaived() {
+        return document.getElementById('waiveTaxesBtn')?.getAttribute('aria-pressed') === 'true';
+    }
+
+    setTaxesWaived(waived) {
+        const btn = document.getElementById('waiveTaxesBtn');
+        if (!btn) return;
+        btn.setAttribute('aria-pressed', waived ? 'true' : 'false');
+        btn.classList.toggle('is-active', !!waived);
+        btn.textContent = waived ? 'Cobrar impuestos' : 'Sin impuestos';
+    }
+
     breakfastLineAmount(reservation) {
         const cost = reservation?.pricing?.breakfastCost || 0;
         return cost > 0 ? `$${cost.toFixed(2)}` : 'Incluido';
@@ -4626,13 +4644,14 @@ class ReservationManager {
 
         // Taxes
         // Food taxes apply to: food, breakfast, entremeses, postres, and non-alcoholic beverages
+        const taxesWaived = this.taxesAreWaived();
         const isAlcoholic = alcoholicQty > 0;
         const totalFoodCost = foodCost + breakfastCost + entremesesCost + postresCost + nonAlcoholicDrinkCost;
-        const foodStateReducedTax = totalFoodCost * 0.06; // 6%
-        const foodCityTax = totalFoodCost * 0.01; // 1%
+        const foodStateReducedTax = taxesWaived ? 0 : totalFoodCost * 0.06; // 6%
+        const foodCityTax = taxesWaived ? 0 : totalFoodCost * 0.01; // 1%
         // Alcohol taxes apply only to alcoholic beverages
-        const alcoholStateTax = isAlcoholic ? alcoholicDrinkCost * 0.105 : 0; // 10.5% state tax on alcohol
-        const alcoholCityTax = isAlcoholic ? alcoholicDrinkCost * 0.01 : 0; // 1% city tax on alcohol
+        const alcoholStateTax = taxesWaived ? 0 : (isAlcoholic ? alcoholicDrinkCost * 0.105 : 0); // 10.5% state tax on alcohol
+        const alcoholCityTax = taxesWaived ? 0 : (isAlcoholic ? alcoholicDrinkCost * 0.01 : 0); // 1% city tax on alcohol
 
         // Additional services cost
         const servicePrices = {
@@ -4737,6 +4756,7 @@ class ReservationManager {
                 alcoholCityTax,
                 totalTaxes
             },
+            taxesWaived,
             tip: {
                 percentage: tipPercentage,
                 amount: tipAmount
@@ -4996,6 +5016,7 @@ class ReservationManager {
                     ? formData.get('valet') === 'on'
                     : false
             },
+            taxesWaived: !!pricing.taxesWaived,
             tipPercentage: parseFloat(formData.get('tipPercentage') || 0),
             depositPercentage: pricing.depositPercentage === 'custom' ? 'custom' : parseFloat(formData.get('depositPercentage') || 20),
             depositCustomAmount: pricing.depositCustomAmount || null,
@@ -5109,6 +5130,7 @@ class ReservationManager {
         document.getElementById('alcoholCityTax').textContent = '$0.00';
         document.getElementById('additionalCost').textContent = '$0.00';
         document.getElementById('taxSubtotal').textContent = '$0.00';
+        this.setTaxesWaived(false);
         document.getElementById('tipAmount').textContent = '$0.00 (0%)';
         document.getElementById('totalCost').textContent = '$0.00';
         document.getElementById('depositAmount').textContent = '$0.00 (20%)';
@@ -5954,7 +5976,7 @@ class ReservationManager {
                         </div>
                         ` : ''}
                         <div class="pricing-row">
-                            <span>Impuestos:</span>
+                            <span>Impuestos${reservation.taxesWaived || reservation.pricing?.taxesWaived ? ' (exentos)' : ''}:</span>
                             <span>$${(reservation.pricing.taxes?.totalTaxes || 0).toFixed(2)}</span>
                         </div>
                         ${reservation.pricing.tip && reservation.pricing.tip.amount > 0 ? `
@@ -8258,6 +8280,7 @@ class ReservationManager {
         this.dessertCustomSelections = reservation.dessert?.customPostres ? { ...reservation.dessert.customPostres } : {};
         this.individualPlatesSelections = reservation.individualPlates || [];
         this.updateIndividualPlatesSummary();
+        this.setTaxesWaived(!!(reservation.taxesWaived || reservation.pricing?.taxesWaived));
         
         // Update food service summary and recalculate price after loading all data
         // Call handleFoodTypeChange without opening the buffet modal (user clicked Edit, not the food type dropdown)
@@ -9564,8 +9587,9 @@ class ReservationManager {
         doc.text(`$${subtotal.toFixed(2)}`, 190, yPos, { align: 'right' });
         yPos += 5;
 
-        doc.text('IMPUESTOS Y TARIFAS', 20, yPos);
-        doc.text(`$${reservation.pricing.taxes.totalTaxes.toFixed(2)}`, 190, yPos, { align: 'right' });
+        const taxesWaivedOnInvoice = !!(reservation.taxesWaived || reservation.pricing?.taxesWaived);
+        doc.text(taxesWaivedOnInvoice ? 'IMPUESTOS (exentos)' : 'IMPUESTOS Y TARIFAS', 20, yPos);
+        doc.text(`$${(reservation.pricing.taxes?.totalTaxes || 0).toFixed(2)}`, 190, yPos, { align: 'right' });
         yPos += 5;
 
         if (reservation.pricing.tip && reservation.pricing.tip.amount > 0) {
