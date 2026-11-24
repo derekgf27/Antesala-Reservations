@@ -38,6 +38,8 @@ class ReservationManager {
         this.isSavingReservation = false; // Guard against double Guardar / duplicate creates
         this.cloudSaveFailed = false; // Block cloud overwrite while local dirty after failed sync
         this.cloudSaveRetryCount = 0;
+        this.sawServerSnapshot = false; // True once Firestore (not its cache) has answered
+        this.remoteReservationIds = new Set();
         this.initializeEventListeners();
         this.initializeNavigation();
         this.updateGuestCountDisplay();
@@ -89,7 +91,7 @@ class ReservationManager {
         
         setTimeout(async () => {
             this.isInitializing = false;
-            if (startupDirtyIds.size > 0) {
+            if (startupDirtyIds.size > 0 || this.dirtyReservationIds.size > 0) {
                 try {
                     startupDirtyIds.forEach((id) => this.markReservationDirty(id));
                     await this.saveReservations();
@@ -151,6 +153,15 @@ class ReservationManager {
                 reservations.push(reservation);
             });
             
+            if (!this.noteRemoteReservations(reservations, snapshot.metadata.fromCache)) {
+                this.useLocalCopyIfNoServerData();
+                if (!gotFirst && resolveFirst) {
+                    gotFirst = true;
+                    resolveFirst();
+                }
+                return;
+            }
+
             if (reservations.length === 0 && this.reservations.length > 0 && !this.isInitializing) {
                 console.warn('Firestore sync returned empty array but local data exists - skipping sync');
                 if (!gotFirst && resolveFirst) {
@@ -184,6 +195,7 @@ class ReservationManager {
             }
         }, (error) => {
             console.error('Firestore sync error:', error);
+            this.useLocalCopyIfNoServerData();
             if (!gotFirst && resolveFirst) {
                 gotFirst = true;
                 resolveFirst();
@@ -3650,10 +3662,11 @@ class ReservationManager {
         // Add regular entremeses items (with quantities)
         Object.entries(this.entremesesSelections).forEach(([id, qty]) => {
             if (id === 'asopao' || id === 'asopao-495' || id === 'caldo-gallego' || id === 'ceviche') return; // Handle per-person items separately
-            if (qty > 0) {
+            const numQty = this.getSelectionQty(qty);
+            if (numQty > 0) {
                 const item = entremeses.find(e => e.id === id);
-                const label = item ? item.name : id;
-                items.push(`<li>${this.escapeHtml(label)}: ${this.escapeHtml(qty)}</li>`);
+                const label = qty?.name || (item ? item.name : id);
+                items.push(`<li>${this.escapeHtml(label)}: ${this.escapeHtml(numQty)}</li>`);
             }
         });
         
@@ -4994,7 +5007,8 @@ class ReservationManager {
                 tembleque: dessertSelections?.tembleque || false,
                 postresSurtidos: dessertSelections?.postresSurtidos || false,
                 arrozConDulce: dessertSelections?.arrozConDulce || false,
-                customPostres: this.dessertCustomSelections && Object.keys(this.dessertCustomSelections).length > 0 ? { ...this.dessertCustomSelections } : undefined
+                // Firestore rejects undefined, so always store a map
+                customPostres: { ...(this.dessertCustomSelections || {}) }
             } : null,
             // drinkType removed; beverages are captured in the beverages map
             beverages: this.beverageSelections,
@@ -5038,7 +5052,8 @@ class ReservationManager {
                 reservation.id = String(this.editingReservationId);
                 reservation.createdAt = existing.createdAt;
                 // Preserve payment history / audit / soft-delete flags
-                reservation.additionalPayments = existing.additionalPayments || [];
+                reservation.additionalPayments = (existing.additionalPayments || []).map((p) => ({ ...p }));
+                reservation.depositCoveredByPayments = !!existing.depositCoveredByPayments;
                 reservation.depositPaid = existing.depositPaid || false;
                 reservation.depositPaymentDate = existing.depositPaymentDate || null;
                 reservation.auditTrail = Array.isArray(existing.auditTrail) ? [...existing.auditTrail] : [];
@@ -5057,7 +5072,7 @@ class ReservationManager {
                     this.appendReservationAudit(reservation, 'invoice', reservation.invoiceNumber);
                 }
                 this.appendReservationAudit(reservation, 'updated', reservation.clientName || '');
-                this.syncDepositPaymentAmount(reservation);
+                this.syncDepositPaymentAmount(reservation, existing);
                 const paidAfterSync = this.calculateTotalPaid(reservation);
                 if (paidAfterSync > (reservation.pricing?.totalCost || 0) + 0.01) {
                     const okOverpay = await this.appConfirm(
@@ -5076,12 +5091,14 @@ class ReservationManager {
                 this.editingReservationId = null;
                 
                 this.markReservationDirty(reservation.id);
-                await this.saveReservations();
+                const updatedOk = await this.saveReservations();
                 this.displayReservations();
                 this.clearForm();
                 
-                // Show success message
-                this.showNotification('¡Reservación actualizada exitosamente!', 'success');
+                // saveReservations already warned if the cloud save failed
+                if (updatedOk !== false) {
+                    this.showNotification('¡Reservación actualizada exitosamente!', 'success');
+                }
                 return;
             }
             console.error(`⚠️ ERROR: Could not find reservation ${this.editingReservationId} to update!`);
@@ -5095,12 +5112,14 @@ class ReservationManager {
         this.appendReservationAudit(reservation, 'invoice', reservation.invoiceNumber);
         this.reservations.push(reservation);
         this.markReservationDirty(reservation.id);
-        await this.saveReservations();
+        const createdOk = await this.saveReservations();
         this.displayReservations();
         this.clearForm();
 
-        // Show success message
-        this.showNotification('¡Reservación guardada exitosamente!', 'success');
+        // saveReservations already warned if the cloud save failed
+        if (createdOk !== false) {
+            this.showNotification('¡Reservación guardada exitosamente!', 'success');
+        }
     }
 
     // Clear form
@@ -5110,6 +5129,13 @@ class ReservationManager {
         this.editingReservationId = null;
         
         document.getElementById('reservationForm').reset();
+        // State outside the <form>: clear first so nothing carries into the recalculation
+        this.beverageSelections = {};
+        this.entremesesSelections = {};
+        this.individualPlatesSelections = [];
+        this.clearBuffetSelections();
+        const cajaNotes = document.getElementById('bev-caja-refrescos-surtidos-notes');
+        if (cajaNotes) cajaNotes.value = '';
         this.updateGuestCountDisplay();
         this.syncGuestCountInputs();
         this.handleEventTypeChange();
@@ -5165,6 +5191,8 @@ class ReservationManager {
         this.updateIndividualPlatesSummary();
         const frozenBreakfastClear = document.getElementById('breakfastFrozenUnitPrice');
         if (frozenBreakfastClear) frozenBreakfastClear.value = '';
+        this.calculatePrice();
+        this.syncReservationFormHeader();
         this.reservationFormDirty = false;
     }
 
@@ -6987,51 +7015,36 @@ class ReservationManager {
     }
 
     /**
-     * Keep deposit payment records consistent after edits.
-     * Never increases an existing isDeposit amount (no phantom cash).
-     * Converts a matching non-deposit payment before inserting a new row.
+     * depositPaid flag with no isDeposit row: does it stand for money not listed in
+     * additionalPayments? Not when the listed payments already cover the deposit.
      */
-    syncDepositPaymentAmount(reservation) {
-        if (!reservation || !this.isDepositMarkedPaid(reservation)) return;
-        const depositAmount = reservation.pricing?.depositAmount || 0;
-        if (depositAmount <= 0) return;
-        if (!reservation.additionalPayments) reservation.additionalPayments = [];
-        let dep = reservation.additionalPayments.find((p) => p && p.isDeposit);
-        if (!dep) {
-            const matchIdx = reservation.additionalPayments.findIndex(
-                (p) => p && !p.isDeposit && Math.abs((Number(p.amount) || 0) - depositAmount) < 0.02
-            );
-            if (matchIdx >= 0) {
-                reservation.additionalPayments[matchIdx].isDeposit = true;
-                if (!reservation.additionalPayments[matchIdx].notes) {
-                    reservation.additionalPayments[matchIdx].notes = 'Depósito';
-                }
-                reservation.depositPaid = true;
-                reservation.depositPaymentDate =
-                    reservation.additionalPayments[matchIdx].date ||
-                    reservation.depositPaymentDate ||
-                    this.getTodayDateString();
-                return;
-            }
-            // Flag-only legacy path: materialize a deposit row (synthetic had been added on top of payments)
-            reservation.additionalPayments.push({
-                amount: depositAmount,
-                date: reservation.depositPaymentDate || this.getTodayDateString(),
-                timestamp: new Date().toISOString(),
-                notes: 'Depósito',
-                isDeposit: true
-            });
-            reservation.depositPaid = true;
+    hasUnlistedDeposit(reservation) {
+        const depositAmount = reservation?.pricing?.depositAmount || 0;
+        if (!reservation?.depositPaid || depositAmount <= 0) return false;
+        if (this.hasDepositPaymentRecord(reservation) || reservation.depositCoveredByPayments) return false;
+        // Older full payments set depositPaid without the covered flag
+        const listed = (reservation.additionalPayments || [])
+            .reduce((sum, p) => sum + (Number(p?.amount) || 0), 0);
+        return listed + depositAmount <= (reservation.pricing?.totalCost || 0) + 0.02;
+    }
+
+    /**
+     * Carry deposit state through an edit. Recorded money never changes when the price
+     * does; a flag-only deposit becomes a row for what was owed before the edit.
+     */
+    syncDepositPaymentAmount(reservation, existing) {
+        if (!reservation.depositPaid || this.hasDepositPaymentRecord(reservation)) return;
+        if (!this.hasUnlistedDeposit(existing)) {
+            reservation.depositCoveredByPayments = true;
             return;
         }
-        const otherPaid = reservation.additionalPayments
-            .filter((p) => p && !p.isDeposit)
-            .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-        const maxOk = Math.max(0, (reservation.pricing?.totalCost || 0) - otherPaid);
-        const current = Number(dep.amount) || 0;
-        const target = Math.min(depositAmount, maxOk);
-        // Never raise recorded deposit above what was already paid
-        dep.amount = Math.min(current, target);
+        reservation.additionalPayments.push({
+            amount: existing.pricing.depositAmount,
+            date: reservation.depositPaymentDate || this.getTodayDateString(),
+            timestamp: new Date().toISOString(),
+            notes: 'Depósito',
+            isDeposit: true
+        });
     }
 
     /** After a payment that clears the balance, mark deposit paid for PDF/WhatsApp consistency. */
@@ -7051,6 +7064,7 @@ class ReservationManager {
             }
         }
         reservation.depositPaid = true;
+        reservation.depositCoveredByPayments = matchIdx < 0;
         reservation.depositPaymentDate = date || this.getTodayDateString();
         if (method && matchIdx >= 0 && !reservation.additionalPayments[matchIdx].method) {
             reservation.additionalPayments[matchIdx].method = method;
@@ -7071,7 +7085,7 @@ class ReservationManager {
             synthetic: false
         }));
         const depositAmount = reservation?.pricing?.depositAmount || 0;
-        if (reservation?.depositPaid && depositAmount > 0 && !this.hasDepositPaymentRecord(reservation)) {
+        if (this.hasUnlistedDeposit(reservation)) {
             payments.unshift({
                 amount: depositAmount,
                 date: reservation.depositPaymentDate || reservation.eventDate || this.getTodayDateString(),
@@ -7108,6 +7122,7 @@ class ReservationManager {
         if (marked) {
             reservation.additionalPayments = (reservation.additionalPayments || []).filter(payment => !payment.isDeposit);
             reservation.depositPaid = false;
+            reservation.depositCoveredByPayments = false;
             reservation.depositPaymentDate = null;
         } else {
             if (!reservation.additionalPayments) reservation.additionalPayments = [];
@@ -7185,7 +7200,7 @@ class ReservationManager {
         if (!reservation) return 0;
         const paymentsTotal = (reservation.additionalPayments || []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
         const depositAmount = reservation.pricing?.depositAmount || 0;
-        if (reservation.depositPaid && depositAmount > 0 && !this.hasDepositPaymentRecord(reservation)) {
+        if (this.hasUnlistedDeposit(reservation)) {
             return paymentsTotal + depositAmount;
         }
         return paymentsTotal;
@@ -7505,7 +7520,18 @@ class ReservationManager {
         }
         const ok = await this.appConfirm('¿Eliminar este pago del historial?', { title: 'Eliminar pago' });
         if (!ok) return;
+        // Deposit was only "paid" because other payments covered it
+        const depositWasCovered = reservation.depositPaid
+            && !this.hasDepositPaymentRecord(reservation)
+            && !this.hasUnlistedDeposit(reservation);
         reservation.additionalPayments.splice(paymentIndex, 1);
+        if (depositWasCovered) {
+            const left = reservation.additionalPayments.reduce((sum, p) => sum + (Number(p?.amount) || 0), 0);
+            const stillCovered = left + 0.01 >= (reservation.pricing?.depositAmount || 0);
+            reservation.depositPaid = stillCovered;
+            reservation.depositCoveredByPayments = stillCovered;
+            if (!stillCovered) reservation.depositPaymentDate = null;
+        }
         this.appendReservationAudit(reservation, 'payment_deleted', `#${paymentIndex + 1}`);
         this.markReservationDirty(reservation.id);
         await this.saveReservations();
@@ -8272,13 +8298,15 @@ class ReservationManager {
         const dessertTypeEl = document.getElementById('dessertType');
         if (dessertTypeEl) dessertTypeEl.value = reservation.dessertType || '';
         // no drinkType select anymore
-        this.beverageSelections = reservation.beverages || {};
+        // Work on copies so discarding the edit leaves the saved reservation untouched
+        const copy = (value, fallback) => JSON.parse(JSON.stringify(value || fallback));
+        this.beverageSelections = copy(reservation.beverages, {});
         this.pruneDuplicateBeverageSelections(this.beverageSelections);
         this.updateBeverageSummary();
-        this.entremesesSelections = reservation.entremeses || {};
+        this.entremesesSelections = copy(reservation.entremeses, {});
         this.updateEntremesesSummary();
-        this.dessertCustomSelections = reservation.dessert?.customPostres ? { ...reservation.dessert.customPostres } : {};
-        this.individualPlatesSelections = reservation.individualPlates || [];
+        this.dessertCustomSelections = copy(reservation.dessert?.customPostres, {});
+        this.individualPlatesSelections = copy(reservation.individualPlates, []);
         this.updateIndividualPlatesSummary();
         this.setTaxesWaived(!!(reservation.taxesWaived || reservation.pricing?.taxesWaived));
         
@@ -8370,8 +8398,8 @@ class ReservationManager {
             }
         }
 
-        // Update displays
-        this.updateGuestCountDisplay();
+        // Update displays (exact count; the slider only holds multiples of 10)
+        guestCountDisplay.textContent = guestCount;
         this.calculatePrice();
         this.updateFoodServiceSummary();
         this.updateBreakfastServiceSummary();
@@ -8652,6 +8680,8 @@ class ReservationManager {
         let savedOk = false;
         try {
             if (window.FIREBASE_LOADED && window.firestore) {
+                this.rememberPendingSync();
+                this.saveReservationsToLocalStorage();
                 await this.saveReservationsToFirestore();
             }
             this.saveReservationsToLocalStorage();
@@ -8690,6 +8720,131 @@ class ReservationManager {
                 }
             }, delay);
         }
+        return savedOk;
+    }
+
+    // ----- Unsynced changes kept on this device until Firestore confirms them -----
+    readPendingSync() {
+        try {
+            return JSON.parse(localStorage.getItem('antesalaPendingSync') || '{}') || {};
+        } catch (_) {
+            return {};
+        }
+    }
+
+    writePendingSync(pending) {
+        try {
+            localStorage.setItem('antesalaPendingSync', JSON.stringify(pending));
+        } catch (error) {
+            console.warn('Could not store pending changes:', error);
+        }
+    }
+
+    /** Remember dirty docs before the cloud write (an offline commit may never settle). */
+    rememberPendingSync() {
+        if (this.dirtyReservationIds.size === 0) return;
+        const pending = this.readPendingSync();
+        this.dirtyReservationIds.forEach((id) => {
+            const reservation = this.findReservationById(id);
+            if (!reservation) return;
+            pending[id] = {
+                json: JSON.stringify(reservation),
+                wasRemote: this.remoteReservationIds.has(id) || !!pending[id]?.wasRemote
+            };
+        });
+        this.writePendingSync(pending);
+    }
+
+    /** Drop confirmed docs, unless a newer unsynced version was stored meanwhile. */
+    forgetPendingSync(ops) {
+        const pending = this.readPendingSync();
+        ops.forEach((op) => {
+            if (pending[op.id]?.json === op.json) delete pending[op.id];
+        });
+        this.writePendingSync(pending);
+    }
+
+    /**
+     * Once per session, on the first server data: queue changes left unsynced by a
+     * previous session. If the cloud copy was changed or purged elsewhere since, the
+     * cloud wins and the local copy is kept in antesalaSyncConflicts.
+     */
+    restorePendingSync(remoteList) {
+        const pending = this.readPendingSync();
+        const remoteById = new Map(remoteList.map((x) => [String(x.id), x]));
+        const conflicts = [];
+        let restored = 0;
+        Object.entries(pending).forEach(([id, entry]) => {
+            if (this.dirtyReservationIds.has(id)) return; // newer edit in this session
+            let local = null;
+            try { local = JSON.parse(entry.json); } catch (_) { /* unreadable */ }
+            if (!local) {
+                delete pending[id];
+                return;
+            }
+            const remote = remoteById.get(id);
+            const lastAudit = (remote?.auditTrail || []).slice(-1)[0];
+            const changedElsewhere = !!lastAudit && !(local.auditTrail || [])
+                .some((a) => a.at === lastAudit.at && a.by === lastAudit.by);
+            if (changedElsewhere || (!remote && entry.wasRemote)) {
+                conflicts.push(local);
+                delete pending[id];
+                return;
+            }
+            const index = this.findReservationIndexById(id);
+            if (index >= 0) this.reservations[index] = local;
+            else this.reservations.push(local);
+            this.markReservationDirty(id);
+            restored++;
+        });
+
+        if (conflicts.length > 0) {
+            try {
+                const kept = JSON.parse(localStorage.getItem('antesalaSyncConflicts') || '[]');
+                localStorage.setItem('antesalaSyncConflicts', JSON.stringify([...kept, ...conflicts]));
+                this.writePendingSync(pending);
+            } catch (error) {
+                console.warn('Could not store sync conflicts:', error);
+            }
+            const names = conflicts.map((c) => c.clientName || 'Sin nombre').join(', ');
+            this.showNotification(
+                `Cambios sin sincronizar no aplicados porque la reservación cambió en otro dispositivo: ${names}. Revise y edite de nuevo.`,
+                'error',
+                10000
+            );
+        } else {
+            this.writePendingSync(pending);
+        }
+        if (restored > 0) {
+            this.showNotification(`Sincronizando ${restored} cambio(s) pendiente(s) de este dispositivo.`, 'info', 5000);
+            // While still initializing, initializeStorage flushes the dirty set instead
+            setTimeout(() => { this.saveReservations().catch(() => {}); }, 1000);
+        }
+    }
+
+    /** Track server state. Returns false when the data must be ignored. */
+    noteRemoteReservations(reservations, fromCache) {
+        // Before any server data, the SDK cache is empty or partial: keep the local copy
+        if (fromCache && !this.sawServerSnapshot) return false;
+        if (!fromCache) {
+            this.remoteReservationIds = new Set(reservations.map((x) => String(x.id)));
+            if (!this.sawServerSnapshot) {
+                this.sawServerSnapshot = true;
+                this.restorePendingSync(reservations);
+            }
+        }
+        return true;
+    }
+
+    /** Offline startup: show this device's last copy instead of an empty list. */
+    useLocalCopyIfNoServerData() {
+        if (this.sawServerSnapshot || this.reservations.length > 0) return;
+        try {
+            this.reservations = this.loadReservationsFromLocalStorage();
+        } catch (error) {
+            console.warn('Could not read local reservations:', error);
+        }
+        if (!this.isInitializing) this.scheduleUiRefresh();
     }
 
     /**
@@ -8741,6 +8896,7 @@ class ReservationManager {
                 }
                 reservations.push(reservation);
             });
+            if (!this.noteRemoteReservations(reservations, snapshot.metadata.fromCache)) return;
             if (reservations.length === 0 && this.reservations.length > 0) return;
             if (this.dirtyReservationIds.size > 0 || this.deletedReservationIds.size > 0 || this.cloudSaveFailed) {
                 this.mergeRemoteReservations(reservations);
@@ -8773,7 +8929,9 @@ class ReservationManager {
         dirtyIds.forEach((id) => {
             const reservation = this.reservations.find((r) => String(r.id) === String(id));
             if (!reservation) return;
-            ops.push({ type: 'set', id: String(id), data: reservation });
+            // JSON round-trip drops undefined values, which Firestore rejects for the whole batch
+            const json = JSON.stringify(reservation);
+            ops.push({ type: 'set', id: String(id), data: JSON.parse(json), json });
         });
         deletedIds.forEach((id) => {
             ops.push({ type: 'delete', id: String(id) });
@@ -8793,12 +8951,15 @@ class ReservationManager {
             chunk.forEach((op) => {
                 const docRef = reservationsRef.doc(op.id);
                 if (op.type === 'set') {
-                    batch.set(docRef, op.data, { merge: true });
+                    // Replace each top-level field whole. A deep merge would keep nested keys the user
+                    // removed (e.g. an unselected asopao in entremeses), so they came back on the invoice.
+                    batch.set(docRef, op.data, { mergeFields: Object.keys(op.data) });
                 } else {
                     batch.delete(docRef);
                 }
             });
             await batch.commit();
+            this.forgetPendingSync(chunk.filter((op) => op.type === 'set'));
         }
 
         // Only clear IDs that were in this committed batch (keep ones marked dirty during await)
@@ -8836,7 +8997,11 @@ class ReservationManager {
 
     // Save to localStorage
     saveReservationsToLocalStorage() {
-        localStorage.setItem('antesalaReservations', JSON.stringify(this.reservations));
+        try {
+            localStorage.setItem('antesalaReservations', JSON.stringify(this.reservations));
+        } catch (error) {
+            console.warn('Could not store local reservations copy:', error);
+        }
     }
 
     // Load from localStorage
